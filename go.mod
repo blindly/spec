@@ -1,3 +1,3 @@
-module github.com/wk/spec
+module github.com/blindly/spec
 
 go 1.22
