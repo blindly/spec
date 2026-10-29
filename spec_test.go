@@ -228,6 +228,27 @@ func TestRefineWithoutAgentFails(t *testing.T) {
 	}
 }
 
+func TestToUTF8(t *testing.T) {
+	// UTF-16LE with BOM
+	u16le := append([]byte{0xFF, 0xFE}, []byte("#\x00 \x00t\x00i\x00t\x00l\x00e\x00")...)
+	if got := toUTF8(u16le); got != "# title" {
+		t.Fatalf("UTF-16LE BOM: %q", got)
+	}
+	// UTF-16BE with BOM
+	u16be := append([]byte{0xFE, 0xFF}, []byte("\x00#\x00 \x00t\x00i\x00t\x00l\x00e\x00")...)
+	if got := toUTF8(u16be); got != "# title" {
+		t.Fatalf("UTF-16BE BOM: %q", got)
+	}
+	// UTF-16LE without BOM
+	if got := toUTF8([]byte("H\x00i\x00 \x00t\x00h\x00e\x00r\x00e\x00")); got != "Hi there" {
+		t.Fatalf("UTF-16LE no BOM: %q", got)
+	}
+	// UTF-8 passthrough
+	if got := toUTF8([]byte("# Título\n")); got != "# Título\n" {
+		t.Fatalf("UTF-8 passthrough: %q", got)
+	}
+}
+
 func TestSlugify(t *testing.T) {
 	if got := slugify("Hello, World! 2"); got != "hello-world-2" {
 		t.Fatal(got)

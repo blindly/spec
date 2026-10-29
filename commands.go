@@ -203,11 +203,12 @@ func cmdImport(out, errOut io.Writer, file string) error {
 		return err
 	}
 	title := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
-	meta, body := parseFrontmatter(string(data))
+	text := toUTF8(data)
+	meta, body := parseFrontmatter(text)
 	if t := metaGet(meta, "title", ""); t != "" {
 		title = t
 	} else {
-		for _, line := range strings.Split(string(data), "\n") {
+		for _, line := range strings.Split(text, "\n") {
 			if strings.HasPrefix(line, "# ") {
 				title = strings.TrimSpace(line[2:])
 				break
@@ -292,7 +293,7 @@ func cmdSearch(out, errOut io.Writer, query string) error {
 		data, _ := os.ReadFile(s.Path)
 		rel, _ := filepath.Rel(st.Root, s.Path)
 		header := false
-		for i, line := range strings.Split(string(data), "\n") {
+		for i, line := range strings.Split(toUTF8(data), "\n") {
 			if !strings.Contains(strings.ToLower(line), q) {
 				continue
 			}

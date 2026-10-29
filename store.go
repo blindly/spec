@@ -95,7 +95,7 @@ func (st Store) Specs() []Spec {
 		if err != nil {
 			return nil
 		}
-		meta, body := parseFrontmatter(string(data))
+		meta, body := parseFrontmatter(toUTF8(data))
 		out = append(out, Spec{Path: path, Meta: meta, Body: body})
 		return nil
 	})

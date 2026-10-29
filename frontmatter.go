@@ -4,7 +4,55 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode/utf16"
+	"unicode/utf8"
 )
+
+// toUTF8 converts UTF-16 encoded input (LE/BE with BOM, or detected via
+// NUL-byte pattern) to UTF-8. UTF-8 input is returned unchanged.
+func toUTF8(data []byte) string {
+	le, be := false, false
+	if len(data) >= 2 && data[0] == 0xFF && data[1] == 0xFE {
+		le, data = true, data[2:]
+	} else if len(data) >= 2 && data[0] == 0xFE && data[1] == 0xFF {
+		be, data = true, data[2:]
+	} else if n := len(data); n >= 4 {
+		// no BOM: UTF-16LE ASCII looks like "a\0b\0", BE like "\0a\0b"
+		var evenNulls, oddNulls int
+		for i := 0; i < n; i += 2 {
+			if data[i] == 0 {
+				evenNulls++
+			}
+			if i+1 < n && data[i+1] == 0 {
+				oddNulls++
+			}
+		}
+		half := n / 2
+		if oddNulls > half/2 {
+			le = true
+		} else if evenNulls > half/2 {
+			be = true
+		}
+	}
+	if !le && !be {
+		return string(data)
+	}
+	u16 := make([]uint16, 0, len(data)/2)
+	for i := 0; i+1 < len(data); i += 2 {
+		if le {
+			u16 = append(u16, uint16(data[i])|uint16(data[i+1])<<8)
+		} else {
+			u16 = append(u16, uint16(data[i])<<8|uint16(data[i+1]))
+		}
+	}
+	runes := utf16.Decode(u16)
+	buf := make([]byte, 0, len(runes)*2)
+	var tmp [utf8.UTFMax]byte
+	for _, r := range runes {
+		buf = append(buf, tmp[:utf8.EncodeRune(tmp[:], r)]...)
+	}
+	return string(buf)
+}
 
 // parseFrontmatter splits a document into YAML-subset frontmatter and body.
 // Supports "key: value" scalars, "key: [a, b]" inline lists, and dash lists.
