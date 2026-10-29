@@ -53,6 +53,10 @@ func parseConfigFile(path string) map[string]string {
 		if !found {
 			continue
 		}
+		// strip inline comments ("key: value  # note")
+		if i := strings.Index(v, " #"); i >= 0 {
+			v = v[:i]
+		}
 		out[strings.TrimSpace(k)] = strings.TrimSpace(v)
 	}
 	return out

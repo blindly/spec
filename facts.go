@@ -40,6 +40,9 @@ func loadFacts(root string) []Fact {
 		}
 		k = strings.TrimSpace(k)
 		v = strings.TrimSpace(v)
+		if i := strings.Index(v, " #"); i >= 0 {
+			v = strings.TrimSpace(v[:i])
+		}
 		v = strings.Trim(v, `"'`)
 		if k == "" {
 			continue

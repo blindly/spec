@@ -233,6 +233,20 @@ func TestGlobalConfigMerge(t *testing.T) {
 	}
 }
 
+func TestInlineCommentStripping(t *testing.T) {
+	st := setupRepo(t)
+	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"),
+		[]byte("agent: devin  # claude | gemini | amp\nweb_port: 8471 # web port\n"), 0o644)
+	cfg := loadConfig(st.Root)
+	if cfg.Agent != "devin" || cfg.WebPort != 8471 {
+		t.Fatalf("inline comments not stripped: %+v", cfg)
+	}
+	os.WriteFile(factsPath(st.Root), []byte("domain: exemplo.pt # prod domain\n"), 0o644)
+	if got := factsMap(loadFacts(st.Root))["domain"]; got != "exemplo.pt" {
+		t.Fatalf("fact inline comment: %q", got)
+	}
+}
+
 func TestMissingAgentErrors(t *testing.T) {
 	st := setupRepo(t)
 	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"), []byte("agent: nosuchtool\n"), 0o644)
