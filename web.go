@@ -1,28 +1,98 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"html"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
+
+var webStatuses = []string{"draft", "proposed", "accepted", "implemented", "deprecated", "rejected"}
+
+func webToken() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+func page(w http.ResponseWriter, title, body string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, `<html><head><title>%s</title>
+<style>body{font-family:sans-serif;max-width:60em;margin:2em auto;padding:0 1em}
+textarea{width:100%%;font-family:monospace}input,select{font-size:1em}
+nav a{margin-right:1em}</style></head><body>
+<nav><a href="/">specs</a><a href="/new">new spec</a></nav>%s</body></html>`,
+		html.EscapeString(title), body)
+}
 
 func cmdWeb(port int) error {
 	st := mustStore()
+	token := webToken()
+	var writeMu sync.Mutex
+
+	checkToken := func(r *http.Request) bool {
+		return r.FormValue("token") == token
+	}
+
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprint(w, "<html><head><title>spec</title></head><body><h1>Specifications</h1><ul>")
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		var b strings.Builder
+		b.WriteString("<h1>Specifications</h1><ul>")
 		for _, s := range st.Specs() {
 			rel, _ := filepath.Rel(st.Root, s.Path)
-			fmt.Fprintf(w, `<li><a href="/spec/%s">%s</a> — %s (%s, %s)</li>`,
+			fmt.Fprintf(&b, `<li><a href="/spec/%s">%s</a> — %s (%s, %s)</li>`,
 				s.ID(), html.EscapeString(s.ID()), html.EscapeString(s.Title()),
 				html.EscapeString(s.Type()), html.EscapeString(s.Status()))
 			_ = rel
 		}
-		fmt.Fprint(w, "</ul></body></html>")
+		b.WriteString("</ul>")
+		page(w, "spec", b.String())
 	})
+
+	mux.HandleFunc("/new", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			if !checkToken(r) {
+				http.Error(w, "bad token", http.StatusForbidden)
+				return
+			}
+			specType := r.FormValue("type")
+			title := strings.TrimSpace(r.FormValue("title"))
+			if !validTypes[specType] || title == "" {
+				page(w, "error", "<p>Invalid type or empty title.</p>")
+				return
+			}
+			writeMu.Lock()
+			s, err := st.Create(specType, title, templateFor(specType, title), nil)
+			writeMu.Unlock()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			http.Redirect(w, r, "/spec/"+s.ID(), http.StatusSeeOther)
+			return
+		}
+		var b strings.Builder
+		fmt.Fprintf(&b, `<h1>New spec</h1><form method="post">
+<input type="hidden" name="token" value="%s">
+<p><select name="type">`, token)
+		for _, t := range []string{"project", "feature", "adr"} {
+			fmt.Fprintf(&b, `<option value="%s">%s</option>`, t, t)
+		}
+		b.WriteString(`</select> <input name="title" placeholder="Title" size="50" required>
+<button>Create</button></p></form>`)
+		page(w, "new spec", b.String())
+	})
+
 	mux.HandleFunc("/spec/", func(w http.ResponseWriter, r *http.Request) {
 		id := strings.TrimPrefix(r.URL.Path, "/spec/")
 		s := st.Get(id)
@@ -30,13 +100,96 @@ func cmdWeb(port int) error {
 			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, "<html><head><title>%s</title></head><body>", html.EscapeString(s.ID()))
-		fmt.Fprintf(w, "<h1>%s — %s</h1><p>type: %s · status: %s</p><pre>%s</pre></body></html>",
+		var b strings.Builder
+		fmt.Fprintf(&b, "<h1>%s — %s</h1><p>type: %s · status: %s · <a href=\"/edit/%s\">edit</a></p><pre>%s</pre>",
 			html.EscapeString(s.ID()), html.EscapeString(s.Title()),
 			html.EscapeString(s.Type()), html.EscapeString(s.Status()),
-			html.EscapeString(s.Body))
+			s.ID(), html.EscapeString(s.Body))
+		page(w, s.ID(), b.String())
 	})
+
+	renderEdit := func(w http.ResponseWriter, s Spec, errMsg string) {
+		var b strings.Builder
+		if errMsg != "" {
+			fmt.Fprintf(&b, `<p style="color:red">%s</p>`, html.EscapeString(errMsg))
+		}
+		fmt.Fprintf(&b, `<h1>Edit %s — %s</h1>
+<form method="post" action="/edit/%s"><input type="hidden" name="token" value="%s">
+<p>status: <select name="status">`, s.ID(), html.EscapeString(s.Title()), s.ID(), token)
+		for _, status := range webStatuses {
+			sel := ""
+			if s.Status() == status {
+				sel = " selected"
+			}
+			fmt.Fprintf(&b, `<option%s>%s</option>`, sel, status)
+		}
+		fmt.Fprintf(&b, `</select></p>
+<textarea name="body" rows="30">%s</textarea>
+<p><button>Save</button> <a href="/spec/%s">cancel</a></p></form>`,
+			html.EscapeString(s.Body), s.ID())
+		page(w, "edit "+s.ID(), b.String())
+	}
+
+	mux.HandleFunc("/edit/", func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimPrefix(r.URL.Path, "/edit/")
+		s := st.Get(id)
+		if s == nil {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method == http.MethodGet {
+			renderEdit(w, *s, "")
+			return
+		}
+		if r.Method != http.MethodPost || !checkToken(r) {
+			http.Error(w, "bad token", http.StatusForbidden)
+			return
+		}
+		status := r.FormValue("status")
+		body := r.FormValue("body")
+		validStatus := false
+		for _, v := range webStatuses {
+			if status == v {
+				validStatus = true
+			}
+		}
+		if !validStatus {
+			renderEdit(w, *s, "invalid status")
+			return
+		}
+		// section check: same required sections validate enforces
+		updated := Spec{Path: s.Path, Meta: s.Meta, Body: body}
+		for _, sec := range requiredSections[s.Type()] {
+			found := false
+			for _, have := range updated.Sections() {
+				if strings.EqualFold(have, sec) {
+					found = true
+				}
+			}
+			if !found {
+				renderEdit(w, updated, fmt.Sprintf("missing required section %q — not saved", sec))
+				return
+			}
+		}
+		meta := map[string][]string{}
+		for k, v := range s.Meta {
+			meta[k] = v
+		}
+		meta["status"] = []string{status}
+		writeMu.Lock()
+		tmp := s.Path + ".tmp"
+		err := os.WriteFile(tmp, []byte(dumpFrontmatter(meta, body)), 0o644)
+		if err == nil {
+			err = os.Rename(tmp, s.Path)
+		}
+		writeMu.Unlock()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/spec/"+id, http.StatusSeeOther)
+	})
+
 	addr := fmt.Sprintf(":%d", port)
 	fmt.Println("Serving on http://localhost" + addr)
 	return http.ListenAndServe(addr, mux)
