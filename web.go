@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"embed"
 	"encoding/hex"
 	"fmt"
 	"html"
@@ -29,6 +30,9 @@ nav a{margin-right:1em}</style></head><body>
 		html.EscapeString(title), body)
 }
 
+//go:embed assets/easymde assets/fontawesome
+var assetsFS embed.FS
+
 // webHandler builds the mux; extracted from cmdWeb so tests can use httptest.
 func webHandler(st Store, cfg Config, token string) http.Handler {
 	statuses := cfg.Statuses
@@ -39,6 +43,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 	}
 
 	mux := http.NewServeMux()
+	mux.Handle("/assets/", http.FileServerFS(assetsFS))
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
@@ -123,8 +128,13 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			fmt.Fprintf(&b, `<option%s>%s</option>`, sel, status)
 		}
 		fmt.Fprintf(&b, `</select></p>
-<textarea name="body" rows="30">%s</textarea>
-<p><button>Save</button> <a href="/spec/%s">cancel</a></p></form>`,
+<link rel="stylesheet" href="/assets/fontawesome/css/font-awesome.min.css">
+<link rel="stylesheet" href="/assets/easymde/easymde.min.css">
+<textarea id="body-editor" name="body" rows="30">%s</textarea>
+<p><button>Save</button> <a href="/spec/%s">cancel</a></p></form>
+<script src="/assets/easymde/easymde.min.js"></script>
+<script>new EasyMDE({element: document.getElementById('body-editor'),
+autoDownloadFontAwesome: false, spellChecker: false, status: ['lines','words','cursor']});</script>`,
 			html.EscapeString(s.Body), s.ID())
 		page(w, "edit "+s.ID(), b.String())
 	}
