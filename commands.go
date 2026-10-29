@@ -130,12 +130,15 @@ func cmdBootstrap(out, errOut io.Writer) error {
 		if err != nil {
 			fmt.Fprintln(errOut, "warning:", err, "— falling back to heuristic bootstrap")
 		} else {
-			s, err := st.Create("project", title, bodyFromAgentOutput(output), nil)
-			if err != nil {
+			body := bodyFromAgentOutput(output)
+			if !strings.Contains(body, "# ") {
+				fmt.Fprintln(errOut, "warning: agent returned no markdown body — falling back to heuristic bootstrap")
+			} else if s, err := st.Create("project", title, body, nil); err != nil {
 				return err
+			} else {
+				fmt.Fprintln(out, "Created", s.Path, "via", ag.name)
+				return nil
 			}
-			fmt.Fprintln(out, "Created", s.Path, "via", ag.name)
-			return nil
 		}
 	}
 	var b strings.Builder
@@ -195,6 +198,9 @@ func cmdRefine(out, errOut io.Writer, id string) error {
 		return err
 	}
 	body := bodyFromAgentOutput(output)
+	if !strings.Contains(body, "# ") {
+		return fmt.Errorf("agent returned no markdown body (output starts: %.80s…) — spec left unchanged", strings.TrimSpace(output))
+	}
 	if err := os.WriteFile(s.Path, []byte(dumpFrontmatter(s.Meta, body)), 0o644); err != nil {
 		return err
 	}
@@ -860,12 +866,17 @@ func cmdDraftFeature(out, errOut io.Writer, title string) error {
 		if err != nil {
 			fmt.Fprintln(errOut, "warning:", err, "— falling back to heuristic draft")
 		} else {
-			s, err := st.Create("feature", title, bodyFromAgentOutput(output), nil)
-			if err != nil {
-				return err
+			body := bodyFromAgentOutput(output)
+			if !strings.Contains(body, "# ") {
+				fmt.Fprintln(errOut, "warning: agent returned no markdown body — falling back to heuristic draft")
+			} else {
+				s, err := st.Create("feature", title, body, nil)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(out, "Drafted", s.Path, "via", ag.name)
+				return nil
 			}
-			fmt.Fprintln(out, "Drafted", s.Path, "via", ag.name)
-			return nil
 		}
 	}
 	// Offline fallback: infer relevant requirements by matching
