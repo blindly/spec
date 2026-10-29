@@ -26,22 +26,24 @@ var knownAdapters = map[string][]string{
 	"amp":      {"amp", "-x", "{prompt}"},
 }
 
-// resolveAgent picks an agent per config. Returns nil when none is configured.
-func resolveAgent(cfg Config) *agent {
+// resolveAgent picks an agent per config. Returns (nil, nil) when no agent is
+// configured, and (nil, err) when one is configured but unusable — callers can
+// then warn or fail rather than silently degrading.
+func resolveAgent(cfg Config) (*agent, error) {
 	if cfg.AgentCmd != "" {
-		return &agent{name: "custom", argv: strings.Fields(cfg.AgentCmd)}
+		return &agent{name: "custom", argv: strings.Fields(cfg.AgentCmd)}, nil
 	}
 	if cfg.Agent == "" || cfg.Agent == "none" {
-		return nil
+		return nil, nil
 	}
 	argv, ok := knownAdapters[cfg.Agent]
 	if !ok {
-		return nil
+		return nil, fmt.Errorf("unknown agent %q (want one of: claude, gemini, codex, aider, opencode, amp)", cfg.Agent)
 	}
 	if _, err := exec.LookPath(argv[0]); err != nil {
-		return nil
+		return nil, fmt.Errorf("agent %q configured but %q not found on PATH", cfg.Agent, argv[0])
 	}
-	return &agent{name: cfg.Agent, argv: argv}
+	return &agent{name: cfg.Agent, argv: argv}, nil
 }
 
 // run sends prompt to the agent and returns its stdout. dir is the cwd.

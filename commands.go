@@ -84,7 +84,11 @@ func cmdBootstrap() error {
 
 	title := filepath.Base(st.Root)
 	cfg := loadConfig(st.Root)
-	if ag := resolveAgent(cfg); ag != nil {
+	ag, aerr := resolveAgent(cfg)
+	if aerr != nil {
+		fmt.Fprintln(os.Stderr, "warning:", aerr, "— falling back to heuristic bootstrap")
+	}
+	if ag != nil {
 		var ctx strings.Builder
 		fmt.Fprintf(&ctx, "Manifest files: %s\nDocumentation files: %s\n",
 			strings.Join(features, ", "), strings.Join(docs, ", "))
@@ -133,9 +137,12 @@ func cmdRefine(id string) error {
 		return fmt.Errorf("no spec with id %s", id)
 	}
 	cfg := loadConfig(st.Root)
-	ag := resolveAgent(cfg)
+	ag, err := resolveAgent(cfg)
+	if err != nil {
+		return err
+	}
 	if ag == nil {
-		return fmt.Errorf("refine requires an LLM agent (none found; set agent/agent_cmd in .spec/config.yml)")
+		return fmt.Errorf("refine requires an LLM agent (none configured; set agent/agent_cmd in .spec/config.yml)")
 	}
 	prompt := fmt.Sprintf(refinePromptFmt, s.Type(), s.ID(), s.Title(), s.Body, repoContext(st, 50))
 	out, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
@@ -154,7 +161,10 @@ func cmdConfig() error {
 	st := mustStore()
 	cfg := loadConfig(st.Root)
 	fmt.Println(cfg.String())
-	if ag := resolveAgent(cfg); ag != nil {
+	ag, err := resolveAgent(cfg)
+	if err != nil {
+		fmt.Println("resolved agent: error:", err)
+	} else if ag != nil {
 		fmt.Println("resolved agent:", ag.name)
 	} else {
 		fmt.Println("resolved agent: none")
@@ -470,7 +480,11 @@ func cmdTrace() error {
 func cmdDraftFeature(title string) error {
 	st := mustStore()
 	cfg := loadConfig(st.Root)
-	if ag := resolveAgent(cfg); ag != nil {
+	ag, aerr := resolveAgent(cfg)
+	if aerr != nil {
+		fmt.Fprintln(os.Stderr, "warning:", aerr, "— falling back to heuristic draft")
+	}
+	if ag != nil {
 		prompt := fmt.Sprintf(draftPromptFmt, title,
 			fmt.Sprintf(featureTemplate, title), repoContext(st, 50))
 		out, err := ag.run(prompt, st.Root, cfg.AgentTimeout)

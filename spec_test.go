@@ -188,8 +188,8 @@ func TestAgentDraftAndRefine(t *testing.T) {
 	os.WriteFile(fake, []byte("#!/bin/sh\ncat > /dev/null\nprintf '# Agent Spec\\n\\n## Summary\\n\\nAI content.\\n\\n## Design\\n\\nD.\\n\\n## Acceptance Criteria\\n\\n- [ ] x\\n'\n"), 0o755)
 	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"),
 		[]byte("agent_cmd: sh "+fake+"\n"), 0o644)
-	if ag := resolveAgent(loadConfig(st.Root)); ag == nil {
-		t.Fatal("agent_cmd not resolved")
+	if ag, err := resolveAgent(loadConfig(st.Root)); err != nil || ag == nil {
+		t.Fatalf("agent_cmd not resolved: %v", err)
 	}
 	if err := cmdDraftFeature("agent feature"); err != nil {
 		t.Fatal(err)
@@ -203,6 +203,18 @@ func TestAgentDraftAndRefine(t *testing.T) {
 	}
 	if st.Get("FEAT-001").Meta["id"][0] != "FEAT-001" {
 		t.Fatal("refine clobbered frontmatter")
+	}
+}
+
+func TestMissingAgentErrors(t *testing.T) {
+	st := setupRepo(t)
+	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"), []byte("agent: nosuchtool\n"), 0o644)
+	if _, err := resolveAgent(loadConfig(st.Root)); err == nil {
+		t.Fatal("expected error for unknown agent")
+	}
+	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"), []byte("agent: claude\n"), 0o644)
+	if _, err := resolveAgent(loadConfig(st.Root)); err == nil {
+		t.Skip("claude is installed; can't test missing binary")
 	}
 }
 
