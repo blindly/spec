@@ -42,7 +42,7 @@ func cmdInit(out, errOut io.Writer) error {
 # Agent (opt-in; none = no subprocess ever runs)
 # agent: claude
 # agent_cmd: mycli --flag {prompt}
-# agent_timeout: 300
+# agent_timeout: 900
 
 # Web
 # web_host: 127.0.0.1   # use 0.0.0.0 to expose on all interfaces

@@ -22,7 +22,7 @@ type Config struct {
 var defaultStatuses = []string{"draft", "proposed", "accepted", "implemented", "deprecated", "rejected"}
 
 func defaultConfig() Config {
-	return Config{Agent: "none", AgentTimeout: 300, WebPort: 8080, WebHost: "127.0.0.1", Statuses: defaultStatuses}
+	return Config{Agent: "none", AgentTimeout: 900, WebPort: 8080, WebHost: "127.0.0.1", Statuses: defaultStatuses}
 }
 
 // globalConfigPath is the user-level config; repo .spec/config.yml overrides it.
@@ -116,7 +116,7 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 # Agent (opt-in; none = no subprocess ever runs)
 # agent: claude        # claude | gemini | codex | aider | opencode | amp
 # agent_cmd: mycli --flag {prompt}   # {prompt} = prompt arg; absent = stdin
-# agent_timeout: 300   # seconds
+# agent_timeout: 900   # seconds
 
 # Web
 # web_host: 127.0.0.1  # use 0.0.0.0 to expose on all interfaces
