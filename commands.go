@@ -775,9 +775,11 @@ func cmdTrace(out, errOut io.Writer) error {
 }
 
 // applyableStatus reports whether a spec is eligible for `spec apply`
-// without --force.
+// without --force: accepted/proposed feature or project specs.
 func applyableStatus(s Spec) bool {
-	return s.Type() == "feature" && (s.Status() == "accepted" || s.Status() == "proposed")
+	t := s.Type()
+	return (t == "feature" || t == "project") &&
+		(s.Status() == "accepted" || s.Status() == "proposed")
 }
 
 func cmdApply(out, errOut io.Writer, ids []string, runIt, force bool) error {
@@ -793,7 +795,7 @@ func cmdApply(out, errOut io.Writer, ids []string, runIt, force bool) error {
 			}
 		}
 		if len(targets) == 0 {
-			fmt.Fprintln(out, "No accepted/proposed feature specs to apply.")
+			fmt.Fprintln(out, "No accepted/proposed feature or project specs to apply.")
 			return nil
 		}
 	} else {
@@ -803,7 +805,7 @@ func cmdApply(out, errOut io.Writer, ids []string, runIt, force bool) error {
 				return fmt.Errorf("no spec with id %s", id)
 			}
 			if !applyableStatus(*s) && !force {
-				return fmt.Errorf("%s is %s (type %s) — apply targets accepted/proposed features (use --force to override)", s.ID(), s.Status(), s.Type())
+				return fmt.Errorf("%s is %s (type %s) — apply targets accepted/proposed feature or project specs (use --force to override)", s.ID(), s.Status(), s.Type())
 			}
 			targets = append(targets, *s)
 		}
