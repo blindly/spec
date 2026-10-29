@@ -74,15 +74,15 @@ func findAsset(rel *releaseInfo, name string) *releaseAsset {
 	return nil
 }
 
-func cmdUpdate(requested string) error {
+func cmdUpdate(out, errOut io.Writer, requested string) error {
 	ctx := context.Background()
 	rel, err := releaseTag(ctx, requested)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Latest release:", rel.Tag)
+	fmt.Fprintln(out, "Latest release:", rel.Tag)
 	if version != "dev" && "v"+version == rel.Tag {
-		fmt.Println("Already up to date.")
+		fmt.Fprintln(out, "Already up to date.")
 		return nil
 	}
 	name := "spec-" + runtime.GOOS + "-" + runtime.GOARCH
@@ -142,6 +142,6 @@ func cmdUpdate(requested string) error {
 		os.Rename(old, self) // restore
 		return err
 	}
-	fmt.Printf("Updated %s to %s\n", self, rel.Tag)
+	fmt.Fprintf(out, "Updated %s to %s\n", self, rel.Tag)
 	return nil
 }

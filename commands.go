@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -10,20 +11,15 @@ import (
 	"strings"
 )
 
-func fatal(err error) {
-	fmt.Fprintln(os.Stderr, "error:", err)
-	os.Exit(1)
-}
-
-func mustStore() Store {
+func mustStore() (Store, error) {
 	root, err := findRoot(".")
 	if err != nil {
-		fatal(err)
+		return Store{}, err
 	}
-	return Store{Root: root}
+	return Store{Root: root}, nil
 }
 
-func cmdInit() error {
+func cmdInit(out, errOut io.Writer) error {
 	for _, dir := range []string{
 		configDir,
 		filepath.Join(specDir, "project"),
@@ -54,25 +50,31 @@ agent: none
 			return err
 		}
 	}
-	fmt.Println("Initialized spec repository.")
+	fmt.Fprintln(out, "Initialized spec repository.")
 	return nil
 }
 
-func cmdNew(specType, title string) error {
+func cmdNew(out, errOut io.Writer, specType, title string) error {
 	if !validTypes[specType] {
 		return fmt.Errorf("unknown spec type %q (want project|feature|adr)", specType)
 	}
-	st := mustStore()
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
 	s, err := st.Create(specType, title, templateFor(specType, title), nil)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Created", s.Path)
+	fmt.Fprintln(out, "Created", s.Path)
 	return nil
 }
 
-func cmdBootstrap() error {
-	st := mustStore()
+func cmdBootstrap(out, errOut io.Writer) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
 	var features, docs []string
 	filepath.Walk(st.Root, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
@@ -99,7 +101,7 @@ func cmdBootstrap() error {
 	cfg := loadConfig(st.Root)
 	ag, aerr := resolveAgent(cfg)
 	if aerr != nil {
-		fmt.Fprintln(os.Stderr, "warning:", aerr, "— falling back to heuristic bootstrap")
+		fmt.Fprintln(errOut, "warning:", aerr, "— falling back to heuristic bootstrap")
 	}
 	if ag != nil {
 		var ctx strings.Builder
@@ -108,15 +110,15 @@ func cmdBootstrap() error {
 		ctx.WriteString(repoContext(st, 50))
 		prompt := fmt.Sprintf(bootstrapPromptFmt, title,
 			fmt.Sprintf(projectTemplate, title), ctx.String())
-		out, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
+		output, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "warning:", err, "— falling back to heuristic bootstrap")
+			fmt.Fprintln(errOut, "warning:", err, "— falling back to heuristic bootstrap")
 		} else {
-			s, err := st.Create("project", title, bodyFromAgentOutput(out), nil)
+			s, err := st.Create("project", title, bodyFromAgentOutput(output), nil)
 			if err != nil {
 				return err
 			}
-			fmt.Println("Created", s.Path, "via", ag.name)
+			fmt.Fprintln(out, "Created", s.Path, "via", ag.name)
 			return nil
 		}
 	}
@@ -139,12 +141,15 @@ func cmdBootstrap() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Created", s.Path)
+	fmt.Fprintln(out, "Created", s.Path)
 	return nil
 }
 
-func cmdRefine(id string) error {
-	st := mustStore()
+func cmdRefine(out, errOut io.Writer, id string) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
 	s := st.Get(id)
 	if s == nil {
 		return fmt.Errorf("no spec with id %s", id)
@@ -158,35 +163,41 @@ func cmdRefine(id string) error {
 		return fmt.Errorf("refine requires an LLM agent (none configured; set agent/agent_cmd in .spec/config.yml)")
 	}
 	prompt := fmt.Sprintf(refinePromptFmt, s.Type(), s.ID(), s.Title(), s.Body, repoContext(st, 50))
-	out, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
+	output, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
 	if err != nil {
 		return err
 	}
-	body := bodyFromAgentOutput(out)
+	body := bodyFromAgentOutput(output)
 	if err := os.WriteFile(s.Path, []byte(dumpFrontmatter(s.Meta, body)), 0o644); err != nil {
 		return err
 	}
-	fmt.Println("Refined", s.Path, "via", ag.name)
+	fmt.Fprintln(out, "Refined", s.Path, "via", ag.name)
 	return nil
 }
 
-func cmdConfig() error {
-	st := mustStore()
+func cmdConfig(out, errOut io.Writer) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
 	cfg := loadConfig(st.Root)
-	fmt.Println(cfg.String())
+	fmt.Fprintln(out, cfg.String())
 	ag, err := resolveAgent(cfg)
 	if err != nil {
-		fmt.Println("resolved agent: error:", err)
+		fmt.Fprintln(out, "resolved agent: error:", err)
 	} else if ag != nil {
-		fmt.Println("resolved agent:", ag.name)
+		fmt.Fprintln(out, "resolved agent:", ag.name)
 	} else {
-		fmt.Println("resolved agent: none")
+		fmt.Fprintln(out, "resolved agent: none")
 	}
 	return nil
 }
 
-func cmdImport(file string) error {
-	st := mustStore()
+func cmdImport(out, errOut io.Writer, file string) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return err
@@ -208,7 +219,7 @@ func cmdImport(file string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Imported", file, "->", s.Path)
+	fmt.Fprintln(out, "Imported", file, "->", s.Path)
 	return nil
 }
 
@@ -219,8 +230,11 @@ var langByExt = map[string]string{
 	".json": "JSON", ".toml": "TOML",
 }
 
-func cmdAnalyze() error {
-	st := mustStore()
+func cmdAnalyze(out, errOut io.Writer) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
 	langs := map[string]int{}
 	files := 0
 	filepath.Walk(st.Root, func(path string, info os.FileInfo, err error) error {
@@ -240,16 +254,16 @@ func cmdAnalyze() error {
 		return nil
 	})
 	specs := st.Specs()
-	fmt.Printf("Repository: %s\n", st.Root)
-	fmt.Printf("Files: %d\n", files)
-	fmt.Println("Languages:")
+	fmt.Fprintf(out, "Repository: %s\n", st.Root)
+	fmt.Fprintf(out, "Files: %d\n", files)
+	fmt.Fprintln(out, "Languages:")
 	keys := make([]string, 0, len(langs))
 	for k := range langs {
 		keys = append(keys, k)
 	}
 	sort.Slice(keys, func(i, j int) bool { return langs[keys[i]] > langs[keys[j]] })
 	for _, k := range keys {
-		fmt.Printf("  %-12s %d\n", k, langs[k])
+		fmt.Fprintf(out, "  %-12s %d\n", k, langs[k])
 	}
 	byType := map[string]int{}
 	byStatus := map[string]int{}
@@ -257,43 +271,57 @@ func cmdAnalyze() error {
 		byType[s.Type()]++
 		byStatus[s.Status()]++
 	}
-	fmt.Printf("Specs: %d\n", len(specs))
+	fmt.Fprintf(out, "Specs: %d\n", len(specs))
 	for k, v := range byType {
-		fmt.Printf("  %-10s %d\n", k, v)
+		fmt.Fprintf(out, "  %-10s %d\n", k, v)
 	}
 	for k, v := range byStatus {
-		fmt.Printf("  status %-12s %d\n", k, v)
+		fmt.Fprintf(out, "  status %-12s %d\n", k, v)
 	}
 	return nil
 }
 
-func cmdSearch(query string) error {
-	st := mustStore()
+func cmdSearch(out, errOut io.Writer, query string) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
 	q := strings.ToLower(query)
 	found := false
 	for _, s := range st.Specs() {
 		data, _ := os.ReadFile(s.Path)
-		if strings.Contains(strings.ToLower(string(data)), q) {
-			rel, _ := filepath.Rel(st.Root, s.Path)
-			fmt.Printf("%s  %s  %s\n", s.ID(), s.Status(), rel)
-			found = true
+		rel, _ := filepath.Rel(st.Root, s.Path)
+		header := false
+		for i, line := range strings.Split(string(data), "\n") {
+			if !strings.Contains(strings.ToLower(line), q) {
+				continue
+			}
+			if !header {
+				fmt.Fprintf(out, "%s  %s  %s\n", s.ID(), s.Status(), rel)
+				header = true
+				found = true
+			}
+			fmt.Fprintf(out, "    %d: %s\n", i+1, strings.TrimSpace(line))
 		}
 	}
 	if !found {
-		fmt.Println("No matches.")
+		fmt.Fprintln(out, "No matches.")
 	}
 	return nil
 }
 
 var reqPattern = regexp.MustCompile(`REQ-\d+`)
 
-func cmdValidate() error {
-	st := mustStore()
+func cmdValidate(out, errOut io.Writer) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
 	cfg := loadConfig(st.Root)
 	specs := st.Specs()
 	errs := 0
 	fail := func(format string, args ...any) {
-		fmt.Printf("FAIL  "+format+"\n", args...)
+		fmt.Fprintf(out, "FAIL  "+format+"\n", args...)
 		errs++
 	}
 	ids := map[string]bool{}
@@ -330,6 +358,9 @@ func cmdValidate() error {
 			}
 		}
 	}
+	if c := findCycle(specs); c != nil {
+		fail("dependency cycle: %s", strings.Join(c, " -> "))
+	}
 	// Requirement traceability: every REQ defined in project specs should be
 	// referenced by at least one feature, and feature references must exist.
 	defined := map[string]bool{}
@@ -351,14 +382,17 @@ func cmdValidate() error {
 		}
 	}
 	if errs == 0 {
-		fmt.Printf("OK  %d specs valid\n", len(specs))
+		fmt.Fprintf(out, "OK  %d specs valid\n", len(specs))
 		return nil
 	}
 	return fmt.Errorf("%d validation error(s)", errs)
 }
 
-func cmdExport(out string) error {
-	st := mustStore()
+func cmdExport(out, errOut io.Writer, file string) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
 	type entry struct {
 		ID     string   `json:"id"`
 		Title  string   `json:"title"`
@@ -376,19 +410,22 @@ func cmdExport(out string) error {
 	if err != nil {
 		return err
 	}
-	if out == "" || out == "-" {
-		fmt.Println(string(data))
+	if file == "" || file == "-" {
+		fmt.Fprintln(out, string(data))
 		return nil
 	}
-	if err := os.WriteFile(out, data, 0o644); err != nil {
+	if err := os.WriteFile(file, data, 0o644); err != nil {
 		return err
 	}
-	fmt.Println("Exported", len(list), "specs ->", out)
+	fmt.Fprintln(out, "Exported", len(list), "specs ->", file)
 	return nil
 }
 
-func cmdRoadmap(out string) error {
-	st := mustStore()
+func cmdRoadmap(out, errOut io.Writer, file string) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
 	cfg := loadConfig(st.Root)
 	groups := map[string][]Spec{}
 	for _, s := range st.Specs() {
@@ -414,19 +451,70 @@ func cmdRoadmap(out string) error {
 			fmt.Fprintf(&b, "- **%s** — [%s](%s) (%s)\n", s.ID(), s.Title(), rel, s.Type())
 		}
 	}
-	if out == "" || out == "-" {
-		fmt.Print(b.String())
+	if file == "" || file == "-" {
+		fmt.Fprint(out, b.String())
 		return nil
 	}
-	if err := os.WriteFile(out, []byte(b.String()), 0o644); err != nil {
+	if err := os.WriteFile(file, []byte(b.String()), 0o644); err != nil {
 		return err
 	}
-	fmt.Println("Wrote", out)
+	fmt.Fprintln(out, "Wrote", file)
 	return nil
 }
 
-func cmdGraph(mermaid bool) error {
-	st := mustStore()
+// findCycle returns one dependency cycle (as an id path) or nil if the
+// depends_on graph is acyclic.
+func findCycle(specs []Spec) []string {
+	deps := map[string][]string{}
+	for _, s := range specs {
+		deps[s.ID()] = s.Field("depends_on")
+	}
+	const (
+		white, gray, black = 0, 1, 2
+	)
+	color := map[string]int{}
+	var stack []string
+	var cycle []string
+	var visit func(id string) bool
+	visit = func(id string) bool {
+		color[id] = gray
+		stack = append(stack, id)
+		for _, dep := range deps[id] {
+			if _, known := deps[dep]; !known {
+				continue
+			}
+			switch color[dep] {
+			case gray: // back edge — found a cycle
+				for i, v := range stack {
+					if v == dep {
+						cycle = append([]string{}, stack[i:]...)
+						cycle = append(cycle, dep)
+						return true
+					}
+				}
+			case white:
+				if visit(dep) {
+					return true
+				}
+			}
+		}
+		stack = stack[:len(stack)-1]
+		color[id] = black
+		return false
+	}
+	for _, s := range specs {
+		if color[s.ID()] == white && visit(s.ID()) {
+			return cycle
+		}
+	}
+	return nil
+}
+
+func cmdGraph(out, errOut io.Writer, mermaid bool) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
 	specs := st.Specs()
 	edges := [][2]string{}
 	for _, s := range specs {
@@ -434,28 +522,34 @@ func cmdGraph(mermaid bool) error {
 			edges = append(edges, [2]string{s.ID(), dep})
 		}
 	}
+	if c := findCycle(specs); c != nil {
+		fmt.Fprintln(errOut, "warning: dependency cycle:", strings.Join(c, " -> "))
+	}
 	if mermaid {
-		fmt.Println("graph TD")
+		fmt.Fprintln(out, "graph TD")
 		for _, s := range specs {
-			fmt.Printf("  %s[\"%s: %s\"]\n", strings.ReplaceAll(s.ID(), "-", "_"), s.ID(), s.Title())
+			fmt.Fprintf(out, "  %s[\"%s: %s\"]\n", strings.ReplaceAll(s.ID(), "-", "_"), s.ID(), s.Title())
 		}
 		for _, e := range edges {
-			fmt.Printf("  %s --> %s\n", strings.ReplaceAll(e[0], "-", "_"), strings.ReplaceAll(e[1], "-", "_"))
+			fmt.Fprintf(out, "  %s --> %s\n", strings.ReplaceAll(e[0], "-", "_"), strings.ReplaceAll(e[1], "-", "_"))
 		}
 		return nil
 	}
 	if len(edges) == 0 {
-		fmt.Println("No dependencies declared (use `depends_on` frontmatter).")
+		fmt.Fprintln(out, "No dependencies declared (use `depends_on` frontmatter).")
 		return nil
 	}
 	for _, e := range edges {
-		fmt.Printf("%s --> %s\n", e[0], e[1])
+		fmt.Fprintf(out, "%s --> %s\n", e[0], e[1])
 	}
 	return nil
 }
 
-func cmdTrace() error {
-	st := mustStore()
+func cmdTrace(out, errOut io.Writer) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
 	specs := st.Specs()
 	reqs := map[string]string{} // req id -> defining spec
 	var order []string
@@ -471,11 +565,11 @@ func cmdTrace() error {
 		}
 	}
 	if len(order) == 0 {
-		fmt.Println("No requirements found in project specs.")
+		fmt.Fprintln(out, "No requirements found in project specs.")
 		return nil
 	}
 	covered := 0
-	fmt.Printf("%-9s %-10s %s\n", "REQ", "DEFINED-IN", "IMPLEMENTED-BY")
+	fmt.Fprintf(out, "%-9s %-10s %s\n", "REQ", "DEFINED-IN", "IMPLEMENTED-BY")
 	for _, req := range order {
 		var impls []string
 		for _, s := range specs {
@@ -495,31 +589,34 @@ func cmdTrace() error {
 		if label == "" {
 			label = "—"
 		}
-		fmt.Printf("%-9s %-10s %s\n", req, reqs[req], label)
+		fmt.Fprintf(out, "%-9s %-10s %s\n", req, reqs[req], label)
 	}
-	fmt.Printf("\nCoverage: %d/%d requirements traced to features\n", covered, len(order))
+	fmt.Fprintf(out, "\nCoverage: %d/%d requirements traced to features\n", covered, len(order))
 	return nil
 }
 
-func cmdDraftFeature(title string) error {
-	st := mustStore()
+func cmdDraftFeature(out, errOut io.Writer, title string) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
 	cfg := loadConfig(st.Root)
 	ag, aerr := resolveAgent(cfg)
 	if aerr != nil {
-		fmt.Fprintln(os.Stderr, "warning:", aerr, "— falling back to heuristic draft")
+		fmt.Fprintln(errOut, "warning:", aerr, "— falling back to heuristic draft")
 	}
 	if ag != nil {
 		prompt := fmt.Sprintf(draftPromptFmt, title,
 			fmt.Sprintf(featureTemplate, title), repoContext(st, 50))
-		out, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
+		output, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "warning:", err, "— falling back to heuristic draft")
+			fmt.Fprintln(errOut, "warning:", err, "— falling back to heuristic draft")
 		} else {
-			s, err := st.Create("feature", title, bodyFromAgentOutput(out), nil)
+			s, err := st.Create("feature", title, bodyFromAgentOutput(output), nil)
 			if err != nil {
 				return err
 			}
-			fmt.Println("Drafted", s.Path, "via", ag.name)
+			fmt.Fprintln(out, "Drafted", s.Path, "via", ag.name)
 			return nil
 		}
 	}
@@ -560,9 +657,9 @@ func cmdDraftFeature(title string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Drafted", s.Path)
+	fmt.Fprintln(out, "Drafted", s.Path)
 	if len(reqs) > 0 {
-		fmt.Println("Linked requirements:", strings.Join(reqs, ", "))
+		fmt.Fprintln(out, "Linked requirements:", strings.Join(reqs, ", "))
 	}
 	return nil
 }

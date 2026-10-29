@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -26,7 +27,7 @@ Usage:
   spec draft feature <title>         Generate feature draft (LLM agent if configured)
   spec refine <id>                   LLM agent improves an existing spec
   spec config                        Show effective configuration
-  spec web [--port N]                Web interface (default :8080)
+  spec web [--port N]                Web interface (default: web_port from config)
   spec update [tag]                  Self-update to a release (default: latest)
   spec version                       Print version
 
@@ -36,92 +37,111 @@ Agent configuration lives in .spec/config.yml:
   agent_timeout: 300                 # seconds
 `
 
-func main() {
-	if len(os.Args) < 2 {
-		fmt.Print(usage)
-		os.Exit(1)
-	}
-	var err error
-	switch os.Args[1] {
-	case "init":
-		err = cmdInit()
-	case "new":
-		if len(os.Args) < 4 {
-			err = fmt.Errorf("usage: spec new <project|feature|adr> <title>")
-		} else {
-			err = cmdNew(os.Args[2], strings.Join(os.Args[3:], " "))
-		}
-	case "bootstrap":
-		err = cmdBootstrap()
-	case "import":
-		if len(os.Args) < 3 {
-			err = fmt.Errorf("usage: spec import <file>")
-		} else {
-			err = cmdImport(os.Args[2])
-		}
-	case "analyze":
-		err = cmdAnalyze()
-	case "search":
-		if len(os.Args) < 3 {
-			err = fmt.Errorf("usage: spec search <query>")
-		} else {
-			err = cmdSearch(strings.Join(os.Args[2:], " "))
-		}
-	case "validate":
-		err = cmdValidate()
-	case "export":
-		out := ""
-		if len(os.Args) > 2 {
-			out = os.Args[2]
-		}
-		err = cmdExport(out)
-	case "roadmap":
-		out := ""
-		if len(os.Args) > 2 {
-			out = os.Args[2]
-		}
-		err = cmdRoadmap(out)
-	case "graph":
-		fs := flag.NewFlagSet("graph", flag.ContinueOnError)
-		mermaid := fs.Bool("mermaid", false, "emit mermaid diagram")
-		fs.Parse(os.Args[2:])
-		err = cmdGraph(*mermaid)
-	case "trace":
-		err = cmdTrace()
-	case "refine":
-		if len(os.Args) < 3 {
-			err = fmt.Errorf("usage: spec refine <id>")
-		} else {
-			err = cmdRefine(os.Args[2])
-		}
-	case "config":
-		err = cmdConfig()
-	case "draft":
-		if len(os.Args) < 4 || os.Args[2] != "feature" {
-			err = fmt.Errorf("usage: spec draft feature <title>")
-		} else {
-			err = cmdDraftFeature(strings.Join(os.Args[3:], " "))
-		}
-	case "update":
+var commands = map[string]func(args []string, out, errOut io.Writer) error{
+	"init":      func(a []string, o, e io.Writer) error { return cmdInit(o, e) },
+	"bootstrap": func(a []string, o, e io.Writer) error { return cmdBootstrap(o, e) },
+	"analyze":   func(a []string, o, e io.Writer) error { return cmdAnalyze(o, e) },
+	"validate":  func(a []string, o, e io.Writer) error { return cmdValidate(o, e) },
+	"trace":     func(a []string, o, e io.Writer) error { return cmdTrace(o, e) },
+	"config":    func(a []string, o, e io.Writer) error { return cmdConfig(o, e) },
+	"update": func(a []string, o, e io.Writer) error {
 		tag := ""
-		if len(os.Args) > 2 {
-			tag = os.Args[2]
+		if len(a) > 0 {
+			tag = a[0]
 		}
-		err = cmdUpdate(tag)
-	case "version", "--version":
-		fmt.Println("spec " + version)
-	case "web":
+		return cmdUpdate(o, e, tag)
+	},
+	"new": func(a []string, o, e io.Writer) error {
+		if len(a) < 2 {
+			return fmt.Errorf("usage: spec new <project|feature|adr> <title>")
+		}
+		return cmdNew(o, e, a[0], strings.Join(a[1:], " "))
+	},
+	"import": func(a []string, o, e io.Writer) error {
+		if len(a) < 1 {
+			return fmt.Errorf("usage: spec import <file>")
+		}
+		return cmdImport(o, e, a[0])
+	},
+	"search": func(a []string, o, e io.Writer) error {
+		if len(a) < 1 {
+			return fmt.Errorf("usage: spec search <query>")
+		}
+		return cmdSearch(o, e, strings.Join(a, " "))
+	},
+	"export": func(a []string, o, e io.Writer) error {
+		file := ""
+		if len(a) > 0 {
+			file = a[0]
+		}
+		return cmdExport(o, e, file)
+	},
+	"roadmap": func(a []string, o, e io.Writer) error {
+		file := ""
+		if len(a) > 0 {
+			file = a[0]
+		}
+		return cmdRoadmap(o, e, file)
+	},
+	"refine": func(a []string, o, e io.Writer) error {
+		if len(a) < 1 {
+			return fmt.Errorf("usage: spec refine <id>")
+		}
+		return cmdRefine(o, e, a[0])
+	},
+	"draft": func(a []string, o, e io.Writer) error {
+		if len(a) < 2 || a[0] != "feature" {
+			return fmt.Errorf("usage: spec draft feature <title>")
+		}
+		return cmdDraftFeature(o, e, strings.Join(a[1:], " "))
+	},
+	"graph": func(a []string, o, e io.Writer) error {
+		fs := flag.NewFlagSet("graph", flag.ContinueOnError)
+		fs.SetOutput(e)
+		mermaid := fs.Bool("mermaid", false, "emit mermaid diagram")
+		if err := fs.Parse(a); err != nil {
+			return err
+		}
+		return cmdGraph(o, e, *mermaid)
+	},
+	"web": func(a []string, o, e io.Writer) error {
 		fs := flag.NewFlagSet("web", flag.ContinueOnError)
+		fs.SetOutput(e)
 		port := fs.Int("port", 0, "port to listen on (0 = web_port from config)")
-		fs.Parse(os.Args[2:])
-		err = cmdWeb(*port)
+		if err := fs.Parse(a); err != nil {
+			return err
+		}
+		return cmdWeb(o, e, *port)
+	},
+}
+
+// run dispatches a command; returns a process exit code.
+func run(args []string, out, errOut io.Writer) int {
+	if len(args) == 0 {
+		fmt.Fprint(out, usage)
+		return 1
+	}
+	switch args[0] {
+	case "version", "--version":
+		fmt.Fprintln(out, "spec "+version)
+		return 0
 	case "help", "--help", "-h":
-		fmt.Print(usage)
-	default:
-		fmt.Print(usage)
-		os.Exit(1)
+		fmt.Fprint(out, usage)
+		return 0
 	}
-	if err != nil {
-		fatal(err)
+	fn, ok := commands[args[0]]
+	if !ok {
+		fmt.Fprintf(errOut, "spec: unknown command %q\n\n", args[0])
+		fmt.Fprint(errOut, usage)
+		return 1
 	}
+	if err := fn(args[1:], out, errOut); err != nil {
+		fmt.Fprintln(errOut, "error:", err)
+		return 1
+	}
+	return 0
+}
+
+func main() {
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }

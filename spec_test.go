@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -38,7 +39,7 @@ func setupRepo(t *testing.T) Store {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.Chdir(old) })
-	if err := cmdInit(); err != nil {
+	if err := cmdInit(io.Discard, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	return Store{Root: dir}
@@ -47,7 +48,7 @@ func setupRepo(t *testing.T) Store {
 func TestInitAndNew(t *testing.T) {
 	st := setupRepo(t)
 	for _, typ := range []string{"project", "feature", "adr"} {
-		if err := cmdNew(typ, "My "+typ); err != nil {
+		if err := cmdNew(io.Discard, io.Discard, typ, "My "+typ); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -58,31 +59,31 @@ func TestInitAndNew(t *testing.T) {
 	if specs[1].ID() != "FEAT-001" || specs[0].ID() != "ADR-001" {
 		t.Fatalf("bad ids: %v", specs)
 	}
-	if err := cmdNew("bogus", "x"); err == nil {
+	if err := cmdNew(io.Discard, io.Discard, "bogus", "x"); err == nil {
 		t.Fatal("expected error for bad type")
 	}
 }
 
 func TestValidateCatchesMissingSection(t *testing.T) {
 	setupRepo(t)
-	if err := cmdNew("feature", "broken"); err != nil {
+	if err := cmdNew(io.Discard, io.Discard, "feature", "broken"); err != nil {
 		t.Fatal(err)
 	}
-	st := mustStore()
+	st, _ := mustStore()
 	s := st.Get("FEAT-001")
 	if err := os.WriteFile(s.Path, []byte("---\nid: FEAT-001\ntype: feature\n---\n# x\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := cmdValidate(); err == nil {
+	if err := cmdValidate(io.Discard, io.Discard); err == nil {
 		t.Fatal("expected validation failure")
 	}
 }
 
 func TestValidateOK(t *testing.T) {
 	setupRepo(t)
-	cmdNew("project", "p")
-	cmdNew("feature", "f")
-	if err := cmdValidate(); err != nil {
+	cmdNew(io.Discard, io.Discard, "project", "p")
+	cmdNew(io.Discard, io.Discard, "feature", "f")
+	if err := cmdValidate(io.Discard, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -93,17 +94,17 @@ func TestSearchAndTrace(t *testing.T) {
 	if _, err := st.Create("project", "p", body, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := cmdSearch("login support"); err != nil {
+	if err := cmdSearch(io.Discard, io.Discard, "login support"); err != nil {
 		t.Fatal(err)
 	}
-	if err := cmdDraftFeature("add login page"); err != nil {
+	if err := cmdDraftFeature(io.Discard, io.Discard, "add login page"); err != nil {
 		t.Fatal(err)
 	}
 	feat := st.Get("FEAT-001")
 	if feat == nil || !strings.Contains(feat.Body, "REQ-001") {
 		t.Fatalf("draft should link REQ-001: %+v", feat)
 	}
-	if err := cmdTrace(); err != nil {
+	if err := cmdTrace(io.Discard, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -112,14 +113,14 @@ func TestImportAndExport(t *testing.T) {
 	st := setupRepo(t)
 	src := filepath.Join(st.Root, "notes.md")
 	os.WriteFile(src, []byte("# Notes\n\nhello\n"), 0o644)
-	if err := cmdImport(src); err != nil {
+	if err := cmdImport(io.Discard, io.Discard, src); err != nil {
 		t.Fatal(err)
 	}
 	if st.Get("DOC-001") == nil {
 		t.Fatal("import failed")
 	}
 	out := filepath.Join(st.Root, "meta.json")
-	if err := cmdExport(out); err != nil {
+	if err := cmdExport(io.Discard, io.Discard, out); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(out)
@@ -131,25 +132,25 @@ func TestImportAndExport(t *testing.T) {
 func TestBootstrapAndRoadmapAndGraph(t *testing.T) {
 	st := setupRepo(t)
 	os.WriteFile(filepath.Join(st.Root, "go.mod"), []byte("module x\n"), 0o644)
-	if err := cmdBootstrap(); err != nil {
+	if err := cmdBootstrap(io.Discard, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	if st.Get("PROJ-001") == nil {
 		t.Fatal("bootstrap created no project spec")
 	}
-	if err := cmdRoadmap(filepath.Join(st.Root, "ROADMAP.md")); err != nil {
+	if err := cmdRoadmap(io.Discard, io.Discard, filepath.Join(st.Root, "ROADMAP.md")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(st.Root, "ROADMAP.md")); err != nil {
 		t.Fatal(err)
 	}
-	if err := cmdGraph(false); err != nil {
+	if err := cmdGraph(io.Discard, io.Discard, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := cmdGraph(true); err != nil {
+	if err := cmdGraph(io.Discard, io.Discard, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := cmdAnalyze(); err != nil {
+	if err := cmdAnalyze(io.Discard, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -191,14 +192,14 @@ func TestAgentDraftAndRefine(t *testing.T) {
 	if ag, err := resolveAgent(loadConfig(st.Root)); err != nil || ag == nil {
 		t.Fatalf("agent_cmd not resolved: %v", err)
 	}
-	if err := cmdDraftFeature("agent feature"); err != nil {
+	if err := cmdDraftFeature(io.Discard, io.Discard, "agent feature"); err != nil {
 		t.Fatal(err)
 	}
 	feat := st.Get("FEAT-001")
 	if feat == nil || !strings.Contains(feat.Body, "AI content") {
 		t.Fatalf("agent body not used: %+v", feat)
 	}
-	if err := cmdRefine("FEAT-001"); err != nil {
+	if err := cmdRefine(io.Discard, io.Discard, "FEAT-001"); err != nil {
 		t.Fatal(err)
 	}
 	if st.Get("FEAT-001").Meta["id"][0] != "FEAT-001" {
@@ -221,8 +222,8 @@ func TestMissingAgentErrors(t *testing.T) {
 func TestRefineWithoutAgentFails(t *testing.T) {
 	st := setupRepo(t)
 	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"), []byte("agent: none\n"), 0o644)
-	cmdNew("feature", "x")
-	if err := cmdRefine("FEAT-001"); err == nil {
+	cmdNew(io.Discard, io.Discard, "feature", "x")
+	if err := cmdRefine(io.Discard, io.Discard, "FEAT-001"); err == nil {
 		t.Fatal("expected error with agent: none")
 	}
 }

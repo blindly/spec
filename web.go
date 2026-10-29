@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"html"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,14 +29,9 @@ nav a{margin-right:1em}</style></head><body>
 		html.EscapeString(title), body)
 }
 
-func cmdWeb(port int) error {
-	st := mustStore()
-	cfg := loadConfig(st.Root)
-	if port == 0 {
-		port = cfg.WebPort
-	}
+// webHandler builds the mux; extracted from cmdWeb so tests can use httptest.
+func webHandler(st Store, cfg Config, token string) http.Handler {
 	statuses := cfg.Statuses
-	token := webToken()
 	var writeMu sync.Mutex
 
 	checkToken := func(r *http.Request) bool {
@@ -192,8 +188,19 @@ func cmdWeb(port int) error {
 		}
 		http.Redirect(w, r, "/spec/"+id, http.StatusSeeOther)
 	})
+	return mux
+}
 
+func cmdWeb(out, errOut io.Writer, port int) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
+	cfg := loadConfig(st.Root)
+	if port == 0 {
+		port = cfg.WebPort
+	}
 	addr := fmt.Sprintf(":%d", port)
-	fmt.Println("Serving on http://localhost" + addr)
-	return http.ListenAndServe(addr, mux)
+	fmt.Fprintln(out, "Serving on http://localhost"+addr)
+	return http.ListenAndServe(addr, webHandler(st, cfg, webToken()))
 }
