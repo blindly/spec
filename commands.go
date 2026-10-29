@@ -116,6 +116,37 @@ func cmdBootstrap(out, errOut io.Writer) error {
 	})
 
 	title := filepath.Base(st.Root)
+	// Rerun semantics: an accepted/implemented project spec means bootstrap
+	// is done — no-op. A still-draft/proposed one gets regenerated in place.
+	var existing *Spec
+	for _, s := range st.Specs() {
+		if s.Type() == "project" {
+			s := s
+			existing = &s
+			break
+		}
+	}
+	if existing != nil && (existing.Status() == "accepted" || existing.Status() == "implemented") {
+		fmt.Fprintf(out, "Already bootstrapped: %s is %s — left unchanged\n", existing.ID(), existing.Status())
+		return nil
+	}
+	writeResult := func(body, via string) error {
+		if existing != nil {
+			meta := existing.Meta
+			if err := os.WriteFile(existing.Path, []byte(dumpFrontmatter(meta, body)), 0o644); err != nil {
+				return err
+			}
+			fmt.Fprintf(out, "Regenerated %s %s\n", existing.Path, via)
+			return nil
+		}
+		s, err := st.Create("project", title, body, nil)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Created %s %s\n", s.Path, via)
+		return nil
+	}
+
 	cfg := loadConfig(st.Root)
 	ag, aerr := resolveAgent(cfg)
 	if aerr != nil {
@@ -135,11 +166,8 @@ func cmdBootstrap(out, errOut io.Writer) error {
 			body := bodyFromAgentOutput(output)
 			if !strings.Contains(body, "# ") {
 				fmt.Fprintln(errOut, "warning: agent returned no markdown body — falling back to heuristic bootstrap")
-			} else if s, err := st.Create("project", title, body, nil); err != nil {
-				return err
 			} else {
-				fmt.Fprintln(out, "Created", s.Path, "via", ag.name)
-				return nil
+				return writeResult(body, "via "+ag.name)
 			}
 		}
 	}
@@ -169,12 +197,7 @@ func cmdBootstrap(out, errOut io.Writer) error {
 			fmt.Fprintf(&b, "- `%s`\n", d)
 		}
 	}
-	s, err := st.Create("project", title, b.String(), nil)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintln(out, "Created", s.Path)
-	return nil
+	return writeResult(b.String(), "(heuristic)")
 }
 
 func cmdRefine(out, errOut io.Writer, id string) error {
