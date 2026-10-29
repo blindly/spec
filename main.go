@@ -31,6 +31,7 @@ Usage:
   spec fact [list|get|set|unset]     Manage .spec/facts.yml project facts
   spec check                         Audit {fact:key} references vs facts.yml
   spec config                        Show effective configuration
+  spec config init                   Write global config to ~/.config/spec/config.yml
   spec web [--port N]                Web interface (default: web_port from config)
   spec update [tag]                  Self-update to a release (default: latest)
   spec version                       Print version
@@ -47,10 +48,12 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 	"analyze":   func(a []string, o, e io.Writer) error { return cmdAnalyze(o, e) },
 	"validate":  func(a []string, o, e io.Writer) error { return cmdValidate(o, e) },
 	"trace":     func(a []string, o, e io.Writer) error { return cmdTrace(o, e) },
-	"config":    func(a []string, o, e io.Writer) error { return cmdConfig(o, e) },
-	"status":    func(a []string, o, e io.Writer) error { return cmdStatus(o, e) },
-	"fact":      func(a []string, o, e io.Writer) error { return cmdFact(o, e, a) },
-	"check":     func(a []string, o, e io.Writer) error { return cmdCheck(o, e) },
+	"config": func(a []string, o, e io.Writer) error {
+		return cmdConfig(o, e, len(a) > 0 && a[0] == "init")
+	},
+	"status": func(a []string, o, e io.Writer) error { return cmdStatus(o, e) },
+	"fact":   func(a []string, o, e io.Writer) error { return cmdFact(o, e, a) },
+	"check":  func(a []string, o, e io.Writer) error { return cmdCheck(o, e) },
 	"update": func(a []string, o, e io.Writer) error {
 		tag := ""
 		if len(a) > 0 {

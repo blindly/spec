@@ -103,6 +103,37 @@ func (c Config) String() string {
 		c.Agent, c.AgentCmd, c.AgentTimeout, c.WebHost, c.WebPort, strings.Join(c.Statuses, ", "))
 }
 
+const globalConfigTemplate = `# Global defaults for all spec-managed repositories.
+# Repo-level .spec/config.yml overrides these per-key.
+
+# Agent (opt-in; none = no subprocess ever runs)
+# agent: claude        # claude | gemini | codex | aider | opencode | amp
+# agent_cmd: mycli --flag {prompt}   # {prompt} = prompt arg; absent = stdin
+# agent_timeout: 300   # seconds
+
+# Web
+# web_host: 127.0.0.1  # use 0.0.0.0 to expose on all interfaces
+# web_port: 8080
+
+# Lifecycle
+# statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
+`
+
+// initGlobalConfig writes the annotated template; refuses to overwrite.
+func initGlobalConfig() (string, error) {
+	path := globalConfigPath()
+	if path == "" {
+		return "", fmt.Errorf("cannot determine home directory")
+	}
+	if _, err := os.Stat(path); err == nil {
+		return "", fmt.Errorf("%s already exists", path)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", err
+	}
+	return path, os.WriteFile(path, []byte(globalConfigTemplate), 0o644)
+}
+
 // validStatus reports whether s is in the configured status list.
 func (c Config) validStatus(s string) bool {
 	for _, v := range c.Statuses {

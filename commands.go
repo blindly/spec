@@ -201,7 +201,15 @@ func cmdRefine(out, errOut io.Writer, id string) error {
 	return nil
 }
 
-func cmdConfig(out, errOut io.Writer) error {
+func cmdConfig(out, errOut io.Writer, initGlobal bool) error {
+	if initGlobal {
+		path, err := initGlobalConfig()
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(out, "Wrote", path)
+		return nil
+	}
 	st, err := mustStore()
 	if err != nil {
 		return err
