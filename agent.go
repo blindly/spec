@@ -22,7 +22,7 @@ type agent struct {
 // knownAdapters maps a name to argv; {prompt} is the prompt placeholder.
 var knownAdapters = map[string][]string{
 	"claude":   {"claude", "-p", "{prompt}"},
-	"devin":    {"devin", "--print", "--permission-mode", "accept-edits", "--", "{prompt}"},
+	"devin":    {"devin", "--print", "--permission-mode", "smart", "--", "{prompt}"},
 	"gemini":   {"gemini", "-p", "{prompt}"},
 	"codex":    {"codex", "exec", "{prompt}"},
 	"aider":    {"aider", "--message", "{prompt}"},
