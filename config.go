@@ -119,7 +119,7 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 # Repo-level .spec/config.yml overrides these per-key.
 
 # Agent (opt-in; none = no subprocess ever runs)
-# agent: claude        # claude | gemini | codex | aider | opencode | amp
+# agent: claude        # claude | devin | gemini | codex | aider | opencode | amp | cline | vibe
 # agent_cmd: mycli --flag {prompt}   # {prompt} = prompt arg; absent = stdin
 # agent_timeout: 900   # seconds
 
