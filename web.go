@@ -148,6 +148,22 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		fmt.Fprintf(&b, `</select></p>
 <link rel="stylesheet" href="/assets/fontawesome/css/font-awesome.min.css">
 <link rel="stylesheet" href="/assets/easymde/easymde.min.css">
+<style>
+.CodeMirror{background:#1e1e1e;color:#d4d4d4;border-color:#333}
+.CodeMirror-cursor{border-left-color:#d4d4d4}
+.CodeMirror-gutters{background:#1e1e1e;border-right-color:#333}
+.CodeMirror-linenumber{color:#666}
+.editor-toolbar{background:#2d2d2d;border-color:#333}
+.editor-toolbar button{color:#d4d4d4!important}
+.editor-toolbar button:hover,.editor-toolbar button.active{background:#3d3d3d;border-color:#555}
+.editor-preview,.editor-preview-side{background:#1e1e1e;color:#d4d4d4}
+.editor-preview *,.editor-preview-side *{color:#d4d4d4!important;background:transparent!important}
+.editor-statusbar{color:#999}
+.CodeMirror-selected{background:#334!important}
+.cm-header,.cm-strong{color:#569cd6!important}
+.cm-link,.cm-url{color:#4ec9b0!important}
+.cm-quote,.cm-comment{color:#6a9955!important}
+</style>
 <textarea id="body-editor" name="body" rows="30">%s</textarea>
 <p><button>Save</button> <a href="/spec/%s">cancel</a></p></form>
 <script src="/assets/easymde/easymde.min.js"></script>
