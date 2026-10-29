@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-var releasesAPI = "https://api.github.com/repos/wk/spec/releases"
+var releasesAPI = "https://api.github.com/repos/blindly/spec/releases"
 
 var updateHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
