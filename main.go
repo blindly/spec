@@ -96,14 +96,24 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 		return cmdRoadmap(o, e, file)
 	},
 	"apply": func(a []string, o, e io.Writer) error {
-		fs := flag.NewFlagSet("apply", flag.ContinueOnError)
-		fs.SetOutput(e)
-		runIt := fs.Bool("run", false, "run the configured agent instead of printing the prompt")
-		force := fs.Bool("force", false, "apply specs not yet accepted/proposed")
-		if err := fs.Parse(a); err != nil {
-			return err
+		// extract flags manually: Go's flag pkg stops at the first
+		// positional arg, so `spec apply ID --force` would lose --force
+		var ids []string
+		var runIt, force bool
+		for _, arg := range a {
+			switch arg {
+			case "--run":
+				runIt = true
+			case "--force":
+				force = true
+			default:
+				if strings.HasPrefix(arg, "--") {
+					return fmt.Errorf("unknown flag %s", arg)
+				}
+				ids = append(ids, arg)
+			}
 		}
-		return cmdApply(o, e, fs.Args(), *runIt, *force)
+		return cmdApply(o, e, ids, runIt, force)
 	},
 	"edit": func(a []string, o, e io.Writer) error {
 		if len(a) < 1 {

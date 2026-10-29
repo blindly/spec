@@ -176,7 +176,7 @@ Repository context:
 
 const applyPromptFmt = `You are implementing a feature specification in this repository.
 
-Feature spec %s (%s):
+Spec %s (%s):
 
 %s
 
