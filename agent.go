@@ -21,6 +21,7 @@ type agent struct {
 // knownAdapters maps a name to argv; {prompt} is the prompt placeholder.
 var knownAdapters = map[string][]string{
 	"claude":   {"claude", "-p", "{prompt}"},
+	"devin":    {"devin", "--print", "{prompt}"},
 	"gemini":   {"gemini", "-p", "{prompt}"},
 	"codex":    {"codex", "exec", "{prompt}"},
 	"aider":    {"aider", "--message", "{prompt}"},
@@ -40,7 +41,7 @@ func resolveAgent(cfg Config) (*agent, error) {
 	}
 	argv, ok := knownAdapters[cfg.Agent]
 	if !ok {
-		return nil, fmt.Errorf("unknown agent %q (want one of: claude, gemini, codex, aider, opencode, amp)", cfg.Agent)
+		return nil, fmt.Errorf("unknown agent %q (want one of: claude, devin, gemini, codex, aider, opencode, amp)", cfg.Agent)
 	}
 	if _, err := exec.LookPath(argv[0]); err != nil {
 		return nil, fmt.Errorf("agent %q configured but %q not found on PATH", cfg.Agent, argv[0])

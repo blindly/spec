@@ -39,7 +39,7 @@ Usage:
   spec version                       Print version
 
 Agent configuration lives in .spec/config.yml:
-  agent: none|claude|gemini|codex|aider|opencode|amp   (default: none)
+  agent: none|claude|devin|gemini|codex|aider|opencode|amp   (default: none)
   agent_cmd: "mycli --flag {prompt}" # {prompt} = prompt arg; absent = prompt via stdin
   agent_timeout: 300                 # seconds
 `
