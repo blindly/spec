@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+var version = "dev" // overridden by -ldflags "-X main.version=x.y.z"
+
 const usage = `spec — offline specification management
 
 Usage:
@@ -25,6 +27,8 @@ Usage:
   spec refine <id>                   LLM agent improves an existing spec
   spec config                        Show effective configuration
   spec web [--port N]                Web interface (default :8080)
+  spec update [tag]                  Self-update to a release (default: latest)
+  spec version                       Print version
 
 Agent configuration lives in .spec/config.yml:
   agent: none|claude|gemini|codex|aider|opencode|amp   (default: none)
@@ -98,6 +102,14 @@ func main() {
 		} else {
 			err = cmdDraftFeature(strings.Join(os.Args[3:], " "))
 		}
+	case "update":
+		tag := ""
+		if len(os.Args) > 2 {
+			tag = os.Args[2]
+		}
+		err = cmdUpdate(tag)
+	case "version", "--version":
+		fmt.Println("spec " + version)
 	case "web":
 		fs := flag.NewFlagSet("web", flag.ContinueOnError)
 		port := fs.Int("port", 8080, "port to listen on")
