@@ -105,6 +105,12 @@ func repoContext(st Store, maxEntries int) string {
 	for _, s := range st.Specs() {
 		fmt.Fprintf(&b, "- %s (%s, %s): %s\n", s.ID(), s.Type(), s.Status(), s.Title())
 	}
+	if facts := loadFacts(st.Root); len(facts) > 0 {
+		b.WriteString("\nProject facts (definite values — use these, do not invent):\n")
+		for _, f := range facts {
+			fmt.Fprintf(&b, "- %s: %s\n", f.Key, f.Value)
+		}
+	}
 	b.WriteString("\nProject requirements:\n")
 	for _, s := range st.Specs() {
 		if s.Type() != "project" {

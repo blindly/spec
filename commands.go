@@ -50,6 +50,17 @@ agent: none
 			return err
 		}
 	}
+	facts := filepath.Join(configDir, "facts.yml")
+	if _, err := os.Stat(facts); os.IsNotExist(err) {
+		seed := `# Definite project facts — referenced in specs as {fact:key}
+# domain: exemplo.pt
+# phone: "+351 210 000 000"
+# company_name: Empresa Lda
+`
+		if err := os.WriteFile(facts, []byte(seed), 0o644); err != nil {
+			return err
+		}
+	}
 	fmt.Fprintln(out, "Initialized spec repository.")
 	return nil
 }

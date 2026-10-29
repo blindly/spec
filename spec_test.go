@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"io"
 	"os"
 	"path/filepath"
@@ -246,6 +247,62 @@ func TestToUTF8(t *testing.T) {
 	// UTF-8 passthrough
 	if got := toUTF8([]byte("# Título\n")); got != "# Título\n" {
 		t.Fatalf("UTF-8 passthrough: %q", got)
+	}
+}
+
+func TestFacts(t *testing.T) {
+	st := setupRepo(t)
+	// list on empty file
+	var buf bytes.Buffer
+	if err := cmdFact(&buf, io.Discard, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "No facts") {
+		t.Fatalf("expected empty facts notice, got %q", buf.String())
+	}
+	// set + get
+	if err := cmdFact(io.Discard, io.Discard, []string{"set", "domain", "exemplo.pt"}); err != nil {
+		t.Fatal(err)
+	}
+	buf.Reset()
+	if err := cmdFact(&buf, io.Discard, []string{"get", "domain"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(buf.String()) != "exemplo.pt" {
+		t.Fatalf("get: %q", buf.String())
+	}
+	// overwrite preserves file
+	if err := cmdFact(io.Discard, io.Discard, []string{"set", "domain", "novo.pt"}); err != nil {
+		t.Fatal(err)
+	}
+	if v := factsMap(loadFacts(st.Root))["domain"]; v != "novo.pt" {
+		t.Fatalf("set overwrite: %q", v)
+	}
+	// substitution at create time
+	if _, err := st.Create("feature", "sub test", "# t\n\n## Summary\n\nDomain: {fact:domain}\n", nil); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(st.Get("FEAT-001").Body, "Domain: novo.pt") {
+		t.Fatalf("substitution failed: %q", st.Get("FEAT-001").Body)
+	}
+	// check: undefined reference fails
+	st.Create("feature", "bad ref", "# t\n\n## Summary\n\n{fact:missing}\n", nil)
+	buf.Reset()
+	if err := cmdCheck(&buf, io.Discard); err == nil {
+		t.Fatal("check should fail on undefined fact reference")
+	}
+	if !strings.Contains(buf.String(), "{fact:missing}") {
+		t.Fatalf("check output: %q", buf.String())
+	}
+	// unset
+	if err := cmdFact(io.Discard, io.Discard, []string{"unset", "domain"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := factsMap(loadFacts(st.Root))["domain"]; ok {
+		t.Fatal("unset failed")
+	}
+	if err := cmdFact(io.Discard, io.Discard, []string{"unset", "domain"}); err == nil {
+		t.Fatal("unset of missing key should error")
 	}
 }
 

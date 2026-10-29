@@ -28,6 +28,8 @@ go build -o spec .
 | `spec draft feature <title>` | Generate a feature draft (LLM agent if configured, else heuristic) |
 | `spec refine <id>` | LLM agent rewrites an existing spec's body in place |
 | `spec status` | Summarize repo spec state (counts, coverage, agent) |
+| `spec fact [list\|get\|set\|unset]` | Manage `.spec/facts.yml` project facts |
+| `spec check` | Audit `{fact:key}` references against facts.yml |
 | `spec config` | Show effective configuration and resolved agent |
 | `spec web [--port N]` | Local web UI: browse, create, edit body/status (default :8080) |
 
@@ -53,6 +55,15 @@ Agent features are opt-in: the default is `agent: none` and no subprocess
 is ever spawned unless you configure one. `agent_cmd` overrides `agent` —
 useful for custom wrappers. `statuses` controls the valid status list used
 by `spec validate`, the web editor dropdown, and `spec roadmap` ordering.
+
+## Facts
+
+`.spec/facts.yml` holds definite project facts as flat `key: value` pairs
+(domain, phone, company name, …). Specs and templates can reference them
+as `{fact:key}` — substituted at spec creation. Facts are also injected
+into LLM agent prompts so drafts use real values instead of inventing
+them. `spec check` reports references to undefined facts and defined
+facts that nothing references.
 
 ## Testing
 

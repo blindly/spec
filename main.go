@@ -27,6 +27,8 @@ Usage:
   spec draft feature <title>         Generate feature draft (LLM agent if configured)
   spec refine <id>                   LLM agent improves an existing spec
   spec status                        Summarize repository spec state
+  spec fact [list|get|set|unset]     Manage .spec/facts.yml project facts
+  spec check                         Audit {fact:key} references vs facts.yml
   spec config                        Show effective configuration
   spec web [--port N]                Web interface (default: web_port from config)
   spec update [tag]                  Self-update to a release (default: latest)
@@ -46,6 +48,8 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 	"trace":     func(a []string, o, e io.Writer) error { return cmdTrace(o, e) },
 	"config":    func(a []string, o, e io.Writer) error { return cmdConfig(o, e) },
 	"status":    func(a []string, o, e io.Writer) error { return cmdStatus(o, e) },
+	"fact":      func(a []string, o, e io.Writer) error { return cmdFact(o, e, a) },
+	"check":     func(a []string, o, e io.Writer) error { return cmdCheck(o, e) },
 	"update": func(a []string, o, e io.Writer) error {
 		tag := ""
 		if len(a) > 0 {

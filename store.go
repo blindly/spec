@@ -148,6 +148,7 @@ func (st Store) Create(specType, title, body string, extra map[string][]string) 
 	for k, v := range extra {
 		meta[k] = v
 	}
+	body = substituteFacts(body, st.Root)
 	path := filepath.Join(dir, id+"-"+slugify(title)+".md")
 	if err := os.WriteFile(path, []byte(dumpFrontmatter(meta, body)), 0o644); err != nil {
 		return Spec{}, err
