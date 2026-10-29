@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,6 +52,12 @@ func resolveAgent(cfg Config) (*agent, error) {
 
 // run sends prompt to the agent and returns its stdout. dir is the cwd.
 func (a *agent) run(prompt, dir string, timeoutSecs int) (string, error) {
+	return a.runLive(prompt, dir, timeoutSecs, nil)
+}
+
+// runLive is run plus optional live streaming: when live is non-nil the
+// agent's stdout is tee'd to it while also being captured for the caller.
+func (a *agent) runLive(prompt, dir string, timeoutSecs int, live io.Writer) (string, error) {
 	var argv []string
 	usesPlaceholder := false
 	for _, arg := range a.argv {
@@ -69,7 +76,11 @@ func (a *agent) run(prompt, dir string, timeoutSecs int) (string, error) {
 		cmd.Stdin = strings.NewReader(prompt)
 	}
 	var out, errOut bytes.Buffer
-	cmd.Stdout = &out
+	if live != nil {
+		cmd.Stdout = io.MultiWriter(&out, live)
+	} else {
+		cmd.Stdout = &out
+	}
 	cmd.Stderr = &errOut
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() == context.DeadlineExceeded {

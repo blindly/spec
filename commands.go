@@ -837,11 +837,10 @@ func cmdApply(out, errOut io.Writer, ids []string, runIt, force bool) error {
 			continue
 		}
 		fmt.Fprintf(out, "Applying %s via %s…\n", s.ID(), ag.name)
-		output, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
-		if err != nil {
+		if _, err := ag.runLive(prompt, st.Root, cfg.AgentTimeout, out); err != nil {
 			return err
 		}
-		fmt.Fprintf(out, "%s\n%s\n", s.ID(), strings.TrimSpace(output))
+		fmt.Fprintf(out, "\n%s done\n", s.ID())
 	}
 	if !runIt {
 		fmt.Fprintln(out, "# Paste the prompt(s) above into your agent CLI. To run the configured agent directly: spec apply --run")
