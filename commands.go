@@ -134,7 +134,18 @@ func cmdBootstrap(out, errOut io.Writer) error {
 		}
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n## Overview\n\nBootstrapped from existing repository.\n\n", title)
+	overview := "Bootstrapped from existing repository."
+	if r := readmeExcerpt(st.Root, 2048); r != "" {
+		// first non-heading paragraph of the README
+		for _, para := range strings.Split(r, "\n\n") {
+			para = strings.TrimSpace(para)
+			if para != "" && !strings.HasPrefix(para, "#") {
+				overview = para
+				break
+			}
+		}
+	}
+	fmt.Fprintf(&b, "# %s\n\n## Overview\n\n%s\n\n", title, overview)
 	b.WriteString("## Goals\n\n- TODO\n\n## Non-Goals\n\n- TODO\n\n## Requirements\n\n- REQ-001: TODO\n\n## Architecture\n\n")
 	if len(features) > 0 {
 		b.WriteString("Detected project files:\n\n")

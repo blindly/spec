@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -98,6 +100,21 @@ func bodyFromAgentOutput(out string) string {
 	return strings.TrimSpace(s) + "\n"
 }
 
+// readmeExcerpt returns the first ~maxBytes of the repo README, if any.
+func readmeExcerpt(root string, maxBytes int) string {
+	for _, name := range []string{"README.md", "README", "Readme.md", "readme.md"} {
+		data, err := os.ReadFile(filepath.Join(root, name))
+		if err == nil && len(data) > 0 {
+			s := toUTF8(data)
+			if len(s) > maxBytes {
+				s = s[:maxBytes] + "\n…"
+			}
+			return strings.TrimSpace(s)
+		}
+	}
+	return ""
+}
+
 // repoContext summarizes the repository for prompt grounding.
 func repoContext(st Store, maxEntries int) string {
 	var b strings.Builder
@@ -110,6 +127,11 @@ func repoContext(st Store, maxEntries int) string {
 		for _, f := range facts {
 			fmt.Fprintf(&b, "- %s: %s\n", f.Key, f.Value)
 		}
+	}
+	if r := readmeExcerpt(st.Root, 2048); r != "" {
+		b.WriteString("\nREADME excerpt:\n")
+		b.WriteString(r)
+		b.WriteString("\n")
 	}
 	b.WriteString("\nProject requirements:\n")
 	for _, s := range st.Specs() {
