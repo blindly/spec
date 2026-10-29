@@ -44,11 +44,14 @@ agent: claude          # none | claude | gemini | codex | aider | opencode | amp
 agent_cmd: "mycli --flag {prompt}"   # custom command; {prompt} = prompt arg,
                                      # omitted = prompt on stdin
 agent_timeout: 300     # seconds
+web_port: 8080         # default port for `spec web` (--port overrides)
+statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
 ```
 
 Agent features are opt-in: the default is `agent: none` and no subprocess
 is ever spawned unless you configure one. `agent_cmd` overrides `agent` —
-useful for custom wrappers.
+useful for custom wrappers. `statuses` controls the valid status list used
+by `spec validate`, the web editor dropdown, and `spec roadmap` ordering.
 
 ## Testing
 

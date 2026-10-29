@@ -112,7 +112,7 @@ func main() {
 		fmt.Println("spec " + version)
 	case "web":
 		fs := flag.NewFlagSet("web", flag.ContinueOnError)
-		port := fs.Int("port", 8080, "port to listen on")
+		port := fs.Int("port", 0, "port to listen on (0 = web_port from config)")
 		fs.Parse(os.Args[2:])
 		err = cmdWeb(*port)
 	case "help", "--help", "-h":

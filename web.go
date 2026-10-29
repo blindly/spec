@@ -12,8 +12,6 @@ import (
 	"sync"
 )
 
-var webStatuses = []string{"draft", "proposed", "accepted", "implemented", "deprecated", "rejected"}
-
 func webToken() string {
 	b := make([]byte, 16)
 	rand.Read(b)
@@ -32,6 +30,11 @@ nav a{margin-right:1em}</style></head><body>
 
 func cmdWeb(port int) error {
 	st := mustStore()
+	cfg := loadConfig(st.Root)
+	if port == 0 {
+		port = cfg.WebPort
+	}
+	statuses := cfg.Statuses
 	token := webToken()
 	var writeMu sync.Mutex
 
@@ -116,7 +119,7 @@ func cmdWeb(port int) error {
 		fmt.Fprintf(&b, `<h1>Edit %s — %s</h1>
 <form method="post" action="/edit/%s"><input type="hidden" name="token" value="%s">
 <p>status: <select name="status">`, s.ID(), html.EscapeString(s.Title()), s.ID(), token)
-		for _, status := range webStatuses {
+		for _, status := range statuses {
 			sel := ""
 			if s.Status() == status {
 				sel = " selected"
@@ -148,7 +151,7 @@ func cmdWeb(port int) error {
 		status := r.FormValue("status")
 		body := r.FormValue("body")
 		validStatus := false
-		for _, v := range webStatuses {
+		for _, v := range statuses {
 			if status == v {
 				validStatus = true
 			}

@@ -10,13 +10,17 @@ import (
 
 // Config is loaded from .spec/config.yml (flat "key: value" lines, "#" comments).
 type Config struct {
-	Agent        string // auto | none | adapter name
-	AgentCmd     string // custom command; %s is replaced by the prompt, else prompt goes to stdin
-	AgentTimeout int    // seconds
+	Agent        string   // none | adapter name
+	AgentCmd     string   // custom command; {prompt} is replaced by the prompt, else prompt goes to stdin
+	AgentTimeout int      // seconds
+	WebPort      int      // default port for `spec web`
+	Statuses     []string // valid spec statuses
 }
 
+var defaultStatuses = []string{"draft", "proposed", "accepted", "implemented", "deprecated", "rejected"}
+
 func defaultConfig() Config {
-	return Config{Agent: "none", AgentTimeout: 300}
+	return Config{Agent: "none", AgentTimeout: 300, WebPort: 8080, Statuses: defaultStatuses}
 }
 
 func loadConfig(root string) Config {
@@ -35,15 +39,30 @@ func loadConfig(root string) Config {
 			continue
 		}
 		k, v = strings.TrimSpace(k), strings.TrimSpace(v)
-		v = strings.Trim(v, `"'`)
 		switch k {
 		case "agent":
-			cfg.Agent = v
+			cfg.Agent = strings.Trim(v, `"'`)
 		case "agent_cmd":
-			cfg.AgentCmd = v
+			cfg.AgentCmd = strings.Trim(v, `"'`)
 		case "agent_timeout":
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				cfg.AgentTimeout = n
+			}
+		case "web_port":
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				cfg.WebPort = n
+			}
+		case "statuses":
+			if strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]") {
+				var list []string
+				for _, item := range strings.Split(v[1:len(v)-1], ",") {
+					if item = strings.TrimSpace(item); item != "" {
+						list = append(list, item)
+					}
+				}
+				if len(list) > 0 {
+					cfg.Statuses = list
+				}
 			}
 		}
 	}
@@ -51,6 +70,16 @@ func loadConfig(root string) Config {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d",
-		c.Agent, c.AgentCmd, c.AgentTimeout)
+	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_port: %d\nstatuses: [%s]",
+		c.Agent, c.AgentCmd, c.AgentTimeout, c.WebPort, strings.Join(c.Statuses, ", "))
+}
+
+// validStatus reports whether s is in the configured status list.
+func (c Config) validStatus(s string) bool {
+	for _, v := range c.Statuses {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
