@@ -706,6 +706,73 @@ func cmdTrace(out, errOut io.Writer) error {
 	return nil
 }
 
+// applyableStatus reports whether a spec is eligible for `spec apply`
+// without --force.
+func applyableStatus(s Spec) bool {
+	return s.Type() == "feature" && (s.Status() == "accepted" || s.Status() == "proposed")
+}
+
+func cmdApply(out, errOut io.Writer, ids []string, runIt, force bool) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
+	var targets []Spec
+	if len(ids) == 0 {
+		for _, s := range st.Specs() {
+			if applyableStatus(s) {
+				targets = append(targets, s)
+			}
+		}
+		if len(targets) == 0 {
+			fmt.Fprintln(out, "No accepted/proposed feature specs to apply.")
+			return nil
+		}
+	} else {
+		for _, id := range ids {
+			s := st.Get(id)
+			if s == nil {
+				return fmt.Errorf("no spec with id %s", id)
+			}
+			if !applyableStatus(*s) && !force {
+				return fmt.Errorf("%s is %s (type %s) — apply targets accepted/proposed features (use --force to override)", s.ID(), s.Status(), s.Type())
+			}
+			targets = append(targets, *s)
+		}
+	}
+
+	var ag *agent
+	cfg := loadConfig(st.Root)
+	if runIt {
+		var aerr error
+		ag, aerr = resolveAgent(cfg)
+		if aerr != nil {
+			return aerr
+		}
+		if ag == nil {
+			return fmt.Errorf("--run requires an LLM agent (none configured; set agent/agent_cmd in .spec/config.yml)")
+		}
+	}
+
+	for _, s := range targets {
+		prompt := fmt.Sprintf(applyPromptFmt, s.ID(), s.Title(), s.Body, repoContext(st, 50))
+		if !runIt {
+			fmt.Fprintf(out, "# ---- apply prompt for %s ----\n\n%s\n\n", s.ID(), prompt)
+			continue
+		}
+		fmt.Fprintf(out, "Applying %s via %s…\n", s.ID(), ag.name)
+		output, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "%s\n%s\n", s.ID(), strings.TrimSpace(output))
+	}
+	if !runIt {
+		fmt.Fprintln(out, "# Paste the prompt(s) above into your agent CLI. To run the configured agent directly: spec apply --run")
+	}
+	return nil
+}
+
 func cmdDraftFeature(out, errOut io.Writer, title string) error {
 	st, err := mustStore()
 	if err != nil {

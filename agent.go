@@ -174,6 +174,20 @@ Rules:
 Repository context:
 %s`
 
+const applyPromptFmt = `You are implementing a feature specification in this repository.
+
+Feature spec %s (%s):
+
+%s
+
+Rules:
+- Modify the codebase so the spec's Acceptance Criteria are met.
+- Keep changes focused on this spec; do not rewrite unrelated code.
+- Do not edit the spec files under specs/.
+- When you are done, update the spec file's frontmatter status to "implemented".
+
+%s`
+
 const refinePromptFmt = `You are improving an existing %s specification (id %s, title %q).
 
 Current body:

@@ -26,6 +26,7 @@ Usage:
   spec trace                         Requirements traceability
   spec draft feature <title>         Generate feature draft (LLM agent if configured)
   spec refine <id>                   LLM agent improves an existing spec
+  spec apply [--run|--force] [id...] Print apply prompt(s); --run executes the agent
   spec status                        Summarize repository spec state
   spec fact [list|get|set|unset]     Manage .spec/facts.yml project facts
   spec check                         Audit {fact:key} references vs facts.yml
@@ -88,6 +89,16 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 			file = a[0]
 		}
 		return cmdRoadmap(o, e, file)
+	},
+	"apply": func(a []string, o, e io.Writer) error {
+		fs := flag.NewFlagSet("apply", flag.ContinueOnError)
+		fs.SetOutput(e)
+		runIt := fs.Bool("run", false, "run the configured agent instead of printing the prompt")
+		force := fs.Bool("force", false, "apply specs not yet accepted/proposed")
+		if err := fs.Parse(a); err != nil {
+			return err
+		}
+		return cmdApply(o, e, fs.Args(), *runIt, *force)
 	},
 	"refine": func(a []string, o, e io.Writer) error {
 		if len(a) < 1 {

@@ -81,7 +81,9 @@ func cmdUpdate(out, errOut io.Writer, requested string) error {
 		return err
 	}
 	fmt.Fprintln(out, "Latest release:", rel.Tag)
-	if version != "dev" && "v"+version == rel.Tag {
+	if version == "dev" {
+		fmt.Fprintln(errOut, "note: this is a dev build; installing release over it")
+	} else if "v"+version == rel.Tag {
 		fmt.Fprintln(out, "Already up to date.")
 		return nil
 	}
@@ -131,15 +133,8 @@ func cmdUpdate(out, errOut io.Writer, requested string) error {
 	if err := os.WriteFile(tmp, data, 0o755); err != nil {
 		return err
 	}
-	// Windows refuses to replace a running exe in place; move it aside first.
-	old := self + ".old"
-	os.Remove(old)
-	if err := os.Rename(self, old); err != nil {
+	if err := replaceFile(tmp, self); err != nil {
 		os.Remove(tmp)
-		return err
-	}
-	if err := os.Rename(tmp, self); err != nil {
-		os.Rename(old, self) // restore
 		return err
 	}
 	fmt.Fprintf(out, "Updated %s to %s\n", self, rel.Tag)

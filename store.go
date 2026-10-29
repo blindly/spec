@@ -54,10 +54,30 @@ func (s Spec) Field(k string) []string {
 	return s.Meta[k]
 }
 
+// replaceFile moves tmp over dst atomically; on Windows a rename over an
+// existing file fails, so dst is moved aside first and restored on error.
+func replaceFile(tmp, dst string) error {
+	old := dst + ".old"
+	os.Remove(old)
+	if err := os.Rename(dst, old); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Rename(tmp, dst); err != nil {
+		os.Rename(old, dst) // restore
+		return err
+	}
+	return nil
+}
+
 func (s Spec) Sections() []string {
 	var out []string
+	inCode := false
 	for _, line := range strings.Split(s.Body, "\n") {
-		if strings.HasPrefix(line, "## ") {
+		if strings.HasPrefix(strings.TrimSpace(line), "```") {
+			inCode = !inCode
+			continue
+		}
+		if !inCode && strings.HasPrefix(line, "## ") {
 			out = append(out, strings.TrimSpace(line[3:]))
 		}
 	}

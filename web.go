@@ -205,7 +205,7 @@ autoDownloadFontAwesome: false, spellChecker: false, status: ['lines','words','c
 		tmp := s.Path + ".tmp"
 		err := os.WriteFile(tmp, []byte(dumpFrontmatter(meta, body)), 0o644)
 		if err == nil {
-			err = os.Rename(tmp, s.Path)
+			err = replaceFile(tmp, s.Path)
 		}
 		writeMu.Unlock()
 		if err != nil {
