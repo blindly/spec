@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -201,14 +202,51 @@ func cmdRefine(out, errOut io.Writer, id string) error {
 	return nil
 }
 
-func cmdConfig(out, errOut io.Writer, initGlobal bool) error {
-	if initGlobal {
-		path, err := initGlobalConfig()
-		if err != nil {
-			return err
+func cmdConfig(out, errOut io.Writer, args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "init":
+			path, err := initGlobalConfig()
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(out, "Wrote", path)
+			return nil
+		case "edit":
+			target := "global"
+			if len(args) > 1 {
+				target = args[1]
+			}
+			var path string
+			var cfg Config
+			if target == "repo" {
+				st, err := mustStore()
+				if err != nil {
+					return err
+				}
+				path = filepath.Join(st.Root, configDir, "config.yml")
+				cfg = loadConfig(st.Root)
+			} else if target == "global" {
+				path = globalConfigPath()
+				if path == "" {
+					return fmt.Errorf("cannot determine home directory")
+				}
+				if _, err := os.Stat(path); os.IsNotExist(err) {
+					if _, err := initGlobalConfig(); err != nil {
+						return err
+					}
+				}
+				cfg = loadConfig("")
+			} else {
+				return fmt.Errorf("usage: spec config edit [global|repo]")
+			}
+			fmt.Fprintf(out, "Opening %s with %s\n", path, cfg.editor())
+			cmd := exec.Command(cfg.editor(), path)
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			return cmd.Run()
 		}
-		fmt.Fprintln(out, "Wrote", path)
-		return nil
 	}
 	st, err := mustStore()
 	if err != nil {

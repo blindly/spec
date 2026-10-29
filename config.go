@@ -16,6 +16,7 @@ type Config struct {
 	WebPort      int      // default port for `spec web`
 	WebHost      string   // bind address for `spec web` (127.0.0.1 or 0.0.0.0)
 	Statuses     []string // valid spec statuses
+	Editor       string   // editor command for `spec config edit`
 }
 
 var defaultStatuses = []string{"draft", "proposed", "accepted", "implemented", "deprecated", "rejected"}
@@ -75,6 +76,8 @@ func loadConfig(root string) Config {
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				cfg.AgentTimeout = n
 			}
+		case "editor":
+			cfg.Editor = strings.Trim(v, `"'`)
 		case "web_host":
 			cfg.WebHost = strings.Trim(v, `"'`)
 		case "web_port":
@@ -117,6 +120,9 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 
 # Lifecycle
 # statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
+
+# Editor for spec config edit (falls back to $EDITOR, then vi)
+# editor: vim
 `
 
 // initGlobalConfig writes the annotated template; refuses to overwrite.
@@ -132,6 +138,17 @@ func initGlobalConfig() (string, error) {
 		return "", err
 	}
 	return path, os.WriteFile(path, []byte(globalConfigTemplate), 0o644)
+}
+
+// editor resolves the configured editor: config key, then $EDITOR, then vi.
+func (c Config) editor() string {
+	if c.Editor != "" {
+		return c.Editor
+	}
+	if e := os.Getenv("EDITOR"); e != "" {
+		return e
+	}
+	return "vi"
 }
 
 // validStatus reports whether s is in the configured status list.
