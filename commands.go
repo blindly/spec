@@ -313,6 +313,93 @@ func cmdSearch(out, errOut io.Writer, query string) error {
 
 var reqPattern = regexp.MustCompile(`REQ-\d+`)
 
+func cmdStatus(out, errOut io.Writer) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
+	cfg := loadConfig(st.Root)
+	specs := st.Specs()
+
+	byType := map[string]int{}
+	byStatus := map[string]int{}
+	for _, s := range specs {
+		byType[s.Type()]++
+		byStatus[s.Status()]++
+	}
+
+	fmt.Fprintf(out, "Repository: %s\n\n", st.Root)
+	fmt.Fprintf(out, "Specs: %d\n", len(specs))
+	for _, t := range []string{"project", "feature", "adr", "imported"} {
+		if byType[t] > 0 {
+			fmt.Fprintf(out, "  %-10s %d\n", t, byType[t])
+		}
+	}
+	fmt.Fprintln(out, "By status:")
+	for _, status := range cfg.Statuses {
+		if byStatus[status] > 0 {
+			fmt.Fprintf(out, "  %-12s %d\n", status, byStatus[status])
+		}
+	}
+	for status, n := range byStatus {
+		if !cfg.validStatus(status) {
+			fmt.Fprintf(out, "  %-12s %d (not in config)\n", status, n)
+		}
+	}
+
+	// Requirement coverage
+	defined := map[string]bool{}
+	var order []string
+	for _, s := range specs {
+		if s.Type() != "project" {
+			continue
+		}
+		for _, m := range reqPattern.FindAllString(s.Body, -1) {
+			if !defined[m] {
+				defined[m] = true
+				order = append(order, m)
+			}
+		}
+	}
+	if len(order) > 0 {
+		covered := 0
+		for _, req := range order {
+			for _, s := range specs {
+				if s.Type() != "feature" {
+					continue
+				}
+				if strings.Contains(strings.Join(reqPattern.FindAllString(s.Body, -1), " "), req) {
+					covered++
+					break
+				}
+			}
+		}
+		fmt.Fprintf(out, "\nRequirements: %d/%d traced to features\n", covered, len(order))
+	}
+
+	deps := 0
+	for _, s := range specs {
+		deps += len(s.Field("depends_on"))
+	}
+	if deps > 0 {
+		fmt.Fprintf(out, "Dependencies: %d declared\n", deps)
+	}
+	if c := findCycle(specs); c != nil {
+		fmt.Fprintf(out, "Warning: dependency cycle: %s\n", strings.Join(c, " -> "))
+	}
+
+	ag, aerr := resolveAgent(cfg)
+	switch {
+	case aerr != nil:
+		fmt.Fprintf(out, "Agent: error: %s\n", aerr)
+	case ag != nil:
+		fmt.Fprintf(out, "Agent: %s\n", ag.name)
+	default:
+		fmt.Fprintln(out, "Agent: none configured")
+	}
+	return nil
+}
+
 func cmdValidate(out, errOut io.Writer) error {
 	st, err := mustStore()
 	if err != nil {

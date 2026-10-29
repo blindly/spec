@@ -27,6 +27,7 @@ go build -o spec .
 | `spec trace` | Requirements traceability matrix (REQ → features) |
 | `spec draft feature <title>` | Generate a feature draft (LLM agent if configured, else heuristic) |
 | `spec refine <id>` | LLM agent rewrites an existing spec's body in place |
+| `spec status` | Summarize repo spec state (counts, coverage, agent) |
 | `spec config` | Show effective configuration and resolved agent |
 | `spec web [--port N]` | Local web UI: browse, create, edit body/status (default :8080) |
 

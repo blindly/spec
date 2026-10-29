@@ -26,6 +26,7 @@ Usage:
   spec trace                         Requirements traceability
   spec draft feature <title>         Generate feature draft (LLM agent if configured)
   spec refine <id>                   LLM agent improves an existing spec
+  spec status                        Summarize repository spec state
   spec config                        Show effective configuration
   spec web [--port N]                Web interface (default: web_port from config)
   spec update [tag]                  Self-update to a release (default: latest)
@@ -44,6 +45,7 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 	"validate":  func(a []string, o, e io.Writer) error { return cmdValidate(o, e) },
 	"trace":     func(a []string, o, e io.Writer) error { return cmdTrace(o, e) },
 	"config":    func(a []string, o, e io.Writer) error { return cmdConfig(o, e) },
+	"status":    func(a []string, o, e io.Writer) error { return cmdStatus(o, e) },
 	"update": func(a []string, o, e io.Writer) error {
 		tag := ""
 		if len(a) > 0 {
