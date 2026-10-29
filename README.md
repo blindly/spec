@@ -25,10 +25,29 @@ go build -o spec .
 | `spec roadmap [file.md]` | Generate a roadmap grouped by status |
 | `spec graph [--mermaid]` | Dependency graph from `depends_on` frontmatter |
 | `spec trace` | Requirements traceability matrix (REQ → features) |
-| `spec draft feature <title>` | Generate a feature draft, auto-linking matching requirements |
+| `spec draft feature <title>` | Generate a feature draft (LLM agent if configured, else heuristic) |
+| `spec refine <id>` | LLM agent rewrites an existing spec's body in place |
+| `spec config` | Show effective configuration and resolved agent |
 | `spec web [--port N]` | Optional local web interface (default :8080) |
 
-All operations are filesystem-only; no network access is required.
+All operations are filesystem-only; no network access is required. LLM
+agent commands (`draft`, `bootstrap`, `refine`) only run if you configure
+or have an agent CLI installed; without one they fall back to offline
+heuristics (`refine` has no fallback and reports an error).
+
+## Agent configuration
+
+`.spec/config.yml`:
+
+```yaml
+agent: auto            # auto | none | claude | gemini | codex | aider | opencode | amp
+agent_cmd: "mycli --flag {prompt}"   # custom command; {prompt} = prompt arg,
+                                     # omitted = prompt on stdin
+agent_timeout: 300     # seconds
+```
+
+With `agent: auto` the first CLI found on `PATH` wins, in the order listed
+above. `agent_cmd` overrides everything — useful for custom wrappers.
 
 ## Testing
 

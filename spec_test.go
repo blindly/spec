@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -150,6 +151,67 @@ func TestBootstrapAndRoadmapAndGraph(t *testing.T) {
 	}
 	if err := cmdAnalyze(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestConfigParsing(t *testing.T) {
+	st := setupRepo(t)
+	cfg := loadConfig(st.Root)
+	if cfg.Agent != "auto" || cfg.AgentTimeout != 300 {
+		t.Fatalf("defaults: %+v", cfg)
+	}
+	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"),
+		[]byte("agent: none\nagent_timeout: 42\n"), 0o644)
+	cfg = loadConfig(st.Root)
+	if cfg.Agent != "none" || cfg.AgentTimeout != 42 {
+		t.Fatalf("parsed: %+v", cfg)
+	}
+}
+
+func TestBodyFromAgentOutput(t *testing.T) {
+	withFM := "---\nid: X\n---\n\n# T\n\nbody\n"
+	if got := bodyFromAgentOutput(withFM); !strings.Contains(got, "# T") || strings.Contains(got, "---") {
+		t.Fatalf("frontmatter not stripped: %q", got)
+	}
+	fenced := "```markdown\n# T\n\nbody\n```\n"
+	if got := bodyFromAgentOutput(fenced); strings.Contains(got, "```") {
+		t.Fatalf("fence not stripped: %q", got)
+	}
+}
+
+func TestAgentDraftAndRefine(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fake agent")
+	}
+	st := setupRepo(t)
+	fake := filepath.Join(st.Root, "fakeagent.sh")
+	os.WriteFile(fake, []byte("#!/bin/sh\ncat > /dev/null\nprintf '# Agent Spec\\n\\n## Summary\\n\\nAI content.\\n\\n## Design\\n\\nD.\\n\\n## Acceptance Criteria\\n\\n- [ ] x\\n'\n"), 0o755)
+	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"),
+		[]byte("agent_cmd: sh "+fake+"\n"), 0o644)
+	if ag := resolveAgent(loadConfig(st.Root)); ag == nil {
+		t.Fatal("agent_cmd not resolved")
+	}
+	if err := cmdDraftFeature("agent feature"); err != nil {
+		t.Fatal(err)
+	}
+	feat := st.Get("FEAT-001")
+	if feat == nil || !strings.Contains(feat.Body, "AI content") {
+		t.Fatalf("agent body not used: %+v", feat)
+	}
+	if err := cmdRefine("FEAT-001"); err != nil {
+		t.Fatal(err)
+	}
+	if st.Get("FEAT-001").Meta["id"][0] != "FEAT-001" {
+		t.Fatal("refine clobbered frontmatter")
+	}
+}
+
+func TestRefineWithoutAgentFails(t *testing.T) {
+	st := setupRepo(t)
+	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"), []byte("agent: none\n"), 0o644)
+	cmdNew("feature", "x")
+	if err := cmdRefine("FEAT-001"); err == nil {
+		t.Fatal("expected error with agent: none")
 	}
 }
 

@@ -27,7 +27,9 @@ type Spec struct {
 	Body string
 }
 
-func (s Spec) ID() string     { return metaGet(s.Meta, "id", strings.TrimSuffix(filepath.Base(s.Path), ".md")) }
+func (s Spec) ID() string {
+	return metaGet(s.Meta, "id", strings.TrimSuffix(filepath.Base(s.Path), ".md"))
+}
 func (s Spec) Title() string  { return metaGet(s.Meta, "title", s.ID()) }
 func (s Spec) Type() string   { return metaGet(s.Meta, "type", "") }
 func (s Spec) Status() string { return metaGet(s.Meta, "status", "draft") }

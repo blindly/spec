@@ -21,8 +21,15 @@ Usage:
   spec roadmap [file.md]             Generate roadmap
   spec graph [--mermaid]             Dependency graph
   spec trace                         Requirements traceability
-  spec draft feature <title>         Generate feature draft
+  spec draft feature <title>         Generate feature draft (LLM agent if configured)
+  spec refine <id>                   LLM agent improves an existing spec
+  spec config                        Show effective configuration
   spec web [--port N]                Web interface (default :8080)
+
+Agent configuration lives in .spec/config.yml:
+  agent: auto|none|claude|gemini|codex|aider|opencode|amp
+  agent_cmd: "mycli --flag {prompt}" # {prompt} = prompt arg; absent = prompt via stdin
+  agent_timeout: 300                 # seconds
 `
 
 func main() {
@@ -77,6 +84,14 @@ func main() {
 		err = cmdGraph(*mermaid)
 	case "trace":
 		err = cmdTrace()
+	case "refine":
+		if len(os.Args) < 3 {
+			err = fmt.Errorf("usage: spec refine <id>")
+		} else {
+			err = cmdRefine(os.Args[2])
+		}
+	case "config":
+		err = cmdConfig()
 	case "draft":
 		if len(os.Args) < 4 || os.Args[2] != "feature" {
 			err = fmt.Errorf("usage: spec draft feature <title>")

@@ -37,7 +37,7 @@ func cmdInit() error {
 	}
 	config := filepath.Join(configDir, "config.yml")
 	if _, err := os.Stat(config); os.IsNotExist(err) {
-		if err := os.WriteFile(config, []byte("version: 1\n"), 0o644); err != nil {
+		if err := os.WriteFile(config, []byte("version: 1\nagent: auto\n# agent_cmd: mycli --flag {prompt}\n# agent_timeout: 300\n"), 0o644); err != nil {
 			return err
 		}
 	}
@@ -83,6 +83,26 @@ func cmdBootstrap() error {
 	})
 
 	title := filepath.Base(st.Root)
+	cfg := loadConfig(st.Root)
+	if ag := resolveAgent(cfg); ag != nil {
+		var ctx strings.Builder
+		fmt.Fprintf(&ctx, "Manifest files: %s\nDocumentation files: %s\n",
+			strings.Join(features, ", "), strings.Join(docs, ", "))
+		ctx.WriteString(repoContext(st, 50))
+		prompt := fmt.Sprintf(bootstrapPromptFmt, title,
+			fmt.Sprintf(projectTemplate, title), ctx.String())
+		out, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "warning:", err, "— falling back to heuristic bootstrap")
+		} else {
+			s, err := st.Create("project", title, bodyFromAgentOutput(out), nil)
+			if err != nil {
+				return err
+			}
+			fmt.Println("Created", s.Path, "via", ag.name)
+			return nil
+		}
+	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n## Overview\n\nBootstrapped from existing repository.\n\n", title)
 	b.WriteString("## Goals\n\n- TODO\n\n## Non-Goals\n\n- TODO\n\n## Requirements\n\n- REQ-001: TODO\n\n## Architecture\n\n")
@@ -103,6 +123,42 @@ func cmdBootstrap() error {
 		return err
 	}
 	fmt.Println("Created", s.Path)
+	return nil
+}
+
+func cmdRefine(id string) error {
+	st := mustStore()
+	s := st.Get(id)
+	if s == nil {
+		return fmt.Errorf("no spec with id %s", id)
+	}
+	cfg := loadConfig(st.Root)
+	ag := resolveAgent(cfg)
+	if ag == nil {
+		return fmt.Errorf("refine requires an LLM agent (none found; set agent/agent_cmd in .spec/config.yml)")
+	}
+	prompt := fmt.Sprintf(refinePromptFmt, s.Type(), s.ID(), s.Title(), s.Body, repoContext(st, 50))
+	out, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
+	if err != nil {
+		return err
+	}
+	body := bodyFromAgentOutput(out)
+	if err := os.WriteFile(s.Path, []byte(dumpFrontmatter(s.Meta, body)), 0o644); err != nil {
+		return err
+	}
+	fmt.Println("Refined", s.Path, "via", ag.name)
+	return nil
+}
+
+func cmdConfig() error {
+	st := mustStore()
+	cfg := loadConfig(st.Root)
+	fmt.Println(cfg.String())
+	if ag := resolveAgent(cfg); ag != nil {
+		fmt.Println("resolved agent:", ag.name)
+	} else {
+		fmt.Println("resolved agent: none")
+	}
 	return nil
 }
 
@@ -413,7 +469,23 @@ func cmdTrace() error {
 
 func cmdDraftFeature(title string) error {
 	st := mustStore()
-	// Offline "AI-assisted" draft: infer relevant requirements by matching
+	cfg := loadConfig(st.Root)
+	if ag := resolveAgent(cfg); ag != nil {
+		prompt := fmt.Sprintf(draftPromptFmt, title,
+			fmt.Sprintf(featureTemplate, title), repoContext(st, 50))
+		out, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "warning:", err, "— falling back to heuristic draft")
+		} else {
+			s, err := st.Create("feature", title, bodyFromAgentOutput(out), nil)
+			if err != nil {
+				return err
+			}
+			fmt.Println("Drafted", s.Path, "via", ag.name)
+			return nil
+		}
+	}
+	// Offline fallback: infer relevant requirements by matching
 	// title keywords against requirement text in project specs.
 	words := map[string]bool{}
 	for _, w := range regexp.MustCompile(`[a-z0-9]+`).FindAllString(strings.ToLower(title), -1) {
