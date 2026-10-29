@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -101,6 +102,33 @@ func TestWebEditSpec(t *testing.T) {
 	data, _ := os.ReadFile(st.Get("FEAT-001").Path)
 	if !strings.Contains(string(data), "status: accepted") || !strings.Contains(string(data), "edited.") {
 		t.Fatalf("file not updated:\n%s", data)
+	}
+}
+
+func TestWebAgents(t *testing.T) {
+	st, srv, _ := setupWeb(t)
+	get := func() string {
+		resp, err := http.Get(srv.URL + "/agents")
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return string(body)
+	}
+	// seeded AGENTS.md renders
+	if body := get(); !strings.Contains(body, "Agent instructions") {
+		t.Fatalf("agents page missing seeded AGENTS.md: %s", body)
+	}
+	// falls back to CLAUDE.md
+	os.Remove(filepath.Join(st.Root, "AGENTS.md"))
+	if body := get(); !strings.Contains(body, "@AGENTS.md") {
+		t.Fatalf("agents page missing CLAUDE.md fallback: %s", body)
+	}
+	// neither → friendly message
+	os.Remove(filepath.Join(st.Root, "CLAUDE.md"))
+	if body := get(); !strings.Contains(body, "No AGENTS.md or CLAUDE.md") {
+		t.Fatalf("agents page missing empty state: %s", body)
 	}
 }
 

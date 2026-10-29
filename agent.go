@@ -140,6 +140,18 @@ func readmeExcerpt(root string, maxBytes int) string {
 	return ""
 }
 
+// agentsExcerpt returns the repo's agent-instructions doc (AGENTS.md preferred,
+// else CLAUDE.md) and the filename it came from.
+func agentsExcerpt(root string) (string, string) {
+	for _, name := range []string{"AGENTS.md", "CLAUDE.md", "agents.md", "Agents.md", "claude.md", "Claude.md"} {
+		data, err := os.ReadFile(filepath.Join(root, name))
+		if err == nil && len(data) > 0 {
+			return strings.TrimSpace(toUTF8(data)), name
+		}
+	}
+	return "", ""
+}
+
 // repoContext summarizes the repository for prompt grounding.
 func repoContext(st Store, maxEntries int) string {
 	var b strings.Builder

@@ -14,7 +14,7 @@ go build -o spec .
 
 | Command | Description |
 | --- | --- |
-| `spec init` | Initialize spec management in a repository |
+| `spec init` | Initialize spec management in a repository (also seeds `AGENTS.md` + `CLAUDE.md`) |
 | `spec new project\|feature\|adr <title>` | Create a specification |
 | `spec bootstrap` | Generate a project spec from an existing repo |
 | `spec import <file>` | Import existing documentation |
@@ -33,7 +33,7 @@ go build -o spec .
 | `spec check` | Audit `{fact:key}` references against facts.yml |
 | `spec verify` | Run configured `verify: [...]` commands (tests, validate, check) |
 | `spec config` | Show effective configuration and resolved agent |
-| `spec web [--port N]` | Local web UI: browse, create, edit body/status (default :8080) |
+| `spec web [--port N]` | Local web UI: browse, create, edit body/status, view README/agent docs (default :8080) |
 
 All operations are filesystem-only; no network access is required. LLM
 agent commands (`draft`, `bootstrap`, `refine`) only run if you configure

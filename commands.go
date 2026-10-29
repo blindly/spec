@@ -68,6 +68,16 @@ func cmdInit(out, errOut io.Writer) error {
 			return err
 		}
 	}
+	for path, content := range map[string]string{
+		"AGENTS.md": agentsTemplate,
+		"CLAUDE.md": claudeTemplate,
+	} {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+				return err
+			}
+		}
+	}
 	fmt.Fprintln(out, "Initialized spec repository.")
 	return nil
 }

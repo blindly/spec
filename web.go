@@ -26,7 +26,7 @@ func page(w http.ResponseWriter, title, body string) {
 <link rel="stylesheet" href="/assets/water/water.min.css">
 <style>nav a{margin-right:1em}textarea{font-family:monospace}
 footer{margin-top:2em;font-size:.85em;color:var(--text-muted,#777)}</style></head><body>
-<nav><a href="/">specs</a><a href="/new">new spec</a><a href="/readme">readme</a></nav>%s
+<nav><a href="/">specs</a><a href="/new">new spec</a><a href="/readme">readme</a><a href="/agents">agents</a></nav>%s
 <footer>spec %s</footer></body></html>`,
 		html.EscapeString(title), body, html.EscapeString(version))
 }
@@ -132,6 +132,15 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			return
 		}
 		page(w, "readme", "<h1>README</h1>"+mdBlock(readme))
+	})
+
+	mux.HandleFunc("/agents", func(w http.ResponseWriter, r *http.Request) {
+		doc, name := agentsExcerpt(st.Root)
+		if doc == "" {
+			page(w, "agents", "<h1>Agent instructions</h1><p>No AGENTS.md or CLAUDE.md found in repository root.</p>")
+			return
+		}
+		page(w, "agents", "<h1>"+name+"</h1>"+mdBlock(doc))
 	})
 
 	renderEdit := func(w http.ResponseWriter, s Spec, errMsg string) {
