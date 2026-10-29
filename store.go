@@ -30,7 +30,8 @@ type Spec struct {
 func (s Spec) ID() string {
 	return metaGet(s.Meta, "id", strings.TrimSuffix(filepath.Base(s.Path), ".md"))
 }
-func (s Spec) Title() string  { return metaGet(s.Meta, "title", s.ID()) }
+func (s Spec) Title() string { return metaGet(s.Meta, "title", s.ID()) }
+
 // Type returns the frontmatter type, falling back to the parent directory
 // name (features→feature, adr→adr, imported→imported, project→project).
 func (s Spec) Type() string {
