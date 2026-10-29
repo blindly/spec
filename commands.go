@@ -37,7 +37,7 @@ func cmdInit() error {
 	}
 	config := filepath.Join(configDir, "config.yml")
 	if _, err := os.Stat(config); os.IsNotExist(err) {
-		if err := os.WriteFile(config, []byte("version: 1\nagent: auto\n# agent_cmd: mycli --flag {prompt}\n# agent_timeout: 300\n"), 0o644); err != nil {
+		if err := os.WriteFile(config, []byte("version: 1\n# agent: claude\n# agent_cmd: mycli --flag {prompt}\n# agent_timeout: 300\n"), 0o644); err != nil {
 			return err
 		}
 	}

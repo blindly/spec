@@ -27,7 +27,7 @@ Usage:
   spec web [--port N]                Web interface (default :8080)
 
 Agent configuration lives in .spec/config.yml:
-  agent: auto|none|claude|gemini|codex|aider|opencode|amp
+  agent: none|claude|gemini|codex|aider|opencode|amp   (default: none)
   agent_cmd: "mycli --flag {prompt}" # {prompt} = prompt arg; absent = prompt via stdin
   agent_timeout: 300                 # seconds
 `

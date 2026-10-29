@@ -26,31 +26,22 @@ var knownAdapters = map[string][]string{
 	"amp":      {"amp", "-x", "{prompt}"},
 }
 
-// autoDetectOrder is the preference order when agent: auto.
-var autoDetectOrder = []string{"claude", "gemini", "codex", "aider", "opencode", "amp"}
-
-// resolveAgent picks an agent per config. Returns nil when disabled or none found.
+// resolveAgent picks an agent per config. Returns nil when none is configured.
 func resolveAgent(cfg Config) *agent {
-	if cfg.Agent == "none" {
-		return nil
-	}
 	if cfg.AgentCmd != "" {
 		return &agent{name: "custom", argv: strings.Fields(cfg.AgentCmd)}
 	}
-	names := autoDetectOrder
-	if cfg.Agent != "auto" && cfg.Agent != "" {
-		names = []string{cfg.Agent}
+	if cfg.Agent == "" || cfg.Agent == "none" {
+		return nil
 	}
-	for _, name := range names {
-		argv, ok := knownAdapters[name]
-		if !ok {
-			continue
-		}
-		if _, err := exec.LookPath(argv[0]); err == nil {
-			return &agent{name: name, argv: argv}
-		}
+	argv, ok := knownAdapters[cfg.Agent]
+	if !ok {
+		return nil
 	}
-	return nil
+	if _, err := exec.LookPath(argv[0]); err != nil {
+		return nil
+	}
+	return &agent{name: cfg.Agent, argv: argv}
 }
 
 // run sends prompt to the agent and returns its stdout. dir is the cwd.

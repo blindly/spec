@@ -40,14 +40,15 @@ heuristics (`refine` has no fallback and reports an error).
 `.spec/config.yml`:
 
 ```yaml
-agent: auto            # auto | none | claude | gemini | codex | aider | opencode | amp
+agent: claude          # none | claude | gemini | codex | aider | opencode | amp
 agent_cmd: "mycli --flag {prompt}"   # custom command; {prompt} = prompt arg,
                                      # omitted = prompt on stdin
 agent_timeout: 300     # seconds
 ```
 
-With `agent: auto` the first CLI found on `PATH` wins, in the order listed
-above. `agent_cmd` overrides everything — useful for custom wrappers.
+Agent features are opt-in: the default is `agent: none` and no subprocess
+is ever spawned unless you configure one. `agent_cmd` overrides `agent` —
+useful for custom wrappers.
 
 ## Testing
 

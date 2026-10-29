@@ -16,7 +16,7 @@ type Config struct {
 }
 
 func defaultConfig() Config {
-	return Config{Agent: "auto", AgentTimeout: 300}
+	return Config{Agent: "none", AgentTimeout: 300}
 }
 
 func loadConfig(root string) Config {
