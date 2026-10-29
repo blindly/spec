@@ -31,7 +31,20 @@ func (s Spec) ID() string {
 	return metaGet(s.Meta, "id", strings.TrimSuffix(filepath.Base(s.Path), ".md"))
 }
 func (s Spec) Title() string  { return metaGet(s.Meta, "title", s.ID()) }
-func (s Spec) Type() string   { return metaGet(s.Meta, "type", "") }
+// Type returns the frontmatter type, falling back to the parent directory
+// name (features→feature, adr→adr, imported→imported, project→project).
+func (s Spec) Type() string {
+	if t := metaGet(s.Meta, "type", ""); t != "" {
+		return t
+	}
+	switch filepath.Base(filepath.Dir(s.Path)) {
+	case "features":
+		return "feature"
+	case "adr", "project", "imported":
+		return filepath.Base(filepath.Dir(s.Path))
+	}
+	return ""
+}
 func (s Spec) Status() string { return metaGet(s.Meta, "status", "draft") }
 func (s Spec) Field(k string) []string {
 	if s.Meta[k] == nil {

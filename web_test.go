@@ -92,7 +92,7 @@ func TestWebEditSpec(t *testing.T) {
 		t.Fatal(err)
 	}
 	newBody := "# edit me\n\n## Summary\n\nedited.\n\n## Design\n\nd.\n\n## Acceptance Criteria\n\n- [ ] x\n"
-	form := url.Values{"token": {token}, "status": {"accepted"}, "body": {newBody}}
+	form := url.Values{"token": {token}, "type": {"feature"}, "status": {"accepted"}, "body": {newBody}}
 	resp := postForm(t, srv.URL+"/edit/FEAT-001", form)
 	resp.Body.Close()
 	if resp.StatusCode != 303 {
@@ -111,21 +111,21 @@ func TestWebEditRejectsBadInput(t *testing.T) {
 	}
 	// bad token → 403
 	resp := postForm(t, srv.URL+"/edit/FEAT-001",
-		url.Values{"token": {"wrong"}, "status": {"draft"}, "body": {"x"}})
+		url.Values{"token": {"wrong"}, "type": {"feature"}, "status": {"draft"}, "body": {"x"}})
 	resp.Body.Close()
 	if resp.StatusCode != 403 {
 		t.Fatalf("bad token: %d", resp.StatusCode)
 	}
 	// invalid status → re-render (200), no save
 	resp = postForm(t, srv.URL+"/edit/FEAT-001",
-		url.Values{"token": {token}, "status": {"bogus"}, "body": {"x"}})
+		url.Values{"token": {token}, "type": {"feature"}, "status": {"bogus"}, "body": {"x"}})
 	resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("bad status: %d", resp.StatusCode)
 	}
 	// missing required section → 200 with error, no save
 	resp = postForm(t, srv.URL+"/edit/FEAT-001",
-		url.Values{"token": {token}, "status": {"draft"}, "body": {"# x\n\n## Summary\n\ns\n"}})
+		url.Values{"token": {token}, "type": {"feature"}, "status": {"draft"}, "body": {"# x\n\n## Summary\n\ns\n"}})
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if !strings.Contains(string(body), "missing required section") {

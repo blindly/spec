@@ -118,7 +118,15 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		}
 		fmt.Fprintf(&b, `<h1>Edit %s — %s</h1>
 <form method="post" action="/edit/%s"><input type="hidden" name="token" value="%s">
-<p>status: <select name="status">`, s.ID(), html.EscapeString(s.Title()), s.ID(), token)
+<p>type: <select name="type">`, s.ID(), html.EscapeString(s.Title()), s.ID(), token)
+		for _, t := range []string{"project", "feature", "adr", "imported"} {
+			sel := ""
+			if s.Type() == t {
+				sel = " selected"
+			}
+			fmt.Fprintf(&b, `<option%s>%s</option>`, sel, t)
+		}
+		b.WriteString(`</select> status: <select name="status">`)
 		for _, status := range statuses {
 			sel := ""
 			if s.Status() == status {
@@ -153,21 +161,18 @@ autoDownloadFontAwesome: false, spellChecker: false, status: ['lines','words','c
 			http.Error(w, "bad token", http.StatusForbidden)
 			return
 		}
+		specType := r.FormValue("type")
 		status := r.FormValue("status")
 		body := r.FormValue("body")
-		validStatus := false
-		for _, v := range statuses {
-			if status == v {
-				validStatus = true
-			}
-		}
-		if !validStatus {
-			renderEdit(w, *s, "invalid status")
+		validType := specType == "imported" || validTypes[specType]
+		validStatus := cfg.validStatus(status)
+		if !validType || !validStatus {
+			renderEdit(w, *s, "invalid type or status")
 			return
 		}
 		// section check: same required sections validate enforces
 		updated := Spec{Path: s.Path, Meta: s.Meta, Body: body}
-		for _, sec := range requiredSections[s.Type()] {
+		for _, sec := range requiredSections[specType] {
 			found := false
 			for _, have := range updated.Sections() {
 				if strings.EqualFold(have, sec) {
@@ -184,6 +189,7 @@ autoDownloadFontAwesome: false, spellChecker: false, status: ['lines','words','c
 			meta[k] = v
 		}
 		meta["status"] = []string{status}
+		meta["type"] = []string{specType}
 		writeMu.Lock()
 		tmp := s.Path + ".tmp"
 		err := os.WriteFile(tmp, []byte(dumpFrontmatter(meta, body)), 0o644)
