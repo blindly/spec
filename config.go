@@ -24,11 +24,24 @@ func defaultConfig() Config {
 	return Config{Agent: "none", AgentTimeout: 300, WebPort: 8080, WebHost: "127.0.0.1", Statuses: defaultStatuses}
 }
 
-func loadConfig(root string) Config {
-	cfg := defaultConfig()
-	data, err := os.ReadFile(filepath.Join(root, configDir, "config.yml"))
+// globalConfigPath is the user-level config; repo .spec/config.yml overrides it.
+func globalConfigPath() string {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return filepath.Join(xdg, "spec", "config.yml")
+	}
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return cfg
+		return ""
+	}
+	return filepath.Join(home, ".config", "spec", "config.yml")
+}
+
+// parseConfigFile returns the raw key→value pairs in a config file.
+func parseConfigFile(path string) map[string]string {
+	out := map[string]string{}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return out
 	}
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
@@ -39,7 +52,20 @@ func loadConfig(root string) Config {
 		if !found {
 			continue
 		}
-		k, v = strings.TrimSpace(k), strings.TrimSpace(v)
+		out[strings.TrimSpace(k)] = strings.TrimSpace(v)
+	}
+	return out
+}
+
+// loadConfig merges the global config (~/.config/spec/config.yml) with the
+// repo's .spec/config.yml; repo keys win.
+func loadConfig(root string) Config {
+	cfg := defaultConfig()
+	raw := parseConfigFile(globalConfigPath())
+	for k, v := range parseConfigFile(filepath.Join(root, configDir, "config.yml")) {
+		raw[k] = v
+	}
+	for k, v := range raw {
 		switch k {
 		case "agent":
 			cfg.Agent = strings.Trim(v, `"'`)

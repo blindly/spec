@@ -35,8 +35,11 @@ func cmdInit(out, errOut io.Writer) error {
 	if _, err := os.Stat(config); os.IsNotExist(err) {
 		defaults := `version: 1
 
+# Repo-level overrides. Global defaults live in ~/.config/spec/config.yml —
+# any key here wins over the same key there.
+
 # Agent (opt-in; none = no subprocess ever runs)
-agent: none
+# agent: claude
 # agent_cmd: mycli --flag {prompt}
 # agent_timeout: 300
 
@@ -204,6 +207,7 @@ func cmdConfig(out, errOut io.Writer) error {
 		return err
 	}
 	cfg := loadConfig(st.Root)
+	fmt.Fprintf(out, "global config: %s\n", globalConfigPath())
 	fmt.Fprintln(out, cfg.String())
 	ag, err := resolveAgent(cfg)
 	if err != nil {

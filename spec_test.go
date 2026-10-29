@@ -35,6 +35,7 @@ func TestFrontmatterNoHeader(t *testing.T) {
 func setupRepo(t *testing.T) Store {
 	t.Helper()
 	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".xdg"))
 	old, _ := os.Getwd()
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
@@ -205,6 +206,26 @@ func TestAgentDraftAndRefine(t *testing.T) {
 	}
 	if st.Get("FEAT-001").Meta["id"][0] != "FEAT-001" {
 		t.Fatal("refine clobbered frontmatter")
+	}
+}
+
+func TestGlobalConfigMerge(t *testing.T) {
+	st := setupRepo(t)
+	// global config sets web_port + agent_cmd; repo overrides agent_cmd only
+	gdir := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "spec")
+	if err := os.MkdirAll(gdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(gdir, "config.yml"),
+		[]byte("web_port: 9999\nagent_cmd: globalcmd {prompt}\n"), 0o644)
+	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"),
+		[]byte("agent_cmd: repocmd {prompt}\n"), 0o644)
+	cfg := loadConfig(st.Root)
+	if cfg.WebPort != 9999 {
+		t.Fatalf("global web_port not applied: %+v", cfg)
+	}
+	if cfg.AgentCmd != "repocmd {prompt}" {
+		t.Fatalf("repo should override global agent_cmd: %+v", cfg)
 	}
 }
 

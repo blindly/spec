@@ -41,7 +41,11 @@ heuristics (`refine` has no fallback and reports an error).
 
 ## Agent configuration
 
-`.spec/config.yml`:
+Config is layered: `~/.config/spec/config.yml` (global, per-user) is read
+first, then `.spec/config.yml` in the repo overrides it key-by-key. Set
+your agent once globally and only override per repo when needed.
+
+`.spec/config.yml` (repo) / `~/.config/spec/config.yml` (global):
 
 ```yaml
 agent: claude          # none | claude | gemini | codex | aider | opencode | amp
