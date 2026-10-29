@@ -163,6 +163,8 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 .cm-header,.cm-strong{color:#569cd6!important}
 .cm-link,.cm-url{color:#4ec9b0!important}
 .cm-quote,.cm-comment{color:#6a9955!important}
+.CodeMirror-fullscreen,.editor-preview-fullscreen,.editor-preview-active,.editor-preview-active-side{background:#1e1e1e!important;color:#d4d4d4!important;border-color:#333}
+.editor-preview-fullscreen *,.editor-preview-active *,.editor-preview-active-side *{color:#d4d4d4!important;background:transparent!important}
 </style>
 <textarea id="body-editor" name="body" rows="30">%s</textarea>
 <p><button>Save</button> <a href="/spec/%s">cancel</a></p></form>
