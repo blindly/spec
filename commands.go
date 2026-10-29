@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 )
 
 func mustStore() (Store, error) {
@@ -494,6 +496,50 @@ func cmdStatus(out, errOut io.Writer) error {
 	default:
 		fmt.Fprintln(out, "Agent: none configured")
 	}
+	return nil
+}
+
+// cmdVerify runs each command in cfg.Verify in the repo root, streaming
+// output. All checks run; any failure makes the command exit non-zero.
+func cmdVerify(out, errOut io.Writer) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
+	cfg := loadConfig(st.Root)
+	if len(cfg.Verify) == 0 {
+		fmt.Fprintln(out, "No verify commands configured (set `verify: [cmd, ...]` in config).")
+		return nil
+	}
+	failed := 0
+	for _, check := range cfg.Verify {
+		argv := strings.Fields(check)
+		if len(argv) == 0 {
+			continue
+		}
+		fmt.Fprintf(out, "── %s\n", check)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.AgentTimeout)*time.Second)
+		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+		cmd.Dir = st.Root
+		cmd.Stdout = out
+		cmd.Stderr = errOut
+		runErr := cmd.Run()
+		cancel()
+		switch {
+		case ctx.Err() == context.DeadlineExceeded:
+			fmt.Fprintf(out, "FAIL  %s (timed out after %ds)\n", check, cfg.AgentTimeout)
+			failed++
+		case runErr != nil:
+			fmt.Fprintf(out, "FAIL  %s (%v)\n", check, runErr)
+			failed++
+		default:
+			fmt.Fprintf(out, "PASS  %s\n", check)
+		}
+	}
+	if failed > 0 {
+		return fmt.Errorf("%d check(s) failed", failed)
+	}
+	fmt.Fprintln(out, "All checks passed.")
 	return nil
 }
 

@@ -17,6 +17,7 @@ type Config struct {
 	WebHost      string   // bind address for `spec web` (127.0.0.1 or 0.0.0.0)
 	Statuses     []string // valid spec statuses
 	Editor       string   // editor command for `spec config edit`
+	Verify       []string // commands run by `spec verify`
 }
 
 var defaultStatuses = []string{"draft", "proposed", "accepted", "implemented", "deprecated", "rejected"}
@@ -88,7 +89,7 @@ func loadConfig(root string) Config {
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				cfg.WebPort = n
 			}
-		case "statuses":
+		case "statuses", "verify":
 			if strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]") {
 				var list []string
 				for _, item := range strings.Split(v[1:len(v)-1], ",") {
@@ -97,7 +98,11 @@ func loadConfig(root string) Config {
 					}
 				}
 				if len(list) > 0 {
-					cfg.Statuses = list
+					if k == "statuses" {
+						cfg.Statuses = list
+					} else {
+						cfg.Verify = list
+					}
 				}
 			}
 		}

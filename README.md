@@ -31,6 +31,7 @@ go build -o spec .
 | `spec status` | Summarize repo spec state (counts, coverage, agent) |
 | `spec fact [list\|get\|set\|unset]` | Manage `.spec/facts.yml` project facts |
 | `spec check` | Audit `{fact:key}` references against facts.yml |
+| `spec verify` | Run configured `verify: [...]` commands (tests, validate, check) |
 | `spec config` | Show effective configuration and resolved agent |
 | `spec web [--port N]` | Local web UI: browse, create, edit body/status (default :8080) |
 
@@ -55,6 +56,7 @@ agent_timeout: 900     # seconds
 web_host: 127.0.0.1    # bind address for `spec web`; 0.0.0.0 exposes it (--host overrides)
 web_port: 8080         # default port for `spec web` (--port overrides)
 statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
+verify: [go test ./..., spec validate, spec check]   # run by `spec verify`
 ```
 
 Agent features are opt-in: the default is `agent: none` and no subprocess

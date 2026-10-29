@@ -31,6 +31,7 @@ Usage:
   spec status                        Summarize repository spec state
   spec fact [list|get|set|unset]     Manage .spec/facts.yml project facts
   spec check                         Audit {fact:key} references vs facts.yml
+  spec verify                        Run configured verification commands
   spec config                        Show effective configuration
   spec config init                   Write global config to ~/.config/spec/config.yml
   spec config edit [global|repo]     Open config file in $EDITOR (or editor: key)
@@ -56,6 +57,7 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 	"status": func(a []string, o, e io.Writer) error { return cmdStatus(o, e) },
 	"fact":   func(a []string, o, e io.Writer) error { return cmdFact(o, e, a) },
 	"check":  func(a []string, o, e io.Writer) error { return cmdCheck(o, e) },
+	"verify": func(a []string, o, e io.Writer) error { return cmdVerify(o, e) },
 	"update": func(a []string, o, e io.Writer) error {
 		tag := ""
 		if len(a) > 0 {
