@@ -111,9 +111,13 @@ func bodyFromAgentOutput(out string) string {
 	}
 	// drop leading prose before the first markdown heading — agents often
 	// narrate ("I'll explore the repository…") before emitting the doc
-	if !strings.HasPrefix(s, "# ") {
-		if i := strings.Index(s, "\n# "); i >= 0 {
-			s = s[i+1:]
+	if i := strings.Index(s, "\n#"); i >= 0 || strings.HasPrefix(s, "#") {
+		lines := strings.Split(s, "\n")
+		for j, line := range lines {
+			if trimmed := strings.TrimSpace(line); strings.HasPrefix(trimmed, "#") {
+				s = strings.Join(lines[j:], "\n")
+				break
+			}
 		}
 	}
 	return strings.TrimSpace(s) + "\n"
