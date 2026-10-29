@@ -23,14 +23,13 @@ func webToken() string {
 func page(w http.ResponseWriter, title, body string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `<html><head><title>%s</title>
-<style>body{font-family:sans-serif;max-width:60em;margin:2em auto;padding:0 1em}
-textarea{width:100%%;font-family:monospace}input,select{font-size:1em}
-nav a{margin-right:1em}</style></head><body>
+<link rel="stylesheet" href="/assets/water/water.min.css">
+<style>nav a{margin-right:1em}textarea{font-family:monospace}</style></head><body>
 <nav><a href="/">specs</a><a href="/new">new spec</a></nav>%s</body></html>`,
 		html.EscapeString(title), body)
 }
 
-//go:embed assets/easymde assets/fontawesome
+//go:embed assets/easymde assets/fontawesome assets/water
 var assetsFS embed.FS
 
 // webHandler builds the mux; extracted from cmdWeb so tests can use httptest.
