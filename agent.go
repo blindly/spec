@@ -106,7 +106,7 @@ func readmeExcerpt(root string, maxBytes int) string {
 		data, err := os.ReadFile(filepath.Join(root, name))
 		if err == nil && len(data) > 0 {
 			s := toUTF8(data)
-			if len(s) > maxBytes {
+			if maxBytes > 0 && len(s) > maxBytes {
 				s = s[:maxBytes] + "\n…"
 			}
 			return strings.TrimSpace(s)

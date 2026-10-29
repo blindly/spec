@@ -24,9 +24,11 @@ func page(w http.ResponseWriter, title, body string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `<html><head><title>%s</title>
 <link rel="stylesheet" href="/assets/water/water.min.css">
-<style>nav a{margin-right:1em}textarea{font-family:monospace}</style></head><body>
-<nav><a href="/">specs</a><a href="/new">new spec</a></nav>%s</body></html>`,
-		html.EscapeString(title), body)
+<style>nav a{margin-right:1em}textarea{font-family:monospace}
+footer{margin-top:2em;font-size:.85em;color:var(--text-muted,#777)}</style></head><body>
+<nav><a href="/">specs</a><a href="/new">new spec</a><a href="/readme">readme</a></nav>%s
+<footer>spec %s</footer></body></html>`,
+		html.EscapeString(title), body, html.EscapeString(version))
 }
 
 //go:embed assets/easymde assets/fontawesome assets/water
@@ -109,6 +111,15 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			html.EscapeString(s.Type()), html.EscapeString(s.Status()),
 			s.ID(), html.EscapeString(s.Body))
 		page(w, s.ID(), b.String())
+	})
+
+	mux.HandleFunc("/readme", func(w http.ResponseWriter, r *http.Request) {
+		readme := readmeExcerpt(st.Root, 0)
+		if readme == "" {
+			page(w, "readme", "<h1>README</h1><p>No README found in repository root.</p>")
+			return
+		}
+		page(w, "readme", "<h1>README</h1><pre>"+html.EscapeString(readme)+"</pre>")
 	})
 
 	renderEdit := func(w http.ResponseWriter, s Spec, errMsg string) {
