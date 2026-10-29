@@ -31,8 +31,19 @@ footer{margin-top:2em;font-size:.85em;color:var(--text-muted,#777)}</style></hea
 		html.EscapeString(title), body, html.EscapeString(version))
 }
 
-//go:embed assets/easymde assets/fontawesome assets/water
+//go:embed assets/easymde assets/fontawesome assets/water assets/marked
 var assetsFS embed.FS
+
+// mdBlock renders markdown client-side via vendored marked.js. The raw
+// markdown goes in a <script type="text/markdown"> block; </script is
+// escaped so it can't terminate the tag early.
+func mdBlock(markdown string) string {
+	src := strings.ReplaceAll(markdown, "</script", `<\/script`)
+	return `<div id="md" class="markdown"></div>
+<script type="text/markdown" id="md-src">` + src + `</script>
+<script src="/assets/marked/marked.min.js"></script>
+<script>document.getElementById('md').innerHTML=marked.parse(document.getElementById('md-src').textContent)</script>`
+}
 
 // webHandler builds the mux; extracted from cmdWeb so tests can use httptest.
 func webHandler(st Store, cfg Config, token string) http.Handler {
@@ -106,10 +117,11 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			return
 		}
 		var b strings.Builder
-		fmt.Fprintf(&b, "<h1>%s — %s</h1><p>type: %s · status: %s · <a href=\"/edit/%s\">edit</a></p><pre>%s</pre>",
+		fmt.Fprintf(&b, "<h1>%s — %s</h1><p>type: %s · status: %s · <a href=\"/edit/%s\">edit</a></p>",
 			html.EscapeString(s.ID()), html.EscapeString(s.Title()),
 			html.EscapeString(s.Type()), html.EscapeString(s.Status()),
-			s.ID(), html.EscapeString(s.Body))
+			s.ID())
+		b.WriteString(mdBlock(s.Body))
 		page(w, s.ID(), b.String())
 	})
 
@@ -119,7 +131,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			page(w, "readme", "<h1>README</h1><p>No README found in repository root.</p>")
 			return
 		}
-		page(w, "readme", "<h1>README</h1><pre>"+html.EscapeString(readme)+"</pre>")
+		page(w, "readme", "<h1>README</h1>"+mdBlock(readme))
 	})
 
 	renderEdit := func(w http.ResponseWriter, s Spec, errMsg string) {
