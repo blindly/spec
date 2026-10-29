@@ -66,6 +66,8 @@ func replaceFile(tmp, dst string) error {
 		os.Rename(old, dst) // restore
 		return err
 	}
+	// best-effort cleanup; on Windows a running .exe.old can't be deleted
+	os.Remove(old)
 	return nil
 }
 

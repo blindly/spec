@@ -202,6 +202,24 @@ func cmdRefine(out, errOut io.Writer, id string) error {
 	return nil
 }
 
+func cmdEdit(out, errOut io.Writer, id string) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
+	s := st.Get(id)
+	if s == nil {
+		return fmt.Errorf("no spec with id %s", id)
+	}
+	cfg := loadConfig(st.Root)
+	fmt.Fprintf(out, "Opening %s with %s\n", s.Path, cfg.editor())
+	cmd := exec.Command(cfg.editor(), s.Path)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 func cmdConfig(out, errOut io.Writer, args []string) error {
 	if len(args) > 0 {
 		switch args[0] {

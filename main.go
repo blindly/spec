@@ -25,6 +25,7 @@ Usage:
   spec graph [--mermaid]             Dependency graph
   spec trace                         Requirements traceability
   spec draft feature <title>         Generate feature draft (LLM agent if configured)
+  spec edit <id>                     Open a spec in your editor
   spec refine <id>                   LLM agent improves an existing spec
   spec apply [--run|--force] [id...] Print apply prompt(s); --run executes the agent
   spec status                        Summarize repository spec state
@@ -103,6 +104,12 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 			return err
 		}
 		return cmdApply(o, e, fs.Args(), *runIt, *force)
+	},
+	"edit": func(a []string, o, e io.Writer) error {
+		if len(a) < 1 {
+			return fmt.Errorf("usage: spec edit <id>")
+		}
+		return cmdEdit(o, e, a[0])
 	},
 	"refine": func(a []string, o, e io.Writer) error {
 		if len(a) < 1 {
