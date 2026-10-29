@@ -14,13 +14,14 @@ type Config struct {
 	AgentCmd     string   // custom command; {prompt} is replaced by the prompt, else prompt goes to stdin
 	AgentTimeout int      // seconds
 	WebPort      int      // default port for `spec web`
+	WebHost      string   // bind address for `spec web` (127.0.0.1 or 0.0.0.0)
 	Statuses     []string // valid spec statuses
 }
 
 var defaultStatuses = []string{"draft", "proposed", "accepted", "implemented", "deprecated", "rejected"}
 
 func defaultConfig() Config {
-	return Config{Agent: "none", AgentTimeout: 300, WebPort: 8080, Statuses: defaultStatuses}
+	return Config{Agent: "none", AgentTimeout: 300, WebPort: 8080, WebHost: "127.0.0.1", Statuses: defaultStatuses}
 }
 
 func loadConfig(root string) Config {
@@ -48,6 +49,8 @@ func loadConfig(root string) Config {
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				cfg.AgentTimeout = n
 			}
+		case "web_host":
+			cfg.WebHost = strings.Trim(v, `"'`)
 		case "web_port":
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				cfg.WebPort = n
@@ -70,8 +73,8 @@ func loadConfig(root string) Config {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_port: %d\nstatuses: [%s]",
-		c.Agent, c.AgentCmd, c.AgentTimeout, c.WebPort, strings.Join(c.Statuses, ", "))
+	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\nstatuses: [%s]",
+		c.Agent, c.AgentCmd, c.AgentTimeout, c.WebHost, c.WebPort, strings.Join(c.Statuses, ", "))
 }
 
 // validStatus reports whether s is in the configured status list.

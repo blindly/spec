@@ -217,7 +217,7 @@ autoDownloadFontAwesome: false, spellChecker: false, status: ['lines','words','c
 	return mux
 }
 
-func cmdWeb(out, errOut io.Writer, port int) error {
+func cmdWeb(out, errOut io.Writer, host string, port int) error {
 	st, err := mustStore()
 	if err != nil {
 		return err
@@ -226,7 +226,10 @@ func cmdWeb(out, errOut io.Writer, port int) error {
 	if port == 0 {
 		port = cfg.WebPort
 	}
-	addr := fmt.Sprintf(":%d", port)
-	fmt.Fprintln(out, "Serving on http://localhost"+addr)
+	if host == "" {
+		host = cfg.WebHost
+	}
+	addr := fmt.Sprintf("%s:%d", host, port)
+	fmt.Fprintf(out, "Serving on http://%s:%d\n", host, port)
 	return http.ListenAndServe(addr, webHandler(st, cfg, webToken()))
 }

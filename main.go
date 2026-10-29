@@ -114,10 +114,11 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 		fs := flag.NewFlagSet("web", flag.ContinueOnError)
 		fs.SetOutput(e)
 		port := fs.Int("port", 0, "port to listen on (0 = web_port from config)")
+		host := fs.String("host", "", "bind address (e.g. 127.0.0.1, 0.0.0.0; empty = web_host from config)")
 		if err := fs.Parse(a); err != nil {
 			return err
 		}
-		return cmdWeb(o, e, *port)
+		return cmdWeb(o, e, *host, *port)
 	},
 }
 

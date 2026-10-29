@@ -41,6 +41,7 @@ agent: none
 # agent_timeout: 300
 
 # Web
+# web_host: 127.0.0.1   # use 0.0.0.0 to expose on all interfaces
 # web_port: 8080
 
 # Lifecycle
