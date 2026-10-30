@@ -233,6 +233,47 @@ func TestGlobalConfigMerge(t *testing.T) {
 	}
 }
 
+func TestConfigInitRegenerate(t *testing.T) {
+	st := setupRepo(t)
+	cfgPath := filepath.Join(st.Root, configDir, "config.yml")
+	// config already exists (from spec init) — plain init must refuse
+	if err := cmdConfig(io.Discard, io.Discard, []string{"init", "repo"}); err == nil {
+		t.Fatal("expected refusal to overwrite existing config")
+	}
+	// --force regenerates; new file must document every supported key
+	if err := cmdConfig(io.Discard, io.Discard, []string{"init", "repo", "--force"}); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(cfgPath)
+	for _, key := range []string{"agent:", "agent_cmd:", "agent_timeout:",
+		"web_host:", "web_port:", "statuses:", "verify:", "editor:"} {
+		if !strings.Contains(string(data), key) {
+			t.Fatalf("regenerated config missing key %q", key)
+		}
+	}
+	// user edits survive until --force
+	os.WriteFile(cfgPath, []byte("agent_timeout: 42\n"), 0o644)
+	if err := cmdConfig(io.Discard, io.Discard, []string{"init", "repo"}); err == nil {
+		t.Fatal("expected refusal without --force")
+	}
+	if cfg := loadConfig(st.Root); cfg.AgentTimeout != 42 {
+		t.Fatalf("config clobbered without --force: %+v", cfg)
+	}
+}
+
+func TestConfigStringShowsAllKeys(t *testing.T) {
+	setupRepo(t)
+	var buf bytes.Buffer
+	if err := cmdConfig(&buf, io.Discard, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"verify:", "editor:"} {
+		if !strings.Contains(buf.String(), key) {
+			t.Fatalf("spec config output missing %q: %s", key, buf.String())
+		}
+	}
+}
+
 func TestInlineCommentStripping(t *testing.T) {
 	st := setupRepo(t)
 	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"),

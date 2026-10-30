@@ -17,7 +17,7 @@ type Config struct {
 	WebHost      string   // bind address for `spec web` (127.0.0.1 or 0.0.0.0)
 	Statuses     []string // valid spec statuses
 	Editor       string   // editor command for `spec config edit`
-	Verify       []string // commands run by `spec verify`
+	Verify       []string // commands run by spec verify
 }
 
 var defaultStatuses = []string{"draft", "proposed", "accepted", "implemented", "deprecated", "rejected"}
@@ -111,8 +111,9 @@ func loadConfig(root string) Config {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\nstatuses: [%s]",
-		c.Agent, c.AgentCmd, c.AgentTimeout, c.WebHost, c.WebPort, strings.Join(c.Statuses, ", "))
+	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nstatuses: [%s]\nverify: [%s]",
+		c.Agent, c.AgentCmd, c.AgentTimeout, c.WebHost, c.WebPort, c.editor(),
+		strings.Join(c.Statuses, ", "), strings.Join(c.Verify, ", "))
 }
 
 const globalConfigTemplate = `# Global defaults for all spec-managed repositories.
@@ -130,23 +131,64 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 # Lifecycle
 # statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
 
-# Editor for spec config edit (falls back to $EDITOR, then vi)
+# Verification — commands run by spec verify (no shell; plain argv)
+# verify: [go test ./..., spec validate, spec check]
+
+# Editor for spec edit / spec config edit (falls back to $EDITOR, then vi)
 # editor: vim
 `
 
-// initGlobalConfig writes the annotated template; refuses to overwrite.
-func initGlobalConfig() (string, error) {
+const repoConfigTemplate = `version: 1
+
+# Repo-level overrides. Global defaults live in ~/.config/spec/config.yml —
+# any key here wins over the same key there.
+
+# Agent (opt-in; none = no subprocess ever runs)
+# agent: claude        # claude | devin | gemini | codex | aider | opencode | amp | cline | vibe
+# agent_cmd: mycli --flag {prompt}   # {prompt} = prompt arg; absent = stdin
+# agent_timeout: 900   # seconds
+
+# Web
+# web_host: 127.0.0.1   # use 0.0.0.0 to expose on all interfaces
+# web_port: 8080
+
+# Lifecycle
+# statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
+
+# Verification — commands run by spec verify (no shell; plain argv)
+# verify: [go test ./..., spec validate, spec check]
+
+# Editor for spec edit / spec config edit (falls back to $EDITOR, then vi)
+# editor: vim
+`
+
+// initGlobalConfig writes the annotated template; refuses to overwrite
+// unless force is set.
+func initGlobalConfig(force bool) (string, error) {
 	path := globalConfigPath()
 	if path == "" {
 		return "", fmt.Errorf("cannot determine home directory")
 	}
-	if _, err := os.Stat(path); err == nil {
-		return "", fmt.Errorf("%s already exists", path)
+	if _, err := os.Stat(path); err == nil && !force {
+		return "", fmt.Errorf("%s already exists (use --force to regenerate)", path)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return "", err
 	}
 	return path, os.WriteFile(path, []byte(globalConfigTemplate), 0o644)
+}
+
+// initRepoConfig writes .spec/config.yml from the annotated template;
+// refuses to overwrite unless force is set.
+func initRepoConfig(root string, force bool) (string, error) {
+	path := filepath.Join(root, configDir, "config.yml")
+	if _, err := os.Stat(path); err == nil && !force {
+		return "", fmt.Errorf("%s already exists (use --force to regenerate)", path)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", err
+	}
+	return path, os.WriteFile(path, []byte(repoConfigTemplate), 0o644)
 }
 
 // editor resolves the configured editor: config key, then $EDITOR, then vi.

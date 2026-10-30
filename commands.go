@@ -36,24 +36,7 @@ func cmdInit(out, errOut io.Writer) error {
 	}
 	config := filepath.Join(configDir, "config.yml")
 	if _, err := os.Stat(config); os.IsNotExist(err) {
-		defaults := `version: 1
-
-# Repo-level overrides. Global defaults live in ~/.config/spec/config.yml —
-# any key here wins over the same key there.
-
-# Agent (opt-in; none = no subprocess ever runs)
-# agent: claude
-# agent_cmd: mycli --flag {prompt}
-# agent_timeout: 900
-
-# Web
-# web_host: 127.0.0.1   # use 0.0.0.0 to expose on all interfaces
-# web_port: 8080
-
-# Lifecycle
-# statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
-`
-		if err := os.WriteFile(config, []byte(defaults), 0o644); err != nil {
+		if err := os.WriteFile(config, []byte(repoConfigTemplate), 0o644); err != nil {
 			return err
 		}
 	}
@@ -265,7 +248,29 @@ func cmdConfig(out, errOut io.Writer, args []string) error {
 	if len(args) > 0 {
 		switch args[0] {
 		case "init":
-			path, err := initGlobalConfig()
+			target := "global"
+			force := false
+			for _, a := range args[1:] {
+				switch a {
+				case "global", "repo":
+					target = a
+				case "--force":
+					force = true
+				default:
+					return fmt.Errorf("usage: spec config init [global|repo] [--force]")
+				}
+			}
+			var path string
+			var err error
+			if target == "repo" {
+				st, serr := mustStore()
+				if serr != nil {
+					return serr
+				}
+				path, err = initRepoConfig(st.Root, force)
+			} else {
+				path, err = initGlobalConfig(force)
+			}
 			if err != nil {
 				return err
 			}
@@ -291,7 +296,7 @@ func cmdConfig(out, errOut io.Writer, args []string) error {
 					return fmt.Errorf("cannot determine home directory")
 				}
 				if _, err := os.Stat(path); os.IsNotExist(err) {
-					if _, err := initGlobalConfig(); err != nil {
+					if _, err := initGlobalConfig(false); err != nil {
 						return err
 					}
 				}

@@ -33,6 +33,7 @@ go build -o spec .
 | `spec check` | Audit `{fact:key}` references against facts.yml |
 | `spec verify` | Run configured `verify: [...]` commands (tests, validate, check) |
 | `spec config` | Show effective configuration and resolved agent |
+| `spec config init [global\|repo] [--force]` | Write config template with all options; `--force` regenerates |
 | `spec web [--port N]` | Local web UI: browse, create, edit body/status, view README/agent docs (default :8080) |
 
 All operations are filesystem-only; no network access is required. LLM
@@ -57,7 +58,11 @@ web_host: 127.0.0.1    # bind address for `spec web`; 0.0.0.0 exposes it (--host
 web_port: 8080         # default port for `spec web` (--port overrides)
 statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
 verify: [go test ./..., spec validate, spec check]   # run by `spec verify`
+editor: vim            # falls back to $EDITOR, then vi
 ```
+
+`spec config init [global|repo]` writes the annotated template listing
+every supported key; add `--force` to regenerate an existing file.
 
 Agent features are opt-in: the default is `agent: none` and no subprocess
 is ever spawned unless you configure one. `agent_cmd` overrides `agent` —

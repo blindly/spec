@@ -33,7 +33,7 @@ Usage:
   spec check                         Audit {fact:key} references vs facts.yml
   spec verify                        Run configured verification commands
   spec config                        Show effective configuration
-  spec config init                   Write global config to ~/.config/spec/config.yml
+  spec config init [global|repo] [--force]   Write config template (--force regenerates)
   spec config edit [global|repo]     Open config file in $EDITOR (or editor: key)
   spec web [--port N]                Web interface (default: web_port from config)
   spec update [tag]                  Self-update to a release (default: latest)
