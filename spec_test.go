@@ -140,6 +140,25 @@ func TestImportAndExport(t *testing.T) {
 	}
 }
 
+func TestImportPreservesFrontmatterKeys(t *testing.T) {
+	st := setupRepo(t)
+	src := filepath.Join(st.Root, "guide.md")
+	os.WriteFile(src, []byte("---\ntitle: Style Guide\nstatus: accepted\ndepends_on: [PROJ-001]\nauthor: jane\n---\n# Guide\n\nbody\n"), 0o644)
+	if err := cmdImport(io.Discard, io.Discard, src); err != nil {
+		t.Fatal(err)
+	}
+	s := st.Get("DOC-001")
+	if s == nil {
+		t.Fatal("import failed")
+	}
+	if s.Status() != "accepted" || s.Field("author")[0] != "jane" || s.Field("depends_on")[0] != "PROJ-001" {
+		t.Fatalf("source frontmatter keys lost: %+v", s.Meta)
+	}
+	if s.Field("source")[0] != src || s.Type() != "imported" || s.Title() != "Style Guide" {
+		t.Fatalf("tool keys wrong: %+v", s.Meta)
+	}
+}
+
 func TestBootstrapAndRoadmapAndGraph(t *testing.T) {
 	st := setupRepo(t)
 	os.WriteFile(filepath.Join(st.Root, "go.mod"), []byte("module x\n"), 0o644)

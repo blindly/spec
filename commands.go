@@ -361,8 +361,18 @@ func cmdImport(out, errOut io.Writer, file string) error {
 			}
 		}
 	}
-	s, err := st.Create("imported", title, body,
-		map[string][]string{"source": {file}})
+	// Carry over the source file's frontmatter keys (status, depends_on,
+	// custom metadata); tool-assigned keys win so id/type/source stay sane.
+	extra := map[string][]string{}
+	for k, vals := range meta {
+		switch k {
+		case "id", "type", "title":
+		default:
+			extra[k] = vals
+		}
+	}
+	extra["source"] = []string{file}
+	s, err := st.Create("imported", title, body, extra)
 	if err != nil {
 		return err
 	}
