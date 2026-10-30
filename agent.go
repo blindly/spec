@@ -93,6 +93,17 @@ func (a *agent) runLive(prompt, dir string, timeoutSecs int, live io.Writer) (st
 	return out.String(), nil
 }
 
+// dumpAgentOutput writes captured agent output to w for diagnosing failures,
+// truncated so a pathological response can't flood the terminal.
+func dumpAgentOutput(w io.Writer, s string) {
+	const max = 4096
+	s = strings.TrimSpace(s)
+	if len(s) > max {
+		s = s[:max] + "\n… (truncated)"
+	}
+	fmt.Fprintf(w, "── agent output ──\n%s\n──\n", s)
+}
+
 // bodyFromAgentOutput extracts a markdown body from agent output: strips any
 // leading frontmatter block and surrounding code fences.
 func bodyFromAgentOutput(out string) string {

@@ -300,6 +300,29 @@ func TestMissingAgentErrors(t *testing.T) {
 	}
 }
 
+func TestRefineBadAgentOutputDumpsToStderr(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fake agent")
+	}
+	st := setupRepo(t)
+	cmdNew(io.Discard, io.Discard, "feature", "x")
+	fake := filepath.Join(st.Root, "badagent.sh")
+	os.WriteFile(fake, []byte("#!/bin/sh\ncat > /dev/null\necho 'sorry I cannot help with that'\n"), 0o755)
+	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"),
+		[]byte("agent_cmd: sh "+fake+"\n"), 0o644)
+	var outBuf, errBuf bytes.Buffer
+	err := cmdRefine(&outBuf, &errBuf, "FEAT-001")
+	if err == nil {
+		t.Fatal("expected refine to fail on garbage agent output")
+	}
+	if !strings.Contains(errBuf.String(), "sorry I cannot help") {
+		t.Fatalf("agent output not dumped to stderr: %q", errBuf.String())
+	}
+	if !strings.Contains(outBuf.String(), "Refining FEAT-001") {
+		t.Fatalf("missing start announcement: %q", outBuf.String())
+	}
+}
+
 func TestRefineWithoutAgentFails(t *testing.T) {
 	st := setupRepo(t)
 	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"), []byte("agent: none\n"), 0o644)

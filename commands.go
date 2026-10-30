@@ -152,6 +152,7 @@ func cmdBootstrap(out, errOut io.Writer) error {
 		ctx.WriteString(repoContext(st, 50))
 		prompt := fmt.Sprintf(bootstrapPromptFmt, title,
 			fmt.Sprintf(projectTemplate, title), ctx.String())
+		fmt.Fprintf(out, "Bootstrapping project spec via %s…\n", ag.name)
 		output, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
 		if err != nil {
 			fmt.Fprintln(errOut, "warning:", err, "— falling back to heuristic bootstrap")
@@ -159,6 +160,7 @@ func cmdBootstrap(out, errOut io.Writer) error {
 			body := bodyFromAgentOutput(output)
 			if !strings.Contains(body, "# ") {
 				fmt.Fprintln(errOut, "warning: agent returned no markdown body — falling back to heuristic bootstrap")
+				dumpAgentOutput(errOut, output)
 			} else {
 				return writeResult(body, "via "+ag.name)
 			}
@@ -211,13 +213,15 @@ func cmdRefine(out, errOut io.Writer, id string) error {
 		return fmt.Errorf("refine requires an LLM agent (none configured; set agent/agent_cmd in .spec/config.yml)")
 	}
 	prompt := fmt.Sprintf(refinePromptFmt, s.Type(), s.ID(), s.Title(), s.Body, repoContext(st, 50))
+	fmt.Fprintf(out, "Refining %s via %s…\n", s.ID(), ag.name)
 	output, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
 	if err != nil {
 		return err
 	}
 	body := bodyFromAgentOutput(output)
 	if !strings.Contains(body, "# ") {
-		return fmt.Errorf("agent returned no markdown body (output starts: %.80s…) — spec left unchanged", strings.TrimSpace(output))
+		dumpAgentOutput(errOut, output)
+		return fmt.Errorf("agent returned no markdown body — spec left unchanged")
 	}
 	if err := os.WriteFile(s.Path, []byte(dumpFrontmatter(s.Meta, body)), 0o644); err != nil {
 		return err
@@ -945,6 +949,7 @@ func cmdDraftFeature(out, errOut io.Writer, title string) error {
 	if ag != nil {
 		prompt := fmt.Sprintf(draftPromptFmt, title,
 			fmt.Sprintf(featureTemplate, title), repoContext(st, 50))
+		fmt.Fprintf(out, "Drafting %q via %s…\n", title, ag.name)
 		output, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
 		if err != nil {
 			fmt.Fprintln(errOut, "warning:", err, "— falling back to heuristic draft")
@@ -952,6 +957,7 @@ func cmdDraftFeature(out, errOut io.Writer, title string) error {
 			body := bodyFromAgentOutput(output)
 			if !strings.Contains(body, "# ") {
 				fmt.Fprintln(errOut, "warning: agent returned no markdown body — falling back to heuristic draft")
+				dumpAgentOutput(errOut, output)
 			} else {
 				s, err := st.Create("feature", title, body, nil)
 				if err != nil {
