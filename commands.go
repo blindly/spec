@@ -372,6 +372,9 @@ func cmdImport(out, errOut io.Writer, file string) error {
 		}
 	}
 	extra["source"] = []string{file}
+	if _, ok := extra["status"]; !ok {
+		extra["status"] = []string{"accepted"} // reference doc, not a draft
+	}
 	s, err := st.Create("imported", title, body, extra)
 	if err != nil {
 		return err

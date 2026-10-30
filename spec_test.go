@@ -143,7 +143,7 @@ func TestImportAndExport(t *testing.T) {
 func TestImportPreservesFrontmatterKeys(t *testing.T) {
 	st := setupRepo(t)
 	src := filepath.Join(st.Root, "guide.md")
-	os.WriteFile(src, []byte("---\ntitle: Style Guide\nstatus: accepted\ndepends_on: [PROJ-001]\nauthor: jane\n---\n# Guide\n\nbody\n"), 0o644)
+	os.WriteFile(src, []byte("---\ntitle: Style Guide\nstatus: proposed\ndepends_on: [PROJ-001]\nauthor: jane\n---\n# Guide\n\nbody\n"), 0o644)
 	if err := cmdImport(io.Discard, io.Discard, src); err != nil {
 		t.Fatal(err)
 	}
@@ -151,11 +151,20 @@ func TestImportPreservesFrontmatterKeys(t *testing.T) {
 	if s == nil {
 		t.Fatal("import failed")
 	}
-	if s.Status() != "accepted" || s.Field("author")[0] != "jane" || s.Field("depends_on")[0] != "PROJ-001" {
+	if s.Status() != "proposed" || s.Field("author")[0] != "jane" || s.Field("depends_on")[0] != "PROJ-001" {
 		t.Fatalf("source frontmatter keys lost: %+v", s.Meta)
 	}
 	if s.Field("source")[0] != src || s.Type() != "imported" || s.Title() != "Style Guide" {
 		t.Fatalf("tool keys wrong: %+v", s.Meta)
+	}
+	// no status in source → defaults to accepted, not draft
+	src2 := filepath.Join(st.Root, "plain.md")
+	os.WriteFile(src2, []byte("# Plain doc\n\nx\n"), 0o644)
+	if err := cmdImport(io.Discard, io.Discard, src2); err != nil {
+		t.Fatal(err)
+	}
+	if s := st.Get("DOC-002"); s == nil || s.Status() != "accepted" {
+		t.Fatalf("import without status should default to accepted: %+v", s)
 	}
 }
 
