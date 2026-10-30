@@ -54,8 +54,13 @@ func cmdInit(out, errOut io.Writer) error {
 	for path, content := range map[string]string{
 		"AGENTS.md": agentsTemplate,
 		"CLAUDE.md": claudeTemplate,
+		filepath.Join(".devin", "skills", "spec", "SKILL.md"):  specSkill,
+		filepath.Join(".claude", "skills", "spec", "SKILL.md"): specSkill,
 	} {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				return err
+			}
 			if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 				return err
 			}

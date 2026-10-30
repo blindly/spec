@@ -49,6 +49,15 @@ func setupRepo(t *testing.T) Store {
 
 func TestInitAndNew(t *testing.T) {
 	st := setupRepo(t)
+	for _, p := range []string{
+		filepath.Join(".devin", "skills", "spec", "SKILL.md"),
+		filepath.Join(".claude", "skills", "spec", "SKILL.md"),
+	} {
+		data, err := os.ReadFile(filepath.Join(st.Root, p))
+		if err != nil || !strings.Contains(string(data), "name: spec") {
+			t.Fatalf("agent skill not seeded at %s: %v", p, err)
+		}
+	}
 	for _, typ := range []string{"project", "feature", "adr"} {
 		if err := cmdNew(io.Discard, io.Discard, typ, "My "+typ); err != nil {
 			t.Fatal(err)

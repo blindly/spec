@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	_ "embed"
+	"fmt"
+)
 
 const projectTemplate = `# %s
 
@@ -88,6 +91,12 @@ This repository uses spec for spec-driven development.
 
 const claudeTemplate = `@AGENTS.md
 `
+
+// specSkill is seeded to .devin/skills/ and .claude/skills/ by `spec init`
+// so agents working in the repo pick up the spec workflow.
+//
+//go:embed skills/spec/SKILL.md
+var specSkill string
 
 var requiredSections = map[string][]string{
 	"project": {"Overview", "Requirements"},

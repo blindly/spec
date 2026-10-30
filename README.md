@@ -14,7 +14,7 @@ go build -o spec .
 
 | Command | Description |
 | --- | --- |
-| `spec init` | Initialize spec management in a repository (also seeds `AGENTS.md` + `CLAUDE.md`) |
+| `spec init` | Initialize spec management in a repository (seeds `AGENTS.md`, `CLAUDE.md`, and a `spec` skill under `.devin/skills/` + `.claude/skills/`) |
 | `spec new project\|feature\|adr <title>` | Create a specification |
 | `spec bootstrap` | Generate a project spec from an existing repo |
 | `spec import <file>` | Import existing documentation |
