@@ -108,7 +108,9 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		inCfg := map[string]bool{}
 		for _, s := range statuses {
 			inCfg[s] = true
-			cols = append(cols, s)
+			if len(byStatus[s]) > 0 {
+				cols = append(cols, s)
+			}
 		}
 		for s := range byStatus {
 			if !inCfg[s] {
@@ -119,7 +121,13 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		cols = append(cols, extra...)
 
 		var b strings.Builder
-		b.WriteString(`<h1>Specifications</h1><div class="board">`)
+		b.WriteString(`<h1>Specifications</h1>`)
+		if len(cols) == 0 {
+			b.WriteString(`<p>No specs yet — <a href="/new">create one</a>.</p>`)
+			render(w, "spec", b.String())
+			return
+		}
+		b.WriteString(`<div class="board">`)
 		for _, status := range cols {
 			specs := byStatus[status]
 			fmt.Fprintf(&b, `<div class="col"><h2>%s <span class="count">%d</span></h2>`,
