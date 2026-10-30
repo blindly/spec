@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -45,11 +46,18 @@ func page(w http.ResponseWriter, title, body, projName string, hue int) {
 <style>nav a{margin-right:1em}textarea{font-family:monospace}
 nav{border-bottom:4px solid %s;padding-bottom:.5em}
 .proj{display:inline-block;background:%s;color:#fff;padding:.15em .6em;border-radius:4px;margin-right:1em;font-weight:bold}
+.board{display:flex;gap:1em;align-items:flex-start;overflow-x:auto}
+.col{flex:1 1 0;min-width:12em}
+.col h2{font-size:1em;border-bottom:2px solid %s;padding-bottom:.3em}
+.col .count{font-weight:normal;color:var(--text-muted,#777);font-size:.85em}
+.card{border:1px solid var(--border,#444);border-radius:6px;padding:.5em .7em;margin-bottom:.6em}
+.card .title{margin:.2em 0}
+.card .type{font-size:.8em;color:var(--text-muted,#777)}
 footer{margin-top:2em;font-size:.85em;color:var(--text-muted,#777)}</style></head><body>
 <nav><span class="proj">%s</span><a href="/">specs</a><a href="/new">new spec</a><a href="/readme">readme</a><a href="/agents">agents</a><a href="/help">help</a></nav>%s
 <footer>spec %s</footer></body></html>`,
 		html.EscapeString(projName), html.EscapeString(title), accent, accent,
-		html.EscapeString(projName), body, html.EscapeString(version))
+		accent, html.EscapeString(projName), body, html.EscapeString(version))
 }
 
 //go:embed assets/easymde assets/fontawesome assets/water assets/marked
@@ -90,16 +98,40 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		var b strings.Builder
-		b.WriteString("<h1>Specifications</h1><ul>")
+		// group specs by status, columns ordered by configured statuses
+		byStatus := map[string][]Spec{}
+		var extra []string // statuses present but not in cfg.Statuses
 		for _, s := range st.Specs() {
-			rel, _ := filepath.Rel(st.Root, s.Path)
-			fmt.Fprintf(&b, `<li><a href="/spec/%s">%s</a> — %s (%s, %s)</li>`,
-				s.ID(), html.EscapeString(s.ID()), html.EscapeString(s.Title()),
-				html.EscapeString(s.Type()), html.EscapeString(s.Status()))
-			_ = rel
+			byStatus[s.Status()] = append(byStatus[s.Status()], s)
 		}
-		b.WriteString("</ul>")
+		var cols []string
+		inCfg := map[string]bool{}
+		for _, s := range statuses {
+			inCfg[s] = true
+			cols = append(cols, s)
+		}
+		for s := range byStatus {
+			if !inCfg[s] {
+				extra = append(extra, s)
+			}
+		}
+		sort.Strings(extra)
+		cols = append(cols, extra...)
+
+		var b strings.Builder
+		b.WriteString(`<h1>Specifications</h1><div class="board">`)
+		for _, status := range cols {
+			specs := byStatus[status]
+			fmt.Fprintf(&b, `<div class="col"><h2>%s <span class="count">%d</span></h2>`,
+				html.EscapeString(status), len(specs))
+			for _, s := range specs {
+				fmt.Fprintf(&b, `<div class="card"><a href="/spec/%s">%s</a><div class="title">%s</div><div class="type">%s</div></div>`,
+					s.ID(), html.EscapeString(s.ID()), html.EscapeString(s.Title()),
+					html.EscapeString(s.Type()))
+			}
+			b.WriteString("</div>")
+		}
+		b.WriteString("</div>")
 		render(w, "spec", b.String())
 	})
 
