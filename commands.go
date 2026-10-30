@@ -933,8 +933,13 @@ func cmdApply(out, errOut io.Writer, ids []string, runIt, force bool) error {
 		}
 	}
 
+	verifyNote := ""
+	if len(cfg.Verify) > 0 {
+		verifyNote = "\n- Before finishing, run the repo verification commands — all must pass: " +
+			strings.Join(cfg.Verify, "; ")
+	}
 	for _, s := range targets {
-		prompt := fmt.Sprintf(applyPromptFmt, s.ID(), s.Title(), s.Body, repoContext(st, 50))
+		prompt := fmt.Sprintf(applyPromptFmt, s.ID(), s.Title(), s.Body, verifyNote, repoContext(st, 50))
 		if !runIt {
 			fmt.Fprintf(out, "# ---- apply prompt for %s ----\n\n%s\n\n", s.ID(), prompt)
 			continue

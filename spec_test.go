@@ -351,6 +351,27 @@ func TestRefineBadAgentOutputDumpsToStderr(t *testing.T) {
 	}
 }
 
+func TestApplyPromptIncludesVerify(t *testing.T) {
+	st := setupRepo(t)
+	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"),
+		[]byte("verify: [go test ./..., spec validate]\n"), 0o644)
+	s, err := st.Create("feature", "x", "# x\n\n## Summary\n\ns\n", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta := s.Meta
+	meta["status"] = []string{"accepted"}
+	os.WriteFile(s.Path, []byte(dumpFrontmatter(meta, s.Body)), 0o644)
+	var buf bytes.Buffer
+	if err := cmdApply(&buf, io.Discard, nil, false, false); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "unit tests") || !strings.Contains(out, "go test ./...") {
+		t.Fatalf("verify/test instructions missing from apply prompt:\n%s", out)
+	}
+}
+
 func TestRefineWithoutAgentFails(t *testing.T) {
 	st := setupRepo(t)
 	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"), []byte("agent: none\n"), 0o644)

@@ -204,6 +204,8 @@ Write a feature spec titled %q using EXACTLY this structure (markdown body only,
 Rules:
 - Fill in every section with concrete content; no TODO placeholders.
 - In "Requirements" reference only REQ-xxx ids listed below under "Addresses:".
+- Write Acceptance Criteria as concrete, testable checks — each should be
+  provable by a unit test or a command, not a judgment call.
 - Output ONLY the markdown body.
 
 %s`
@@ -230,9 +232,10 @@ Spec %s (%s):
 
 Rules:
 - Modify the codebase so the spec's Acceptance Criteria are met.
+- Write unit tests covering the Acceptance Criteria — tests are the proof of done.
 - Keep changes focused on this spec; do not rewrite unrelated code.
 - Do not edit the spec files under specs/.
-- When you are done, update the spec file's frontmatter status to "implemented".
+- When you are done, update the spec file's frontmatter status to "implemented".%s
 
 %s`
 
