@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/hex"
 	"fmt"
+	"hash/fnv"
 	"html"
 	"io"
 	"net/http"
@@ -20,15 +21,35 @@ func webToken() string {
 	return hex.EncodeToString(b)
 }
 
-func page(w http.ResponseWriter, title, body string) {
+// projectIdent returns the repo's display name — the project spec's title
+// when present, else the directory name — plus a stable accent hue derived
+// from it so different repos get different color schemes.
+func projectIdent(st Store) (string, int) {
+	name := filepath.Base(st.Root)
+	for _, s := range st.Specs() {
+		if s.Type() == "project" {
+			name = s.Title()
+			break
+		}
+	}
+	h := fnv.New32a()
+	h.Write([]byte(name))
+	return name, int(h.Sum32() % 360)
+}
+
+func page(w http.ResponseWriter, title, body, projName string, hue int) {
+	accent := fmt.Sprintf("hsl(%d,65%%,45%%)", hue)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<html><head><title>%s</title>
+	fmt.Fprintf(w, `<html><head><title>%s · %s</title>
 <link rel="stylesheet" href="/assets/water/water.min.css">
 <style>nav a{margin-right:1em}textarea{font-family:monospace}
+nav{border-bottom:4px solid %s;padding-bottom:.5em}
+.proj{display:inline-block;background:%s;color:#fff;padding:.15em .6em;border-radius:4px;margin-right:1em;font-weight:bold}
 footer{margin-top:2em;font-size:.85em;color:var(--text-muted,#777)}</style></head><body>
-<nav><a href="/">specs</a><a href="/new">new spec</a><a href="/readme">readme</a><a href="/agents">agents</a></nav>%s
+<nav><span class="proj">%s</span><a href="/">specs</a><a href="/new">new spec</a><a href="/readme">readme</a><a href="/agents">agents</a></nav>%s
 <footer>spec %s</footer></body></html>`,
-		html.EscapeString(title), body, html.EscapeString(version))
+		html.EscapeString(projName), html.EscapeString(title), accent, accent,
+		html.EscapeString(projName), body, html.EscapeString(version))
 }
 
 //go:embed assets/easymde assets/fontawesome assets/water assets/marked
@@ -49,6 +70,13 @@ func mdBlock(markdown string) string {
 func webHandler(st Store, cfg Config, token string) http.Handler {
 	statuses := cfg.Statuses
 	var writeMu sync.Mutex
+
+	// resolve branding per request so creating a project spec while the
+	// server runs updates the badge without a restart
+	render := func(w http.ResponseWriter, title, body string) {
+		name, hue := projectIdent(st)
+		page(w, title, body, name, hue)
+	}
 
 	checkToken := func(r *http.Request) bool {
 		return r.FormValue("token") == token
@@ -72,7 +100,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			_ = rel
 		}
 		b.WriteString("</ul>")
-		page(w, "spec", b.String())
+		render(w, "spec", b.String())
 	})
 
 	mux.HandleFunc("/new", func(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +112,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			specType := r.FormValue("type")
 			title := strings.TrimSpace(r.FormValue("title"))
 			if !validTypes[specType] || title == "" {
-				page(w, "error", "<p>Invalid type or empty title.</p>")
+				render(w, "error", "<p>Invalid type or empty title.</p>")
 				return
 			}
 			writeMu.Lock()
@@ -106,7 +134,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		}
 		b.WriteString(`</select> <input name="title" placeholder="Title" size="50" required>
 <button>Create</button></p></form>`)
-		page(w, "new spec", b.String())
+		render(w, "new spec", b.String())
 	})
 
 	mux.HandleFunc("/spec/", func(w http.ResponseWriter, r *http.Request) {
@@ -122,25 +150,25 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			html.EscapeString(s.Type()), html.EscapeString(s.Status()),
 			s.ID())
 		b.WriteString(mdBlock(s.Body))
-		page(w, s.ID(), b.String())
+		render(w, s.ID(), b.String())
 	})
 
 	mux.HandleFunc("/readme", func(w http.ResponseWriter, r *http.Request) {
 		readme := readmeExcerpt(st.Root, 0)
 		if readme == "" {
-			page(w, "readme", "<h1>README</h1><p>No README found in repository root.</p>")
+			render(w, "readme", "<h1>README</h1><p>No README found in repository root.</p>")
 			return
 		}
-		page(w, "readme", "<h1>README</h1>"+mdBlock(readme))
+		render(w, "readme", "<h1>README</h1>"+mdBlock(readme))
 	})
 
 	mux.HandleFunc("/agents", func(w http.ResponseWriter, r *http.Request) {
 		doc, name := agentsExcerpt(st.Root)
 		if doc == "" {
-			page(w, "agents", "<h1>Agent instructions</h1><p>No AGENTS.md or CLAUDE.md found in repository root.</p>")
+			render(w, "agents", "<h1>Agent instructions</h1><p>No AGENTS.md or CLAUDE.md found in repository root.</p>")
 			return
 		}
-		page(w, "agents", "<h1>"+name+"</h1>"+mdBlock(doc))
+		render(w, "agents", "<h1>"+name+"</h1>"+mdBlock(doc))
 	})
 
 	renderEdit := func(w http.ResponseWriter, s Spec, errMsg string) {
@@ -193,7 +221,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 <script>new EasyMDE({element: document.getElementById('body-editor'),
 autoDownloadFontAwesome: false, spellChecker: false, status: ['lines','words','cursor']});</script>`,
 			html.EscapeString(s.Body), s.ID())
-		page(w, "edit "+s.ID(), b.String())
+		render(w, "edit "+s.ID(), b.String())
 	}
 
 	mux.HandleFunc("/edit/", func(w http.ResponseWriter, r *http.Request) {

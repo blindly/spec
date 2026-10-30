@@ -67,6 +67,30 @@ func TestWebIndexAndDetail(t *testing.T) {
 	_ = st
 }
 
+func TestWebProjectBranding(t *testing.T) {
+	st, srv, _ := setupWeb(t)
+	if _, err := st.Create("project", "Acme Thing", "# t\n\n## Overview\n\no\n\n## Requirements\n\n- REQ-001: x\n", nil); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := http.Get(srv.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	s := string(body)
+	if !strings.Contains(s, `class="proj"`) || strings.Count(s, "Acme Thing") < 2 {
+		t.Fatalf("missing project name in nav/title: %.300s", s)
+	}
+	if !strings.Contains(s, "hsl(") {
+		t.Fatal("no per-project accent color")
+	}
+	name, hue := projectIdent(st)
+	if name != "Acme Thing" || hue < 0 || hue >= 360 {
+		t.Fatalf("bad projectIdent: %q %d", name, hue)
+	}
+}
+
 func TestWebCreateSpec(t *testing.T) {
 	st, srv, token := setupWeb(t)
 	form := url.Values{"token": {token}, "type": {"feature"}, "title": {"created via web"}}
