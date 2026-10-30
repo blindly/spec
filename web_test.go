@@ -156,6 +156,33 @@ func TestWebAgents(t *testing.T) {
 	}
 }
 
+func TestWebHelp(t *testing.T) {
+	st, srv, _ := setupWeb(t)
+	resp, err := http.Get(srv.URL + "/help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	s := string(body)
+	if !strings.Contains(s, "{fact:") || !strings.Contains(s, "No facts defined") {
+		t.Fatalf("help page missing content: %.300s", s)
+	}
+	// defined facts are listed
+	if err := setFact(st.Root, "domain", "example.com"); err != nil {
+		t.Fatal(err)
+	}
+	resp, err = http.Get(srv.URL + "/help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !strings.Contains(string(body), "{fact:domain}") {
+		t.Fatalf("help page missing defined fact: %.300s", body)
+	}
+}
+
 func TestWebEditRejectsBadInput(t *testing.T) {
 	_, srv, token := setupWeb(t)
 	if err := cmdNew(io.Discard, io.Discard, "feature", "keep sections"); err != nil {

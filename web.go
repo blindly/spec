@@ -46,7 +46,7 @@ func page(w http.ResponseWriter, title, body, projName string, hue int) {
 nav{border-bottom:4px solid %s;padding-bottom:.5em}
 .proj{display:inline-block;background:%s;color:#fff;padding:.15em .6em;border-radius:4px;margin-right:1em;font-weight:bold}
 footer{margin-top:2em;font-size:.85em;color:var(--text-muted,#777)}</style></head><body>
-<nav><span class="proj">%s</span><a href="/">specs</a><a href="/new">new spec</a><a href="/readme">readme</a><a href="/agents">agents</a></nav>%s
+<nav><span class="proj">%s</span><a href="/">specs</a><a href="/new">new spec</a><a href="/readme">readme</a><a href="/agents">agents</a><a href="/help">help</a></nav>%s
 <footer>spec %s</footer></body></html>`,
 		html.EscapeString(projName), html.EscapeString(title), accent, accent,
 		html.EscapeString(projName), body, html.EscapeString(version))
@@ -169,6 +169,19 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			return
 		}
 		render(w, "agents", "<h1>"+name+"</h1>"+mdBlock(doc))
+	})
+
+	mux.HandleFunc("/help", func(w http.ResponseWriter, r *http.Request) {
+		doc := helpMarkdown + "\n## Defined facts\n\n"
+		facts := loadFacts(st.Root)
+		if len(facts) == 0 {
+			doc += "No facts defined (`spec fact set <key> <value>`).\n"
+		} else {
+			for _, f := range facts {
+				doc += fmt.Sprintf("- `{fact:%s}` — %s\n", f.Key, f.Value)
+			}
+		}
+		render(w, "help", mdBlock(doc))
 	})
 
 	renderEdit := func(w http.ResponseWriter, s Spec, errMsg string) {
