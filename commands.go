@@ -894,7 +894,7 @@ func applyableStatus(s Spec) bool {
 		(s.Status() == "accepted" || s.Status() == "proposed")
 }
 
-func cmdApply(out, errOut io.Writer, ids []string, runIt, force bool) error {
+func cmdApply(out, errOut io.Writer, ids []string, printOnly, force bool) error {
 	st, err := mustStore()
 	if err != nil {
 		return err
@@ -925,14 +925,14 @@ func cmdApply(out, errOut io.Writer, ids []string, runIt, force bool) error {
 
 	var ag *agent
 	cfg := loadConfig(st.Root)
-	if runIt {
+	if !printOnly {
 		var aerr error
 		ag, aerr = resolveAgent(cfg)
 		if aerr != nil {
 			return aerr
 		}
 		if ag == nil {
-			return fmt.Errorf("--run requires an LLM agent (none configured; set agent/agent_cmd in .spec/config.yml)")
+			return fmt.Errorf("apply runs the configured LLM agent (none configured; set agent/agent_cmd in .spec/config.yml, or use --print to output the prompts)")
 		}
 	}
 
@@ -943,7 +943,7 @@ func cmdApply(out, errOut io.Writer, ids []string, runIt, force bool) error {
 	}
 	for _, s := range targets {
 		prompt := fmt.Sprintf(applyPromptFmt, s.ID(), s.Title(), s.Body, verifyNote, repoContext(st, 50))
-		if !runIt {
+		if printOnly {
 			fmt.Fprintf(out, "# ---- apply prompt for %s ----\n\n%s\n\n", s.ID(), prompt)
 			continue
 		}
@@ -953,8 +953,8 @@ func cmdApply(out, errOut io.Writer, ids []string, runIt, force bool) error {
 		}
 		fmt.Fprintf(out, "\n%s done\n", s.ID())
 	}
-	if !runIt {
-		fmt.Fprintln(out, "# Paste the prompt(s) above into your agent CLI. To run the configured agent directly: spec apply --run")
+	if printOnly {
+		fmt.Fprintln(out, "# Paste the prompt(s) above into your agent CLI, or drop --print to run the configured agent directly.")
 	}
 	return nil
 }

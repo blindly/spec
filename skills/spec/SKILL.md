@@ -49,8 +49,8 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
   `{fact:key}`; add missing facts with `spec fact set key value`.
 - `spec check` audits `{fact:key}` references; `spec trace` shows REQ→feature
   coverage.
-- `spec apply` prints implementation prompts for accepted/proposed specs;
-  `spec apply --run` executes the configured agent.
+- `spec apply` executes the configured agent on accepted/proposed specs;
+  `spec apply --print` outputs the prompts instead.
 
 ## Gotchas
 

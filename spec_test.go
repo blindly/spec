@@ -372,7 +372,7 @@ func TestApplyPromptIncludesVerify(t *testing.T) {
 	meta["status"] = []string{"accepted"}
 	os.WriteFile(s.Path, []byte(dumpFrontmatter(meta, s.Body)), 0o644)
 	var buf bytes.Buffer
-	if err := cmdApply(&buf, io.Discard, nil, false, false); err != nil {
+	if err := cmdApply(&buf, io.Discard, nil, true, false); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()

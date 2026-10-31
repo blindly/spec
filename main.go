@@ -27,7 +27,7 @@ Usage:
   spec draft feature <title>         Generate feature draft (LLM agent if configured)
   spec edit <id>                     Open a spec in your editor
   spec refine <id>                   LLM agent improves an existing spec
-  spec apply [--run|--force] [id...] Print apply prompt(s); --run executes the agent
+  spec apply [--print|--force] [id...] Run agent to implement specs; --print outputs the prompt(s)
   spec status                        Summarize repository spec state
   spec fact [list|get|set|unset]     Manage .spec/facts.yml project facts
   spec check                         Audit {fact:key} references vs facts.yml
@@ -101,11 +101,12 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 		// extract flags manually: Go's flag pkg stops at the first
 		// positional arg, so `spec apply ID --force` would lose --force
 		var ids []string
-		var runIt, force bool
+		var printOnly, force bool
 		for _, arg := range a {
 			switch arg {
-			case "--run":
-				runIt = true
+			case "--print", "--dry-run":
+				printOnly = true
+			case "--run": // kept for compatibility; running is the default
 			case "--force":
 				force = true
 			default:
@@ -115,7 +116,7 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 				ids = append(ids, arg)
 			}
 		}
-		return cmdApply(o, e, ids, runIt, force)
+		return cmdApply(o, e, ids, printOnly, force)
 	},
 	"edit": func(a []string, o, e io.Writer) error {
 		if len(a) < 1 {

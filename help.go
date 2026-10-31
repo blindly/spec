@@ -40,6 +40,7 @@ spec new feature <title>
 spec search <query>
 spec validate   # frontmatter, sections, REQ refs, dependency cycles
 spec check      # audit {fact:key} references
+spec apply      # run the configured agent to implement specs (--print to output prompts)
 spec verify     # run verify: commands from .spec/config.yml
 spec graph      # dependency graph (--mermaid)
 spec trace      # REQ → feature coverage

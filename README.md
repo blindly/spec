@@ -27,7 +27,7 @@ go build -o spec .
 | `spec trace` | Requirements traceability matrix (REQ → features) |
 | `spec draft feature <title>` | Generate a feature draft (LLM agent if configured, else heuristic) |
 | `spec refine <id>` | LLM agent rewrites an existing spec's body in place |
-| `spec apply [--run\|--force] [id…]` | Print apply prompt(s) for accepted/proposed features; `--run` executes via agent |
+| `spec apply [--print\|--force] [id…]` | Run the configured agent to implement accepted/proposed specs; `--print` outputs the prompt(s) |
 | `spec status` | Summarize repo spec state (counts, coverage, agent) |
 | `spec fact [list\|get\|set\|unset]` | Manage `.spec/facts.yml` project facts |
 | `spec check` | Audit `{fact:key}` references against facts.yml |
