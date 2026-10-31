@@ -197,7 +197,7 @@ func TestBootstrapAndRoadmapAndGraph(t *testing.T) {
 func TestConfigParsing(t *testing.T) {
 	st := setupRepo(t)
 	cfg := loadConfig(st.Root)
-	if cfg.Agent != "none" || cfg.AgentTimeout != 900 {
+	if cfg.Agent != "none" || cfg.AgentTimeout != 3600 {
 		t.Fatalf("defaults: %+v", cfg)
 	}
 	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"),

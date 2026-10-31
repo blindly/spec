@@ -53,7 +53,7 @@ your agent once globally and only override per repo when needed.
 agent: claude          # none | claude | devin | gemini | codex | aider | opencode | amp | cline | vibe
 agent_cmd: "mycli --flag {prompt}"   # custom command; {prompt} = prompt arg,
                                      # omitted = prompt on stdin
-agent_timeout: 900     # seconds
+agent_timeout: 3600     # seconds
 web_host: 127.0.0.1    # bind address for `spec web`; 0.0.0.0 exposes it (--host overrides)
 web_port: 8080         # default port for `spec web` (--port overrides)
 statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
