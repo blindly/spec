@@ -24,7 +24,7 @@ var knownAdapters = map[string][]string{
 	"claude":   {"claude", "-p", "{prompt}"},
 	"devin":    {"devin", "--print", "--permission-mode", "smart", "--", "{prompt}"},
 	"gemini":   {"gemini", "-p", "{prompt}"},
-	"codex":    {"codex", "exec", "--skip-git-repo-check", "{prompt}"},
+	"codex":    {"codex", "exec", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"},
 	"aider":    {"aider", "--message", "{prompt}"},
 	"opencode": {"opencode", "run", "{prompt}"},
 	"amp":      {"amp", "-x", "{prompt}"},
