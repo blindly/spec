@@ -85,6 +85,37 @@ func docPage(title, caption, doc string) string {
 	return b.String()
 }
 
+// promoteForm is an idea's promote control: a type select preselected to the
+// suggested type (or a "type…" placeholder) and a promote button.
+func promoteForm(s Spec, token string) string {
+	var b strings.Builder
+	id := html.EscapeString(s.ID())
+	suggested := metaGet(s.Meta, "suggested_type", "")
+	fmt.Fprintf(&b, `<form method="post" action="/promote/%s"><input type="hidden" name="token" value="%s"><select name="type" required>`, id, token)
+	if suggested == "" {
+		b.WriteString(`<option value="" selected disabled>type…</option>`)
+	}
+	for _, t := range []string{"project", "feature", "adr"} {
+		sel := ""
+		if t == suggested {
+			sel = " selected"
+		}
+		fmt.Fprintf(&b, `<option%s>%s</option>`, sel, t)
+	}
+	b.WriteString(`</select><button>promote</button></form>`)
+	return b.String()
+}
+
+// suggestedBadge is the suggested-type badge for an idea ("" if none).
+func suggestedBadge(s Spec) string {
+	t := metaGet(s.Meta, "suggested_type", "")
+	if t == "" {
+		return ""
+	}
+	return fmt.Sprintf(`<span class="badge" title="%s">%s</span>`,
+		html.EscapeString(metaGet(s.Meta, "suggested_reason", "")), html.EscapeString(t))
+}
+
 // splitLeadingH1 returns the text of a markdown body's opening "# " heading
 // and the body without it; heading is "" if the body doesn't start with one.
 func splitLeadingH1(body string) (heading, rest string) {
@@ -187,28 +218,12 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			b.WriteString(`<table class="inbox"><thead><tr><th>id</th><th>idea</th><th>status</th><th>suggested</th><th>created</th><th></th></tr></thead><tbody>`)
 			for _, s := range ideas {
 				id := html.EscapeString(s.ID())
-				suggested := metaGet(s.Meta, "suggested_type", "")
-				badge := ""
-				if suggested != "" {
-					badge = fmt.Sprintf(`<span class="badge" title="%s">%s</span>`,
-						html.EscapeString(metaGet(s.Meta, "suggested_reason", "")), html.EscapeString(suggested))
-				}
 				fmt.Fprintf(&b, `<tr><td><a href="/spec/%s">%s</a></td><td>%s</td><td>%s</td><td>%s</td><td class="muted">%s</td><td>`,
-					id, id, html.EscapeString(s.Title()), html.EscapeString(s.Status()), badge,
+					id, id, html.EscapeString(s.Title()), html.EscapeString(s.Status()), suggestedBadge(s),
 					html.EscapeString(metaGet(s.Meta, "created", "")))
 				if s.Status() != ideaDiscarded {
-					fmt.Fprintf(&b, `<form method="post" action="/promote/%s"><input type="hidden" name="token" value="%s"><select name="type" required>`, id, token)
-					if suggested == "" {
-						b.WriteString(`<option value="" selected disabled>type…</option>`)
-					}
-					for _, t := range []string{"project", "feature", "adr"} {
-						sel := ""
-						if t == suggested {
-							sel = " selected"
-						}
-						fmt.Fprintf(&b, `<option%s>%s</option>`, sel, t)
-					}
-					fmt.Fprintf(&b, `</select><button>promote</button></form>
+					b.WriteString(promoteForm(s, token))
+					fmt.Fprintf(&b, `
 <form method="post" action="/discard/%s"><input type="hidden" name="token" value="%s"><button>discard</button></form>`, id, token)
 				}
 				b.WriteString(`</td></tr>`)
@@ -368,9 +383,10 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		// finished specs (done_statuses) are hidden unless ?all=1
 		showAll := r.URL.Query().Get("all") == "1"
 		// group specs by status, columns ordered by configured statuses. The
-		// board is work in progress only: ideas live in the inbox, specs that
-		// describe the current system in /system, archived ones in /archive
-		var specsAll []Spec
+		// board is work in progress: specs that describe the current system
+		// live in /system and archived ones in /archive. Ideas stay in the
+		// inbox, except refined ones, which show first as "ready" (FEAT-013).
+		var specsAll, ready []Spec
 		archived, system := 0, 0
 		for _, s := range st.Specs() {
 			switch {
@@ -378,10 +394,21 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 				archived++
 			case inSystem(cfg, s):
 				system++
-			case !s.IsIdea():
+			case s.IsIdea():
+				if s.Status() == ideaRefined {
+					ready = append(ready, s)
+				}
+			default:
 				specsAll = append(specsAll, s)
 			}
 		}
+		sort.SliceStable(ready, func(i, j int) bool {
+			ci, cj := metaGet(ready[i].Meta, "created", ""), metaGet(ready[j].Meta, "created", "")
+			if ci != cj {
+				return ci > cj
+			}
+			return ready[i].ID() > ready[j].ID()
+		})
 		byStatus := map[string][]Spec{}
 		var extra []string // statuses present but not in cfg.Statuses
 		for _, s := range specsAll {
@@ -423,7 +450,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		}
 		var b strings.Builder
 		b.WriteString(`<h1>Board</h1>`)
-		if len(specsAll) == 0 {
+		if len(specsAll) == 0 && len(ready) == 0 {
 			b.WriteString(`<p>No work in progress — <a href="/new">create a spec</a>, or promote an idea from the <a href="/">inbox</a>.</p>` + footerLinks)
 			render(w, "board", b.String())
 			return
@@ -436,12 +463,21 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			toggle = fmt.Sprintf(`<p class="toggle"><a href="%s">hide finished</a></p>`, r.URL.Path)
 		}
 		toggle += footerLinks
-		if len(cols) == 0 {
+		if len(cols) == 0 && len(ready) == 0 {
 			b.WriteString(`<p>Nothing in progress.</p>` + toggle)
 			render(w, "board", b.String())
 			return
 		}
 		b.WriteString(`<div class="board">`)
+		if len(ready) > 0 {
+			fmt.Fprintf(&b, `<div class="col"><h2>ready <span class="count">%d</span></h2>`, len(ready))
+			for _, s := range ready {
+				fmt.Fprintf(&b, `<div class="card"><a href="/spec/%s">%s</a> %s<div class="title">%s</div><div class="type">refined idea</div>%s</div>`,
+					html.EscapeString(s.ID()), html.EscapeString(s.ID()), suggestedBadge(s),
+					html.EscapeString(s.Title()), promoteForm(s, token))
+			}
+			b.WriteString("</div>")
+		}
 		for _, status := range cols {
 			specs := byStatus[status]
 			fmt.Fprintf(&b, `<div class="col"><h2>%s <span class="count">%d</span></h2>`,
@@ -465,8 +501,9 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			}
 			specType := r.FormValue("type")
 			title := strings.TrimSpace(r.FormValue("title"))
-			if !validTypes[specType] || title == "" {
-				render(w, "error", "<p>Invalid type or empty title.</p>")
+			// typed specs only: ideas are captured from the inbox (FEAT-013)
+			if !specTypes[specType] || title == "" {
+				render(w, "error", `<p>Invalid type or empty title. Ideas are added from the <a href="/">inbox</a>.</p>`)
 				return
 			}
 			writeMu.Lock()
@@ -483,17 +520,17 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		fmt.Fprintf(&b, `<h1>New spec</h1><form method="post">
 <input type="hidden" name="token" value="%s">
 <p><select name="type">`, token)
-		// idea first and selected: not knowing the type yet is the common case
-		for _, t := range []string{"idea", "project", "feature", "adr"} {
+		// typed specs only; ideas go to the inbox (FEAT-013)
+		for _, t := range []string{"project", "feature", "adr"} {
 			sel := ""
-			if t == "idea" {
+			if t == "feature" {
 				sel = " selected"
 			}
 			fmt.Fprintf(&b, `<option value="%s"%s>%s</option>`, t, sel, t)
 		}
 		b.WriteString(`</select> <input name="title" placeholder="Title" size="50" required>
 <button>Create</button></p></form>
-<p class="muted">Not sure what type it is? Keep <strong>idea</strong> — it goes to the inbox, and you can promote it to a project, feature, or adr later. See <a href="/help">help</a> for choosing a type.</p>`)
+<p class="muted">Not sure what it is yet? Add it to the <a href="/">inbox</a> as an idea, and promote it once you know. See <a href="/help">help</a> for choosing a type.</p>`)
 		render(w, "new spec", b.String())
 	})
 

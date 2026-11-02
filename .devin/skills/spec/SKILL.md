@@ -19,7 +19,7 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
 - `specs/adr/` — architecture decision records
 - `specs/imported/` — imported docs
 - `specs/inbox/` — untyped ideas (`IDEA-xxx`, statuses new/refined/discarded);
-  not specs yet — never applied, not on the board
+  not specs yet — never applied; refined ones show on the board as "ready"
 - `specs/archive/` — archived specs (same layout; `spec archive`/`unarchive`):
   deprecated/rejected specs and discarded ideas. History — read them for
   context, but they may be outdated; never implement them, and trust

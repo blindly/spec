@@ -64,7 +64,8 @@ Addresses: REQ-013, REQ-001
 
 - `spec idea <title>` creates an idea with status `new`.
 - In the web UI, the inbox has a capture box at the top (title, then
-  Enter). The "new spec" form lists `idea` first and selects it by default.
+  Enter). The inbox is the one place to add ideas in the web UI; the "new
+  spec" form is for typed specs only (FEAT-013).
 
 ### Inbox page (web landing page)
 
@@ -78,7 +79,8 @@ Addresses: REQ-013, REQ-001
 - Discarded ideas are hidden by default behind "N discarded — show".
 - With an empty inbox: "Inbox empty — capture an idea above, or go to the
   board".
-- Ideas never appear on the board.
+- New and discarded ideas never appear on the board; refined ideas appear in
+  its "ready" column (FEAT-013).
 - Promote and discard POSTs require the same form token as the other write
   forms.
 
@@ -111,7 +113,7 @@ Addresses: REQ-013, REQ-001
 - [x] `spec discard IDEA-001` sets status `discarded`
 - [x] `/` shows the inbox as a list with capture box, promote, and discard; the board is at `/board`
 - [x] Discarded ideas are hidden from the inbox by default, with a show toggle
-- [x] Ideas never appear on the board
+- [x] Ideas don't appear on the board until refined (FEAT-013)
 - [x] `spec promote IDEA-001 adr` creates an ADR with the idea's notes in Context and `promoted_from: IDEA-001`
 - [x] The idea file is deleted after promoting
 - [x] `spec promote IDEA-001` with no type uses `suggested_type`, or errors if there isn't one

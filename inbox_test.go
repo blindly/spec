@@ -253,11 +253,51 @@ func TestWebInbox(t *testing.T) {
 	}
 }
 
-func TestWebNewFormDefaultsToIdea(t *testing.T) {
-	_, srv, _ := setupWeb(t)
+// FEAT-013: the new spec form is for typed specs; ideas come from the inbox.
+func TestWebNewFormTypedOnly(t *testing.T) {
+	st, srv, token := setupWeb(t)
 	page := webGet(t, srv.URL+"/new")
-	if !strings.HasPrefix(page[strings.Index(page, "<option"):], `<option value="idea" selected>idea</option>`) {
-		t.Fatalf("idea should be the first, selected option:\n%s", page)
+	if strings.Contains(page, `value="idea"`) || !strings.Contains(page, `<option value="feature" selected>feature</option>`) || !strings.Contains(page, `<a href="/">inbox</a> as an idea`) {
+		t.Fatalf("form should offer project/feature/adr with feature selected and link the inbox:\n%s", page)
+	}
+	resp := postForm(t, srv.URL+"/new", url.Values{"token": {token}, "type": {"idea"}, "title": {"sneaky"}})
+	resp.Body.Close()
+	if resp.StatusCode == 303 || st.Get("IDEA-001") != nil {
+		t.Fatal("posting an idea to /new should be rejected")
+	}
+}
+
+// FEAT-013: refined ideas appear on the board as a "ready" column.
+func TestWebBoardReadyColumn(t *testing.T) {
+	st, srv, token := setupWeb(t)
+	if page := webGet(t, srv.URL+"/board"); strings.Contains(page, "<h2>ready") {
+		t.Fatal("no ready column without refined ideas")
+	}
+	newIdea(t, st, "raw thought", nil)
+	newIdea(t, st, "dead thought", map[string][]string{"status": {"discarded"}})
+	newIdea(t, st, "ready thought", map[string][]string{"status": {"refined"}, "suggested_type": {"adr"}, "suggested_reason": {"a choice"}})
+	featureWithStatus(t, st, "wip", "proposed")
+	board := webGet(t, srv.URL+"/board")
+	ready, proposed := strings.Index(board, "<h2>ready <span class=\"count\">1</span>"), strings.Index(board, "<h2>proposed")
+	if ready < 0 || proposed < 0 || ready > proposed {
+		t.Fatalf("ready column should come first with one idea:\n%s", board)
+	}
+	if !strings.Contains(board, "ready thought") || strings.Contains(board, "raw thought") || strings.Contains(board, "dead thought") {
+		t.Fatalf("only refined ideas belong on the board:\n%s", board)
+	}
+	if !strings.Contains(board, `action="/promote/IDEA-003"`) || !strings.Contains(board, "<option selected>adr</option>") || !strings.Contains(board, `title="a choice">adr</span>`) {
+		t.Fatalf("ready card should have the suggested badge and a preselected promote form:\n%s", board)
+	}
+	resp := postForm(t, srv.URL+"/promote/IDEA-003", url.Values{"token": {token}, "type": {"adr"}})
+	resp.Body.Close()
+	if resp.StatusCode != 303 || resp.Header.Get("Location") != "/edit/ADR-001" {
+		t.Fatalf("promote from the board: %d %s", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	// only refined ideas left → still a board, not "no work in progress"
+	os.Remove(st.Get("FEAT-001").Path)
+	newIdea(t, st, "another ready", map[string][]string{"status": {"refined"}})
+	if board := webGet(t, srv.URL+"/board"); strings.Contains(board, "No work in progress") || !strings.Contains(board, "another ready") {
+		t.Fatalf("refined ideas alone should still show the board:\n%s", board)
 	}
 }
 

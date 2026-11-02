@@ -16,7 +16,8 @@ The web board (at `/board`) hides specs that are no longer valid
 (deprecated, rejected) by default, behind a toggle, so the board shows what's
 being worked on. Implemented specs aren't hidden either: they're the living
 description of the system (ADR-003) and have their own view, `/system`
-(FEAT-011), so the board holds only work in progress.
+(FEAT-011), so the board holds work in progress (plus refined ideas in a
+first "ready" column, FEAT-013).
 
 ## Motivation
 

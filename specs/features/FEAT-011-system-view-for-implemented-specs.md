@@ -45,7 +45,8 @@ Addresses: REQ-011
   - imported doc whose status isn't in `done_statuses`
 - **Board:** shows every non-archived, non-idea spec that isn't in the
   system and isn't a done status (or is a done status, with `?all=1`). So:
-  draft/proposed/accepted features and projects, and draft/proposed ADRs.
+  draft/proposed/accepted features and projects, and draft/proposed ADRs,
+  plus a first "ready" column of refined ideas (FEAT-013).
   `?all=1` reveals deprecated/rejected only. Below the board: "N specs in
   the system — view system".
 - **System page** `/system`: one section per type, in order: Project,

@@ -43,8 +43,11 @@ Without an agent, refine only guesses the type from keywords, labelled
 "heuristic". ` + "`spec promote`" + ` with no type uses the suggestion.
 
 Promoting deletes the idea file — the new spec records ` + "`promoted_from`" + `,
-and git keeps the history. Ideas never appear on the board and are never
-applied.
+and git keeps the history. Ideas are never applied. Refined ideas also show
+on the board, in a first **ready** column with a promote button: they're
+the candidates for what to work on next. New and discarded ideas stay in the
+inbox, which is the one place to add ideas (the new spec form is for
+project, feature, and adr specs).
 
 ## Inbox, board, system
 
@@ -53,7 +56,7 @@ The web UI has three views, one per stage:
 | View | Shows | Answers |
 |---|---|---|
 | [inbox](/) | ideas | What might we do? |
-| [board](/board) | work in progress: draft/proposed/accepted features, draft/proposed ADRs | What are we working on? |
+| [board](/board) | refined ideas (ready), then work in progress: draft/proposed/accepted features, draft/proposed ADRs | What's next, and what are we working on? |
 | [system](/system) | implemented features and projects, accepted ADRs, imported docs | What does the system do today? |
 
 **Implemented specs are living documentation.** An implemented spec
