@@ -38,7 +38,11 @@ Usage:
                                        --no-verify skips verify · --force allows any status
   spec status                        Summarize repository spec state
   spec fact [list|get|set|unset]     Manage .spec/facts.yml project facts
-  spec check                         Audit {fact:key} references vs facts.yml
+  spec check                         Audit {fact:key} references vs facts.yml; warn about drift
+  spec drift [--review [--yes]] [id...]   Specs whose covered code changed since they were last updated;
+                                       --review asks the agent if each is stale and proposes an update
+  spec covers [--infer] [id...]      Show (or infer from git history) the files each spec covers
+  spec verified <id>...              Mark specs as checked and accurate (clears drift until code changes)
   spec verify                        Run configured verification commands
   spec config                        Show effective configuration
   spec config init [global|repo] [--force]   Write config template (--force regenerates)
@@ -83,6 +87,9 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 	"archive":   func(a []string, o, e io.Writer) error { return cmdArchive(o, a) },
 	"unarchive": func(a []string, o, e io.Writer) error { return cmdUnarchive(o, a) },
 	"promote":   func(a []string, o, e io.Writer) error { return cmdPromote(o, a) },
+	"drift":     func(a []string, o, e io.Writer) error { return cmdDrift(os.Stdin, o, e, a) },
+	"covers":    func(a []string, o, e io.Writer) error { return cmdCovers(o, a) },
+	"verified":  func(a []string, o, e io.Writer) error { return cmdVerified(o, a) },
 	"new": func(a []string, o, e io.Writer) error {
 		if len(a) < 2 {
 			return fmt.Errorf("usage: spec new <project|feature|adr|idea> <title>")

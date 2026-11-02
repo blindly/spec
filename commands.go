@@ -1069,6 +1069,17 @@ func cmdApply(in io.Reader, out, errOut io.Writer, ids []string, opts applyOpts)
 		verifyNote = "\n- Before finishing, run the repo verification commands — all must pass: " +
 			strings.Join(cfg.Verify, "; ")
 	}
+	// FEAT-012: tell the agent which specs are already possibly stale
+	if g := loadGit(st.Root); g != nil {
+		if stale, _ := g.systemDrift(st, cfg); len(stale) > 0 {
+			var parts []string
+			for _, d := range stale {
+				parts = append(parts, fmt.Sprintf("%s (%s)", d.Spec.ID(), strings.Join(d.Files, ", ")))
+			}
+			verifyNote += "\n- These specs may already be out of date — code they cover changed since they were last updated: " +
+				strings.Join(parts, "; ") + ". If your work touches these areas, check them and bring them up to date."
+		}
+	}
 	if opts.Print {
 		for _, s := range targets {
 			prompt := fmt.Sprintf(applyPromptFmt, s.ID(), s.Title(), s.Body, verifyNote, repoContext(st, 50))
@@ -1086,9 +1097,11 @@ func cmdApply(in io.Reader, out, errOut io.Writer, ids []string, opts applyOpts)
 	for _, s := range targets {
 		prompt := fmt.Sprintf(applyPromptFmt, s.ID(), s.Title(), s.Body, verifyNote, repoContext(st, 50))
 		fmt.Fprintf(out, "Applying %s via %s…\n", s.ID(), ag.name)
+		snap := snapshotTree(st.Root)
 		_, runErr := ag.runLive(prompt, st.Root, cfg.AgentTimeout, out)
 		outcome, ok := applyOutcome(st, cfg, s.ID(), runErr, opts, out, errOut)
 		fmt.Fprintf(out, "\n%s: %s\n", s.ID(), outcome)
+		trackCoverage(out, st, cfg, s.ID(), changedSince(st.Root, snap), ok)
 		results = append(results, result{s.ID(), outcome, ok})
 	}
 	failed := 0

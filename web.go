@@ -57,11 +57,34 @@ nav{border-bottom:4px solid %s;padding-bottom:.5em}
 .inbox select,.inbox button{padding:.2em .5em;margin:0 .2em}
 .badge{display:inline-block;font-size:.8em;padding:.05em .5em;border-radius:3px;border:1px solid %s}
 .muted{color:var(--text-muted,#777)}
+.badge.stale{border-color:#c80;color:#c80}
+.stale-note{border-left:4px solid #c80;padding:.2em 1em;margin:1em 0}
 footer{margin-top:2em;font-size:.85em;color:var(--text-muted,#777)}</style></head><body>
 <nav><span class="proj">%s</span><a href="/">inbox</a><a href="/board">board</a><a href="/system">system</a><a href="/new">new spec</a><a href="/readme">readme</a><a href="/agents">agents</a><a href="/help">help</a></nav>%s
 <footer>spec %s</footer></body></html>`,
 		html.EscapeString(projName), html.EscapeString(title), accent, accent,
 		accent, accent, html.EscapeString(projName), body, html.EscapeString(version))
+}
+
+// driftHTML is the "may be stale" notice on a spec's page.
+func driftHTML(d *driftInfo) string {
+	var b strings.Builder
+	b.WriteString(`<div class="stale-note"><p><span class="badge stale">may be stale</span> Code this spec covers changed since it was last updated: `)
+	var files []string
+	for _, f := range d.Files {
+		files = append(files, "<code>"+html.EscapeString(f)+"</code>")
+	}
+	b.WriteString(strings.Join(files, ", ") + `</p><ul>`)
+	for _, c := range d.Commits {
+		fmt.Fprintf(&b, `<li><code>%s</code> %s <span class="muted">%s</span></li>`,
+			html.EscapeString(c.SHA[:7]), html.EscapeString(c.Subject), html.EscapeString(c.Date))
+	}
+	if len(d.Uncommitted) > 0 {
+		b.WriteString(`<li>uncommitted changes</li>`)
+	}
+	fmt.Fprintf(&b, `</ul><p class="muted">Update the spec if it's out of date, or mark it accurate: <code>spec verified %s</code> · agent check: <code>spec drift --review %s</code></p></div>`,
+		html.EscapeString(d.Spec.ID()), html.EscapeString(d.Spec.ID()))
+	return b.String()
 }
 
 //go:embed assets/easymde assets/fontawesome assets/water assets/marked
@@ -250,7 +273,8 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			return
 		}
 		b.WriteString(`<p class="muted">What the system does today. These specs are kept current as the system changes; work in progress is on the <a href="/board">board</a>.</p>`)
-		dates := lastChanged(st, all)
+		g := loadGit(st.Root)
+		dates := lastChanged(st, g, all)
 		for _, sec := range []struct{ typ, title string }{
 			{"project", "Project"}, {"feature", "Features"}, {"adr", "Decisions"}, {"imported", "Imported docs"},
 		} {
@@ -267,8 +291,15 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 					d = html.EscapeString(d)
 					deps = append(deps, fmt.Sprintf(`<a href="/spec/%s">%s</a>`, d, d))
 				}
-				fmt.Fprintf(&b, `<tr><td><a href="/spec/%s">%s</a></td><td>%s</td><td class="muted">%s</td><td>%s</td></tr>`,
-					id, id, html.EscapeString(s.Title()), html.EscapeString(dates[s.Path]), strings.Join(deps, ", "))
+				stale := ""
+				if g != nil {
+					if d := g.drift(s); d != nil {
+						stale = fmt.Sprintf(` <span class="badge stale" title="changed since last updated: %s">may be stale</span>`,
+							html.EscapeString(strings.Join(d.Files, ", ")))
+					}
+				}
+				fmt.Fprintf(&b, `<tr><td><a href="/spec/%s">%s</a></td><td>%s%s</td><td class="muted">%s</td><td>%s</td></tr>`,
+					id, id, html.EscapeString(s.Title()), stale, html.EscapeString(dates[s.Path]), strings.Join(deps, ", "))
 			}
 			b.WriteString(`</tbody></table>`)
 		}
@@ -451,6 +482,11 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			html.EscapeString(s.ID()), html.EscapeString(s.Title()),
 			html.EscapeString(s.Type()), html.EscapeString(s.Status()),
 			archivedNote, s.ID())
+		if g := loadGit(st.Root); g != nil && inSystem(cfg, *s) {
+			if d := g.drift(*s); d != nil {
+				b.WriteString(driftHTML(d))
+			}
+		}
 		b.WriteString(mdBlock(s.Body))
 		render(w, s.ID(), b.String())
 	})

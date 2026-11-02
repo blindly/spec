@@ -222,6 +222,13 @@ func cmdCheck(out, errOut io.Writer) error {
 			fmt.Fprintf(out, "WARN  fact %q is never referenced ({fact:%s})\n", f.Key, f.Key)
 		}
 	}
+	// drift (FEAT-012): warn, never fail
+	if g := loadGit(st.Root); g != nil {
+		stale, _ := g.systemDrift(st, loadConfig(st.Root))
+		for _, d := range stale {
+			fmt.Fprintf(out, "WARN  %s may be stale: %s changed since it was last updated (spec drift)\n", d.Spec.ID(), strings.Join(d.Files, ", "))
+		}
+	}
 	if problems > 0 {
 		return fmt.Errorf("%d undefined fact reference(s)", problems)
 	}

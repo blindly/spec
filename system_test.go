@@ -123,7 +123,7 @@ func TestLastChangedUsesGit(t *testing.T) {
 	git("add", ".")
 	git("commit", "-q", "-m", "init")
 	untracked := featureWithStatus(t, st, "untracked", "implemented")
-	dates := lastChanged(st, st.Specs())
+	dates := lastChanged(st, loadGit(st.Root), st.Specs())
 	if got := dates[st.Get(committed).Path]; got != "2020-01-02" {
 		t.Fatalf("committed spec: got %q, want git commit date", got)
 	}

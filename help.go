@@ -63,6 +63,25 @@ spec is updated in the same change (` + "`spec apply`" + ` tells agents to do th
 Specs that are no longer valid (` + "`done_statuses`" + `, default deprecated/rejected)
 are hidden behind the board's "show" toggle.
 
+## Drift
+
+A spec in the system view **may be stale** when code it covers changed
+after the spec was last updated. Each spec lists the files it covers in
+` + "`covers:`" + ` frontmatter (exact paths, ` + "`dir/`" + `, or globs). ` + "`spec apply`" + ` records
+the files the agent changed; ` + "`spec covers --infer`" + ` fills it in from git
+history for older specs.
+
+` + "```" + `
+spec drift                 # list possibly-stale specs, with the commits involved
+spec drift --review        # the agent checks each one: accurate → verified, stale → proposed update
+spec verified FEAT-004     # checked, still accurate — clears the flag until the code changes again
+` + "```" + `
+
+Flagged specs get a "may be stale" badge on the [system](/system) view, a
+warning in ` + "`spec check`" + `, and a mention in the next ` + "`spec apply`" + ` prompt.
+Changing a spec in the same commit as its code keeps it in sync.
+Drift detection needs git.
+
 ## Archive
 
 When a spec stops describing the system, mark it **deprecated** (or update
@@ -138,7 +157,10 @@ spec unarchive <id>...
 spec new feature <title>
 spec search <query>
 spec validate   # frontmatter, sections, type/id/dir match, REQ refs, cycles
-spec check      # audit {fact:key} references
+spec check      # audit {fact:key} references; warn about drift
+spec drift [--review]             # specs whose covered code changed since they were updated
+spec covers [--infer]             # files each spec covers (infer from git history)
+spec verified <id>                # mark a spec checked and accurate
 spec apply <id> # run the configured agent to implement a spec
 spec apply      # all accepted specs, after confirmation (--yes to skip)
                 # succeeds only if status reaches implemented and verify: passes

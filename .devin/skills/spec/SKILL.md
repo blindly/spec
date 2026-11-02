@@ -53,6 +53,10 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    spec describes, update that spec's text in the same change (don't change
    its status). If a spec no longer describes the system at all, mark it
    `deprecated` — don't leave it silently stale.
+7. **Check for drift.** `spec drift` lists specs whose `covers:` files
+   changed since they were last updated. Before finishing, fix any your work
+   made stale; if a flagged spec is still accurate, `spec verified <id>`.
+   Commit spec updates together with the code they describe.
 
 ## Rules
 

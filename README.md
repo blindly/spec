@@ -35,7 +35,10 @@ go build -o spec .
 | `spec apply [--print\|--yes\|--no-verify\|--force] [id…]` | Run the configured agent to implement specs. Named ids may be accepted or proposed; with no ids, all accepted specs after a confirmation (`--yes` skips it). Success means the spec reached `implemented` and `verify:` passed (`--no-verify` skips it). `--print` outputs the prompt(s) |
 | `spec status` | Summarize repo spec state (counts, coverage, agent) |
 | `spec fact [list\|get\|set\|unset]` | Manage `.spec/facts.yml` project facts |
-| `spec check` | Audit `{fact:key}` references against facts.yml |
+| `spec check` | Audit `{fact:key}` references against facts.yml; warn about possibly-stale specs |
+| `spec drift [--review [--yes]] [id…]` | List system specs whose covered code (`covers:` frontmatter) changed since they were last updated or verified. `--review` asks the agent whether each is really stale: accurate → `verified:` stamp, stale → proposed update applied on confirmation. Needs git |
+| `spec covers [--infer] [id…]` | Show the files each spec covers; `--infer` fills empty `covers:` from the commits that touched each spec. `spec apply` records covers automatically |
+| `spec verified <id>…` | Stamp `verified: <HEAD>` — the spec was checked and is accurate; clears drift until covered code changes again |
 | `spec verify` | Run configured `verify: [...]` commands (tests, validate, check) |
 | `spec config` | Show effective configuration and resolved agent |
 | `spec config init [global\|repo] [--force]` | Write config template with all options; `--force` regenerates |

@@ -11,3 +11,5 @@ This repository uses spec for spec-driven development.
 - When implementing a spec, update its frontmatter status to implemented.
 - Implemented specs are living documentation: if a change alters behavior
   another spec describes, update that spec in the same change.
+- Run spec drift to find specs whose covered code changed since they were
+  last updated; fix them, or spec verified <id> if still accurate.
