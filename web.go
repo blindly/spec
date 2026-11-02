@@ -66,6 +66,25 @@ footer{margin-top:2em;font-size:.85em;color:var(--text-muted,#777)}</style></hea
 		accent, accent, html.EscapeString(projName), body, html.EscapeString(version))
 }
 
+// docPage renders a repo document (README, AGENTS.md). The page heading is
+// only added when the document doesn't open with its own "# " heading, so
+// it isn't shown twice; caption, if set, is a small note above the document.
+func docPage(title, caption, doc string) string {
+	var b strings.Builder
+	first := strings.TrimSpace(doc)
+	if i := strings.IndexByte(first, '\n'); i >= 0 {
+		first = first[:i]
+	}
+	if !strings.HasPrefix(first, "# ") {
+		b.WriteString("<h1>" + html.EscapeString(title) + "</h1>")
+	}
+	if caption != "" {
+		b.WriteString(`<p class="muted">` + html.EscapeString(caption) + `</p>`)
+	}
+	b.WriteString(mdBlock(doc))
+	return b.String()
+}
+
 // driftHTML is the "may be stale" notice on a spec's page.
 func driftHTML(d *driftInfo) string {
 	var b strings.Builder
@@ -497,7 +516,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			render(w, "readme", "<h1>README</h1><p>No README found in repository root.</p>")
 			return
 		}
-		render(w, "readme", "<h1>README</h1>"+mdBlock(readme))
+		render(w, "readme", docPage("README", "", readme))
 	})
 
 	mux.HandleFunc("/agents", func(w http.ResponseWriter, r *http.Request) {
@@ -506,7 +525,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			render(w, "agents", "<h1>Agent instructions</h1><p>No AGENTS.md or CLAUDE.md found in repository root.</p>")
 			return
 		}
-		render(w, "agents", "<h1>"+name+"</h1>"+mdBlock(doc))
+		render(w, "agents", docPage(name, "from "+name, doc))
 	})
 
 	mux.HandleFunc("/help", func(w http.ResponseWriter, r *http.Request) {

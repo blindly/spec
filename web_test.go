@@ -203,6 +203,25 @@ func TestWebAgents(t *testing.T) {
 	}
 }
 
+// The page heading is only added when the document has none of its own, so
+// README/AGENTS.md headings aren't shown twice.
+func TestWebDocPagesNoDuplicateHeading(t *testing.T) {
+	st, srv, _ := setupWeb(t)
+	os.WriteFile(filepath.Join(st.Root, "README.md"), []byte("# My project\n\nhello\n"), 0o644)
+	if page := webGet(t, srv.URL+"/readme"); strings.Contains(page, "<h1>README</h1>") || !strings.Contains(page, "# My project") {
+		t.Fatalf("readme with its own heading shouldn't get a second one:\n%s", page)
+	}
+	os.WriteFile(filepath.Join(st.Root, "README.md"), []byte("no heading here\n"), 0o644)
+	if page := webGet(t, srv.URL+"/readme"); !strings.Contains(page, "<h1>README</h1>") {
+		t.Fatalf("readme without a heading should get the page heading:\n%s", page)
+	}
+	// seeded AGENTS.md opens with "# Agent instructions"
+	page := webGet(t, srv.URL+"/agents")
+	if strings.Contains(page, "<h1>AGENTS.md</h1>") || !strings.Contains(page, `<p class="muted">from AGENTS.md</p>`) {
+		t.Fatalf("agents page should show the doc's own heading plus a source caption:\n%s", page)
+	}
+}
+
 func TestWebReadmeCaseInsensitive(t *testing.T) {
 	st, srv, _ := setupWeb(t)
 	os.WriteFile(filepath.Join(st.Root, "README.MD"), []byte("# Shouty readme\n"), 0o644)
