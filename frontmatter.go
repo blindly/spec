@@ -127,7 +127,9 @@ func dumpFrontmatter(meta map[string][]string, body string) string {
 		}
 	}
 	b.WriteString("---\n\n")
-	b.WriteString(strings.TrimRight(body, "\n"))
+	// trim both ends: parseFrontmatter keeps the blank line after "---" in
+	// the body, so without TrimLeft each parse+dump would add another one
+	b.WriteString(strings.Trim(body, "\n"))
 	b.WriteString("\n")
 	return b.String()
 }
