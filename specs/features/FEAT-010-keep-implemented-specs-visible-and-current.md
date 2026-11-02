@@ -1,4 +1,5 @@
 ---
+covers: [agent.go, archive.go, config.go, help.go, main.go, templates.go]
 created: 2026-11-02
 depends_on: [FEAT-006, FEAT-007]
 id: FEAT-010
@@ -28,10 +29,11 @@ Addresses: REQ-011, REQ-012, REQ-014
 ## Design
 
 - **`done_statuses` default** changes from
-  `[implemented, deprecated, rejected]` to `[deprecated, rejected]`. The
-  board shows implemented specs by default; `?all=1` still reveals
-  deprecated and rejected ones. Repos that set `done_statuses` explicitly
-  are unaffected.
+  `[implemented, deprecated, rejected]` to `[deprecated, rejected]`, so
+  implemented specs are never hidden as "finished". They're shown in the
+  system view (`/system`, FEAT-011) rather than on the board, which holds
+  only work in progress; the board's `?all=1` still reveals deprecated and
+  rejected ones. Repos that set `done_statuses` explicitly are unaffected.
 - **`spec status`** follows the same split: implemented counts as active,
   and only deprecated and rejected appear under "finished".
 - **Archive eligibility:** unchanged in code (done statuses plus discarded
@@ -54,7 +56,7 @@ Addresses: REQ-011, REQ-012, REQ-014
 ## Acceptance Criteria
 
 - [x] The default `done_statuses` is `[deprecated, rejected]`
-- [x] The board shows implemented specs by default and hides deprecated and rejected ones
+- [x] Implemented specs are visible by default (in `/system`, FEAT-011); deprecated and rejected ones are hidden
 - [x] `spec status` lists implemented as active, with only deprecated and rejected under "finished"
 - [x] `spec archive` on an implemented spec fails without `--force`, with an explanation; deprecated and rejected specs archive without `--force`
 - [x] The apply prompt tells agents to update other specs they affect, and not to change their status

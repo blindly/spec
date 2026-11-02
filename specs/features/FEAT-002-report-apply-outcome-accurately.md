@@ -1,10 +1,12 @@
 ---
+covers: [commands.go, agent.go]
 created: 2026-11-01
-depends_on: [FEAT-001]
+depends_on: FEAT-001
 id: FEAT-002
 status: implemented
 title: Report apply outcome accurately
 type: feature
+verified: 8bb4cbfd3650920472fae258012b1050c1712619
 ---
 
 # Report apply outcome accurately

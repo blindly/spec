@@ -1,9 +1,11 @@
 ---
+covers: [args.go, agent.go, config.go]
 created: 2026-11-01
 id: FEAT-004
 status: implemented
 title: Quote-aware agent_cmd parsing
 type: feature
+verified: 8bb4cbfd3650920472fae258012b1050c1712619
 ---
 
 # Quote-aware agent_cmd parsing

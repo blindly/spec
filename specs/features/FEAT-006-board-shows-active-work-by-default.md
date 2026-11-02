@@ -1,9 +1,11 @@
 ---
+covers: [commands.go, config.go, web.go, agent.go, archive.go, help.go, main.go, templates.go, system.go]
 created: 2026-11-01
 id: FEAT-006
 status: implemented
 title: Board shows active work by default
 type: feature
+verified: 8bb4cbfd3650920472fae258012b1050c1712619
 ---
 
 # Board shows active work by default

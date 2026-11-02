@@ -156,6 +156,28 @@ func TestDriftDetection(t *testing.T) {
 	}
 }
 
+// Adding or changing covers: is bookkeeping, not an update to what the spec
+// says — it must not hide drift (found dogfooding on this repo).
+func TestCoversChangeDoesNotCountAsUpdate(t *testing.T) {
+	st := setupRepo(t)
+	commit := gitInit(t, st)
+	s := liveFeature(t, st, "c")
+	writeFile(t, st, "app.go", "1")
+	commit("init")
+	writeFile(t, st, "app.go", "2")
+	commit("change app")
+	if err := cmdCovers(io.Discard, []string{"--infer"}); err != nil {
+		t.Fatal(err)
+	}
+	if driftOf(t, st, s.ID()) == nil {
+		t.Fatal("uncommitted covers: must not count as an update")
+	}
+	commit("record coverage")
+	if driftOf(t, st, s.ID()) == nil {
+		t.Fatal("a commit that only changes covers: must not count as an update")
+	}
+}
+
 func TestSystemDriftScope(t *testing.T) {
 	st := setupRepo(t)
 	commit := gitInit(t, st)

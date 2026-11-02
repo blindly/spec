@@ -1,9 +1,11 @@
 ---
+covers: commands.go
 created: 2026-11-01
 id: FEAT-001
 status: implemented
 title: Confirm apply scope
 type: feature
+verified: 8bb4cbfd3650920472fae258012b1050c1712619
 ---
 
 # Confirm apply scope

@@ -1,6 +1,7 @@
 ---
+covers: [help.go, system.go, web.go]
 created: 2026-11-02
-depends_on: [FEAT-010]
+depends_on: FEAT-010
 id: FEAT-011
 status: implemented
 title: System view for implemented specs
@@ -49,7 +50,7 @@ Addresses: REQ-011
 - **System page** `/system`: one section per type, in order: Project,
   Features, Decisions (ADRs), Imported docs. Empty sections are omitted. Each
   row: id (link), title, last changed, depends_on. "Last changed" comes from
-  one `git log` over `specs/` (newest commit date per file), falling back to
+  the repo's git history (newest commit date per file), falling back to
   the file's modification time outside git. With nothing in the system:
   "Nothing in the system yet — specs appear here once implemented (ADRs once
   accepted)."

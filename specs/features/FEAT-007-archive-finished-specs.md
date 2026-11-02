@@ -1,10 +1,12 @@
 ---
+covers: [archive.go, commands.go, help.go, inbox.go, main.go, store.go, web.go, agent.go, config.go, templates.go]
 created: 2026-11-01
 depends_on: [FEAT-006, FEAT-008]
 id: FEAT-007
 status: implemented
 title: Archive finished specs
 type: feature
+verified: 8bb4cbfd3650920472fae258012b1050c1712619
 ---
 
 # Archive finished specs

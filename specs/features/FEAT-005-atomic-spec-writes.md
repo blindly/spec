@@ -1,9 +1,11 @@
 ---
+covers: store.go
 created: 2026-11-01
 id: FEAT-005
 status: implemented
 title: Atomic spec writes
 type: feature
+verified: 8bb4cbfd3650920472fae258012b1050c1712619
 ---
 
 # Atomic spec writes

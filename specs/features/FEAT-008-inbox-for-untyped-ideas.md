@@ -1,10 +1,12 @@
 ---
+covers: [agent.go, commands.go, config.go, help.go, inbox.go, main.go, store.go, templates.go, web.go, system.go]
 created: 2026-11-01
-depends_on: [FEAT-006]
+depends_on: FEAT-006
 id: FEAT-008
 status: implemented
 title: Inbox for untyped ideas
 type: feature
+verified: 8bb4cbfd3650920472fae258012b1050c1712619
 ---
 
 # Inbox for untyped ideas

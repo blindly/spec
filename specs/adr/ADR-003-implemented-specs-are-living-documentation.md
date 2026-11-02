@@ -1,4 +1,5 @@
 ---
+covers: [agent.go, archive.go, config.go, help.go, main.go, templates.go]
 created: 2026-11-02
 id: ADR-003
 status: accepted

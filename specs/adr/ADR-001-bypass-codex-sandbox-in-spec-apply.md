@@ -1,9 +1,11 @@
 ---
+covers: agent.go
 created: 2026-11-01
 id: ADR-001
 status: accepted
 title: Bypass codex sandbox in spec apply
 type: adr
+verified: 8bb4cbfd3650920472fae258012b1050c1712619
 ---
 
 # Bypass codex sandbox in spec apply

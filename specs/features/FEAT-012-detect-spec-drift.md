@@ -1,4 +1,5 @@
 ---
+covers: [commands.go, drift.go, driftcmd.go, facts.go, help.go, main.go, system.go, templates.go, web.go]
 created: 2026-11-02
 depends_on: [FEAT-010, FEAT-011]
 id: FEAT-012
@@ -56,6 +57,10 @@ Addresses: REQ-014
 - A spec's **checkpoint** is the newest of: the last commit touching the spec
   file, and the commit in its `verified:` stamp. A spec whose file has
   uncommitted changes is being edited and counts as in sync.
+- Changes to `covers:` alone are bookkeeping, not an update to what the
+  spec says: they don't move the checkpoint, whether uncommitted or
+  committed. (Found by running `spec covers --infer` on this repo, which
+  otherwise hid every flag.)
 - A spec **may be stale** when any covered file changed in a commit newer
   than its checkpoint, or has uncommitted changes.
 - Specs with no `covers` are reported separately ("no coverage — run

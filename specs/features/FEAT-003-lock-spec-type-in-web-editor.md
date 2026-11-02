@@ -1,9 +1,11 @@
 ---
+covers: [web.go, commands.go]
 created: 2026-11-01
 id: FEAT-003
 status: implemented
 title: Lock spec type in web editor
 type: feature
+verified: 8bb4cbfd3650920472fae258012b1050c1712619
 ---
 
 # Lock spec type in web editor

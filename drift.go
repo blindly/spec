@@ -28,6 +28,7 @@ type gitRepo struct {
 	head    string
 	commits []gitCommit     // newest first
 	dirty   map[string]bool // uncommitted changes (tracked or untracked), relative to root
+	shown   map[string]*string
 }
 
 func runGit(root string, args ...string) ([]byte, error) {
@@ -158,18 +159,73 @@ type driftInfo struct {
 	Uncommitted []string    // covered files with uncommitted changes
 }
 
+// specContent is what counts as "the spec" for drift: everything except
+// covers:, which is bookkeeping about the spec, not a change to what it says.
+func specContent(text string) string {
+	meta, body := parseFrontmatter(toUTF8([]byte(text)))
+	delete(meta, "covers")
+	return dumpFrontmatter(meta, body)
+}
+
+// showFile returns a file's content at a commit ("" if it didn't exist).
+func (g *gitRepo) showFile(rev, rel string) (string, bool) {
+	key := rev + ":" + rel
+	if g.shown == nil {
+		g.shown = map[string]*string{}
+	}
+	if v, ok := g.shown[key]; ok {
+		return derefOK(v)
+	}
+	var v *string
+	if out, err := runGit(g.root, "show", rev+":./"+rel); err == nil {
+		s := string(out)
+		v = &s
+	}
+	g.shown[key] = v
+	return derefOK(v)
+}
+
+func derefOK(v *string) (string, bool) {
+	if v == nil {
+		return "", false
+	}
+	return *v, true
+}
+
+// contentChanged reports whether commit c changed the spec's content (not
+// just its covers:) compared with its parent.
+func (g *gitRepo) contentChanged(sha, rel string) bool {
+	now, ok := g.showFile(sha, rel)
+	if !ok {
+		return false
+	}
+	before, ok := g.showFile(sha+"^", rel)
+	return !ok || specContent(now) != specContent(before)
+}
+
 // drift returns why s may be stale, or nil if it's in sync (or can't tell:
-// no coverage, never committed, or its file is being edited).
+// no coverage, never committed, or its content is being edited).
 func (g *gitRepo) drift(s Spec) *driftInfo {
 	covers := s.Field("covers")
 	rel := g.rel(s.Path)
-	if len(covers) == 0 || g.dirty[rel] {
+	if len(covers) == 0 {
 		return nil
+	}
+	if g.dirty[rel] {
+		data, _ := os.ReadFile(s.Path)
+		head, ok := g.showFile("HEAD", rel)
+		if !ok || specContent(string(data)) != specContent(head) {
+			return nil // being edited: counts as updated
+		}
 	}
 	cp := -1
 	verified := metaGet(s.Meta, "verified", "")
 	for i, c := range g.commits {
-		if (verified != "" && strings.HasPrefix(c.SHA, verified)) || containsStr(c.Files, rel) {
+		if verified != "" && strings.HasPrefix(c.SHA, verified) {
+			cp = i
+			break
+		}
+		if containsStr(c.Files, rel) && g.contentChanged(c.SHA, rel) {
 			cp = i
 			break
 		}

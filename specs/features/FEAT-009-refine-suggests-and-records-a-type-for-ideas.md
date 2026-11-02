@@ -1,6 +1,7 @@
 ---
+covers: [agent.go, commands.go, help.go, inbox.go, main.go]
 created: 2026-11-01
-depends_on: [FEAT-008]
+depends_on: FEAT-008
 id: FEAT-009
 status: implemented
 title: Refine suggests and records a type for ideas
@@ -38,7 +39,8 @@ Addresses: REQ-013
   inbox row shows it as a badge, and the promote form preselects it.
 - **Status:** a successful refine (body saved) moves a `new` idea to
   `refined`. A `refined` idea stays `refined`. Refining a `discarded` idea
-  errors unless `--force` is given.
+  errors unless `--force` is given. Archived ideas (FEAT-007) can't be
+  refined or promoted at all until they're unarchived.
 - **No suggestion:** if the agent omits the line or names an invalid type,
   refine saves the body, prints "no type suggestion from agent", and leaves
   any earlier suggestion in place.
