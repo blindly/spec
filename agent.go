@@ -38,7 +38,14 @@ var knownAdapters = map[string][]string{
 // then warn or fail rather than silently degrading.
 func resolveAgent(cfg Config) (*agent, error) {
 	if cfg.AgentCmd != "" {
-		return &agent{name: "custom", argv: strings.Fields(cfg.AgentCmd)}, nil
+		argv, err := splitArgs(cfg.AgentCmd)
+		if err != nil {
+			return nil, fmt.Errorf("agent_cmd: %w", err)
+		}
+		if len(argv) == 0 {
+			return nil, fmt.Errorf("agent_cmd is empty")
+		}
+		return &agent{name: "custom", argv: argv}, nil
 	}
 	if cfg.Agent == "" || cfg.Agent == "none" {
 		return nil, nil
@@ -51,6 +58,17 @@ func resolveAgent(cfg Config) (*agent, error) {
 		return nil, fmt.Errorf("agent %q configured but %q not found on PATH", cfg.Agent, argv[0])
 	}
 	return &agent{name: cfg.Agent, argv: argv}, nil
+}
+
+// agentTimeoutError is returned when the agent is killed by agent_timeout;
+// apply checks for it because a timed-out agent may still have finished.
+type agentTimeoutError struct {
+	name string
+	secs int
+}
+
+func (e *agentTimeoutError) Error() string {
+	return fmt.Sprintf("agent %s timed out after %ds", e.name, e.secs)
 }
 
 // run sends prompt to the agent and returns its stdout. dir is the cwd.
@@ -87,7 +105,7 @@ func (a *agent) runLive(prompt, dir string, timeoutSecs int, live io.Writer) (st
 	cmd.Stderr = &errOut
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			return "", fmt.Errorf("agent %s timed out after %ds", a.name, timeoutSecs)
+			return "", &agentTimeoutError{name: a.name, secs: timeoutSecs}
 		}
 		return "", fmt.Errorf("agent %s failed: %v: %s", a.name, err, strings.TrimSpace(errOut.String()))
 	}
@@ -263,8 +281,10 @@ Rules:
 - Modify the codebase so the spec's Acceptance Criteria are met.
 - Write unit tests covering the Acceptance Criteria — tests are the proof of done.
 - Keep changes focused on this spec; do not rewrite unrelated code.
-- Do not edit the spec files under specs/.
-- When you are done, update the spec file's frontmatter status to "implemented".%s
+- Do not edit the spec files under specs/, with one exception: when you are
+  done, set this spec's frontmatter status to "implemented". spec checks that
+  status to decide whether the work is finished, so leave it unchanged if you
+  could not complete the spec.%s
 
 %s`
 

@@ -27,7 +27,7 @@ go build -o spec .
 | `spec trace` | Requirements traceability matrix (REQ → features) |
 | `spec draft feature <title>` | Generate a feature draft (LLM agent if configured, else heuristic) |
 | `spec refine <id>` | LLM agent rewrites an existing spec's body in place |
-| `spec apply [--print\|--force] [id…]` | Run the configured agent to implement accepted/proposed specs; `--print` outputs the prompt(s) |
+| `spec apply [--print\|--yes\|--no-verify\|--force] [id…]` | Run the configured agent to implement specs. Named ids may be accepted or proposed; with no ids, all accepted specs after a confirmation (`--yes` skips it). Success means the spec reached `implemented` and `verify:` passed (`--no-verify` skips it). `--print` outputs the prompt(s) |
 | `spec status` | Summarize repo spec state (counts, coverage, agent) |
 | `spec fact [list\|get\|set\|unset]` | Manage `.spec/facts.yml` project facts |
 | `spec check` | Audit `{fact:key}` references against facts.yml |
@@ -57,7 +57,7 @@ agent_timeout: 3600     # seconds
 web_host: 127.0.0.1    # bind address for `spec web`; 0.0.0.0 exposes it (--host overrides)
 web_port: 8080         # default port for `spec web` (--port overrides)
 statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
-verify: [go test ./..., spec validate, spec check]   # run by `spec verify`
+verify: [go test ./..., spec validate, spec check]   # run by `spec verify` and after `spec apply`
 editor: vim            # falls back to $EDITOR, then vi
 ```
 
@@ -66,7 +66,9 @@ every supported key; add `--force` to regenerate an existing file.
 
 Agent features are opt-in: the default is `agent: none` and no subprocess
 is ever spawned unless you configure one. `agent_cmd` overrides `agent` —
-useful for custom wrappers. `statuses` controls the valid status list used
+useful for custom wrappers. `agent_cmd` and `verify:` commands are split
+into arguments with shell-style quoting (`'a b'`, `"a b"`, `a\ b`) but never
+run through a shell. `statuses` controls the valid status list used
 by `spec validate`, the web editor dropdown, and `spec roadmap` ordering.
 
 ## Facts

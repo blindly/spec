@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -131,7 +133,7 @@ func cmdBootstrap(out, errOut io.Writer) error {
 	writeResult := func(body, via string) error {
 		if existing != nil {
 			meta := existing.Meta
-			if err := os.WriteFile(existing.Path, []byte(dumpFrontmatter(meta, body)), 0o644); err != nil {
+			if err := writeFileAtomic(existing.Path, []byte(dumpFrontmatter(meta, body)), 0o644); err != nil {
 				return err
 			}
 			fmt.Fprintf(out, "Regenerated %s %s\n", existing.Path, via)
@@ -229,7 +231,7 @@ func cmdRefine(out, errOut io.Writer, id string) error {
 		dumpAgentOutput(errOut, output)
 		return fmt.Errorf("agent returned no markdown body — spec left unchanged")
 	}
-	if err := os.WriteFile(s.Path, []byte(dumpFrontmatter(s.Meta, body)), 0o644); err != nil {
+	if err := writeFileAtomic(s.Path, []byte(dumpFrontmatter(s.Meta, body)), 0o644); err != nil {
 		return err
 	}
 	fmt.Fprintln(out, "Refined", s.Path, "via", ag.name)
@@ -579,16 +581,31 @@ func cmdVerify(out, errOut io.Writer) error {
 		fmt.Fprintln(out, "No verify commands configured (set `verify: [cmd, ...]` in config).")
 		return nil
 	}
+	return runVerify(st.Root, cfg, out, errOut)
+}
+
+// runVerify runs every cfg.Verify command in root; all run even if one
+// fails. Commands are split with splitArgs and all are parsed before any
+// runs, so a quoting error runs nothing.
+func runVerify(root string, cfg Config, out, errOut io.Writer) error {
+	argvs := make([][]string, len(cfg.Verify))
+	for i, check := range cfg.Verify {
+		argv, err := splitArgs(check)
+		if err != nil {
+			return fmt.Errorf("verify: %w", err)
+		}
+		argvs[i] = argv
+	}
 	failed := 0
-	for _, check := range cfg.Verify {
-		argv := strings.Fields(check)
+	for i, check := range cfg.Verify {
+		argv := argvs[i]
 		if len(argv) == 0 {
 			continue
 		}
 		fmt.Fprintf(out, "── %s\n", check)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.AgentTimeout)*time.Second)
 		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
-		cmd.Dir = st.Root
+		cmd.Dir = root
 		cmd.Stdout = out
 		cmd.Stderr = errOut
 		runErr := cmd.Run()
@@ -634,6 +651,16 @@ func cmdValidate(out, errOut io.Writer) error {
 		ids[s.ID()] = true
 		if s.Type() == "" {
 			fail("%s: missing type", rel)
+		}
+		// type must agree with the id prefix and the directory it lives in
+		if prefix, ok := prefixes[s.Type()]; ok {
+			if !strings.HasPrefix(s.ID(), prefix+"-") {
+				fail("%s (%s): type %s doesn't match id prefix (want %s-xxx)", rel, s.ID(), s.Type(), prefix)
+			}
+			underSpecs, _ := filepath.Rel(st.specPath(), s.Path)
+			if top := strings.SplitN(filepath.ToSlash(underSpecs), "/", 2)[0]; top != typeDir(s.Type()) {
+				fail("%s (%s): type %s doesn't match directory specs/%s (want specs/%s)", rel, s.ID(), s.Type(), top, typeDir(s.Type()))
+			}
 		}
 		if !cfg.validStatus(s.Status()) {
 			fail("%s (%s): unknown status %q", rel, s.ID(), s.Status())
@@ -902,20 +929,35 @@ func applyableStatus(s Spec) bool {
 		(s.Status() == "accepted" || s.Status() == "proposed")
 }
 
-func cmdApply(out, errOut io.Writer, ids []string, printOnly, force bool) error {
+type applyOpts struct {
+	Print    bool // output prompts instead of running the agent
+	Force    bool // allow explicit ids with non-applyable status
+	Yes      bool // skip the confirmation for implicit (no-id) runs
+	NoVerify bool // skip verify commands after an agent run
+}
+
+// stdinIsTerminal reports whether stdin is interactive; a var so tests can
+// override it.
+var stdinIsTerminal = func() bool {
+	fi, err := os.Stdin.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
+}
+
+func cmdApply(in io.Reader, out, errOut io.Writer, ids []string, opts applyOpts) error {
 	st, err := mustStore()
 	if err != nil {
 		return err
 	}
 	var targets []Spec
 	if len(ids) == 0 {
+		// implicit scope: only approved (accepted) specs, never proposed
 		for _, s := range st.Specs() {
-			if applyableStatus(s) {
+			if applyableStatus(s) && s.Status() == "accepted" {
 				targets = append(targets, s)
 			}
 		}
 		if len(targets) == 0 {
-			fmt.Fprintln(out, "No accepted/proposed feature or project specs to apply.")
+			fmt.Fprintln(out, "No accepted feature or project specs to apply (name proposed specs explicitly: spec apply <id>).")
 			return nil
 		}
 	} else {
@@ -924,7 +966,7 @@ func cmdApply(out, errOut io.Writer, ids []string, printOnly, force bool) error 
 			if s == nil {
 				return fmt.Errorf("no spec with id %s", id)
 			}
-			if !applyableStatus(*s) && !force {
+			if !applyableStatus(*s) && !opts.Force {
 				return fmt.Errorf("%s is %s (type %s) — apply targets accepted/proposed feature or project specs (use --force to override)", s.ID(), s.Status(), s.Type())
 			}
 			targets = append(targets, *s)
@@ -933,7 +975,7 @@ func cmdApply(out, errOut io.Writer, ids []string, printOnly, force bool) error 
 
 	var ag *agent
 	cfg := loadConfig(st.Root)
-	if !printOnly {
+	if !opts.Print {
 		var aerr error
 		ag, aerr = resolveAgent(cfg)
 		if aerr != nil {
@@ -942,6 +984,21 @@ func cmdApply(out, errOut io.Writer, ids []string, printOnly, force bool) error 
 		if ag == nil {
 			return fmt.Errorf("apply runs the configured LLM agent (none configured; set agent/agent_cmd in .spec/config.yml, or use --print to output the prompts)")
 		}
+		// implicit scope starts agent runs nobody named — confirm first
+		if len(ids) == 0 && !opts.Yes {
+			if !stdinIsTerminal() {
+				return fmt.Errorf("spec apply with no ids would run %s on %d spec(s); pass ids or --yes when not interactive", ag.name, len(targets))
+			}
+			fmt.Fprintln(out, "Specs to apply:")
+			for _, s := range targets {
+				fmt.Fprintf(out, "  %s  %s\n", s.ID(), s.Title())
+			}
+			fmt.Fprintf(out, "Apply %d spec(s) via %s? [y/N] ", len(targets), ag.name)
+			answer, _ := bufio.NewReader(in).ReadString('\n')
+			if a := strings.ToLower(strings.TrimSpace(answer)); a != "y" && a != "yes" {
+				return fmt.Errorf("aborted; no agent was run")
+			}
+		}
 	}
 
 	verifyNote := ""
@@ -949,22 +1006,75 @@ func cmdApply(out, errOut io.Writer, ids []string, printOnly, force bool) error 
 		verifyNote = "\n- Before finishing, run the repo verification commands — all must pass: " +
 			strings.Join(cfg.Verify, "; ")
 	}
+	if opts.Print {
+		for _, s := range targets {
+			prompt := fmt.Sprintf(applyPromptFmt, s.ID(), s.Title(), s.Body, verifyNote, repoContext(st, 50))
+			fmt.Fprintf(out, "# ---- apply prompt for %s ----\n\n%s\n\n", s.ID(), prompt)
+		}
+		fmt.Fprintln(out, "# Paste the prompt(s) above into your agent CLI, or drop --print to run the configured agent directly.")
+		return nil
+	}
+
+	type result struct {
+		id, outcome string
+		ok          bool
+	}
+	var results []result
 	for _, s := range targets {
 		prompt := fmt.Sprintf(applyPromptFmt, s.ID(), s.Title(), s.Body, verifyNote, repoContext(st, 50))
-		if printOnly {
-			fmt.Fprintf(out, "# ---- apply prompt for %s ----\n\n%s\n\n", s.ID(), prompt)
-			continue
-		}
 		fmt.Fprintf(out, "Applying %s via %s…\n", s.ID(), ag.name)
-		if _, err := ag.runLive(prompt, st.Root, cfg.AgentTimeout, out); err != nil {
-			return err
-		}
-		fmt.Fprintf(out, "\n%s done\n", s.ID())
+		_, runErr := ag.runLive(prompt, st.Root, cfg.AgentTimeout, out)
+		outcome, ok := applyOutcome(st, cfg, s.ID(), runErr, opts, out, errOut)
+		fmt.Fprintf(out, "\n%s: %s\n", s.ID(), outcome)
+		results = append(results, result{s.ID(), outcome, ok})
 	}
-	if printOnly {
-		fmt.Fprintln(out, "# Paste the prompt(s) above into your agent CLI, or drop --print to run the configured agent directly.")
+	failed := 0
+	for _, r := range results {
+		if !r.ok {
+			failed++
+		}
+	}
+	if len(results) > 1 {
+		fmt.Fprintln(out, "\nSummary:")
+		for _, r := range results {
+			fmt.Fprintf(out, "  %-10s %s\n", r.id, r.outcome)
+		}
+	}
+	if failed > 0 {
+		return fmt.Errorf("%d of %d spec(s) not implemented", failed, len(results))
 	}
 	return nil
+}
+
+// applyOutcome judges one agent run by the spec's status on disk and the
+// verify commands — not by the agent's exit code. ok is true only when the
+// spec reached implemented (and verify passed, if configured).
+func applyOutcome(st Store, cfg Config, id string, runErr error, opts applyOpts, out, errOut io.Writer) (string, bool) {
+	var timeout *agentTimeoutError
+	timedOut := errors.As(runErr, &timeout)
+	if runErr != nil && !timedOut {
+		return "failed: " + runErr.Error(), false
+	}
+	s := st.Get(id)
+	if s == nil {
+		return "not implemented: spec no longer found after the agent run", false
+	}
+	if s.Status() != "implemented" {
+		if timedOut {
+			return fmt.Sprintf("timed out after %ds (status still %s)", timeout.secs, s.Status()), false
+		}
+		return fmt.Sprintf("not implemented: agent finished but %s is still %s", id, s.Status()), false
+	}
+	if !opts.NoVerify && len(cfg.Verify) > 0 {
+		fmt.Fprintf(out, "\nVerifying %s…\n", id)
+		if verr := runVerify(st.Root, cfg, out, errOut); verr != nil {
+			return "verify failed: " + verr.Error(), false
+		}
+	}
+	if timedOut {
+		return fmt.Sprintf("implemented (warning: agent timed out after %ds, but had already finished)", timeout.secs), true
+	}
+	return "implemented", true
 }
 
 func cmdDraftFeature(out, errOut io.Writer, title string) error {

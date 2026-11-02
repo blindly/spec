@@ -27,7 +27,9 @@ Usage:
   spec draft feature <title>         Generate feature draft (LLM agent if configured)
   spec edit <id>                     Open a spec in your editor
   spec refine <id>                   LLM agent improves an existing spec
-  spec apply [--print|--force] [id...] Run agent to implement specs; --print outputs the prompt(s)
+  spec apply [flags] [id...]         Run agent to implement specs (no ids: all accepted, after confirmation)
+                                       --print outputs prompts · --yes skips confirmation
+                                       --no-verify skips verify · --force allows any status
   spec status                        Summarize repository spec state
   spec fact [list|get|set|unset]     Manage .spec/facts.yml project facts
   spec check                         Audit {fact:key} references vs facts.yml
@@ -101,14 +103,18 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 		// extract flags manually: Go's flag pkg stops at the first
 		// positional arg, so `spec apply ID --force` would lose --force
 		var ids []string
-		var printOnly, force bool
+		var opts applyOpts
 		for _, arg := range a {
 			switch arg {
 			case "--print", "--dry-run":
-				printOnly = true
+				opts.Print = true
 			case "--run": // kept for compatibility; running is the default
 			case "--force":
-				force = true
+				opts.Force = true
+			case "--yes", "-y":
+				opts.Yes = true
+			case "--no-verify":
+				opts.NoVerify = true
 			default:
 				if strings.HasPrefix(arg, "--") {
 					return fmt.Errorf("unknown flag %s", arg)
@@ -116,7 +122,7 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 				ids = append(ids, arg)
 			}
 		}
-		return cmdApply(o, e, ids, printOnly, force)
+		return cmdApply(os.Stdin, o, e, ids, opts)
 	},
 	"edit": func(a []string, o, e io.Writer) error {
 		if len(a) < 1 {

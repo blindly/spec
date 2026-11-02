@@ -32,6 +32,37 @@ func TestFrontmatterNoHeader(t *testing.T) {
 	}
 }
 
+func TestWriteFileAtomic(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "f.md")
+	os.WriteFile(path, []byte("original"), 0o644)
+	if err := writeFileAtomic(path, []byte("new"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "new" {
+		t.Fatalf("got %q", data)
+	}
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 1 {
+		t.Fatalf("temp file left behind: %v", entries)
+	}
+	// failed write (unwritable dir) leaves the original intact
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs a non-root POSIX user to make the dir unwritable")
+	}
+	os.Chmod(dir, 0o555)
+	defer os.Chmod(dir, 0o755)
+	if err := writeFileAtomic(path, []byte("clobbered"), 0o644); err == nil {
+		t.Fatal("expected error writing into read-only dir")
+	}
+	if data, _ := os.ReadFile(path); string(data) != "new" {
+		t.Fatalf("original changed: %q", data)
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 1 {
+		t.Fatalf("temp file left behind: %v", entries)
+	}
+}
+
 func setupRepo(t *testing.T) Store {
 	t.Helper()
 	dir := t.TempDir()
@@ -250,6 +281,40 @@ func TestAgentDraftAndRefine(t *testing.T) {
 	}
 }
 
+func TestValidateTypeMismatch(t *testing.T) {
+	st := setupRepo(t)
+	adr := "# x\n\n## Context\n\nc\n\n## Decision\n\nd\n\n## Consequences\n\nq\n"
+	// type adr, but FEAT id in specs/features → both checks fire
+	os.MkdirAll(filepath.Join(st.Root, specDir, "features"), 0o755)
+	os.WriteFile(filepath.Join(st.Root, specDir, "features", "FEAT-001-x.md"),
+		[]byte("---\nid: FEAT-001\ntype: adr\nstatus: draft\n---\n"+adr), 0o644)
+	var buf bytes.Buffer
+	if err := cmdValidate(&buf, io.Discard); err == nil {
+		t.Fatal("expected validation failure")
+	}
+	out := buf.String()
+	if !strings.Contains(out, "doesn't match id prefix") || !strings.Contains(out, "doesn't match directory") {
+		t.Fatalf("missing mismatch errors:\n%s", out)
+	}
+	// correct id but wrong directory → only the directory check fires
+	os.Remove(filepath.Join(st.Root, specDir, "features", "FEAT-001-x.md"))
+	os.WriteFile(filepath.Join(st.Root, specDir, "features", "ADR-001-x.md"),
+		[]byte("---\nid: ADR-001\ntype: adr\nstatus: draft\n---\n"+adr), 0o644)
+	buf.Reset()
+	cmdValidate(&buf, io.Discard)
+	if out := buf.String(); strings.Contains(out, "id prefix") || !strings.Contains(out, "want specs/adr") {
+		t.Fatalf("wrong mismatch errors:\n%s", out)
+	}
+	// nested dir under the right type dir is fine
+	os.Remove(filepath.Join(st.Root, specDir, "features", "ADR-001-x.md"))
+	os.MkdirAll(filepath.Join(st.Root, specDir, "adr", "infra"), 0o755)
+	os.WriteFile(filepath.Join(st.Root, specDir, "adr", "infra", "ADR-001-x.md"),
+		[]byte("---\nid: ADR-001\ntype: adr\nstatus: draft\n---\n"+adr), 0o644)
+	if err := cmdValidate(io.Discard, io.Discard); err != nil {
+		t.Fatalf("nested adr should validate: %v", err)
+	}
+}
+
 func TestExtractTypeSuggestion(t *testing.T) {
 	out := "# Spec\n\nbody\n\nSPEC-TYPE-SUGGESTION: adr: records a decision between two options\n"
 	rest, typ, reason := extractTypeSuggestion(out, "feature")
@@ -413,7 +478,7 @@ func TestApplyPromptIncludesVerify(t *testing.T) {
 	meta["status"] = []string{"accepted"}
 	os.WriteFile(s.Path, []byte(dumpFrontmatter(meta, s.Body)), 0o644)
 	var buf bytes.Buffer
-	if err := cmdApply(&buf, io.Discard, nil, true, false); err != nil {
+	if err := cmdApply(strings.NewReader(""), &buf, io.Discard, nil, applyOpts{Print: true}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()

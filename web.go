@@ -9,7 +9,6 @@ import (
 	"html"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -231,15 +230,8 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		}
 		fmt.Fprintf(&b, `<h1>Edit %s — %s</h1>
 <form method="post" action="/edit/%s"><input type="hidden" name="token" value="%s">
-<p>type: <select name="type">`, s.ID(), html.EscapeString(s.Title()), s.ID(), token)
-		for _, t := range []string{"project", "feature", "adr", "imported"} {
-			sel := ""
-			if s.Type() == t {
-				sel = " selected"
-			}
-			fmt.Fprintf(&b, `<option%s>%s</option>`, sel, t)
-		}
-		b.WriteString(`</select> status: <select name="status">`)
+<p>type: <strong>%s</strong> <small title="the type sets the id prefix, directory, and required sections">(fixed — to change the type, create a new spec)</small>
+· status: <select name="status">`, s.ID(), html.EscapeString(s.Title()), s.ID(), token, html.EscapeString(s.Type()))
 		for _, status := range statuses {
 			sel := ""
 			if s.Status() == status {
@@ -292,18 +284,17 @@ autoDownloadFontAwesome: false, spellChecker: false, status: ['lines','words','c
 			http.Error(w, "bad token", http.StatusForbidden)
 			return
 		}
-		specType := r.FormValue("type")
+		// the type is fixed at creation (it sets id prefix and directory), so
+		// any submitted "type" is ignored and the current one is kept
 		status := r.FormValue("status")
 		body := r.FormValue("body")
-		validType := specType == "imported" || validTypes[specType]
-		validStatus := cfg.validStatus(status)
-		if !validType || !validStatus {
-			renderEdit(w, *s, "invalid type or status")
+		if !cfg.validStatus(status) {
+			renderEdit(w, *s, "invalid status")
 			return
 		}
 		// section check: same required sections validate enforces
 		updated := Spec{Path: s.Path, Meta: s.Meta, Body: body}
-		for _, sec := range requiredSections[specType] {
+		for _, sec := range requiredSections[s.Type()] {
 			found := false
 			for _, have := range updated.Sections() {
 				if strings.EqualFold(have, sec) {
@@ -320,13 +311,8 @@ autoDownloadFontAwesome: false, spellChecker: false, status: ['lines','words','c
 			meta[k] = v
 		}
 		meta["status"] = []string{status}
-		meta["type"] = []string{specType}
 		writeMu.Lock()
-		tmp := s.Path + ".tmp"
-		err := os.WriteFile(tmp, []byte(dumpFrontmatter(meta, body)), 0o644)
-		if err == nil {
-			err = replaceFile(tmp, s.Path)
-		}
+		err := writeFileAtomic(s.Path, []byte(dumpFrontmatter(meta, body)), 0o644)
 		writeMu.Unlock()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

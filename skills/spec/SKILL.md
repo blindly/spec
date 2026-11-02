@@ -49,13 +49,20 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
   `{fact:key}`; add missing facts with `spec fact set key value`.
 - `spec check` audits `{fact:key}` references; `spec trace` shows REQ→feature
   coverage.
-- `spec apply` executes the configured agent on accepted/proposed specs;
-  `spec apply --print` outputs the prompts instead.
+- `spec apply <id>` runs the configured agent on an accepted/proposed spec.
+  With no ids it targets all accepted specs and asks first (`--yes` to skip,
+  required when non-interactive). `spec apply --print` outputs the prompts.
+- `spec apply` succeeds only if the spec's status reaches `implemented` and
+  `verify:` passes — so when applying a spec, set its status to
+  `implemented` only once the work is really done.
+- A spec's type is fixed at creation (it sets id prefix and directory);
+  `spec validate` fails on mismatches. To change type, create a new spec.
 
 ## Gotchas
 
 - `spec verify` runs `verify:` commands as plain argv — no shell, so no
-  pipes/redirects/globs; wrap those in a script.
+  pipes/redirects/globs; wrap those in a script. Quotes group arguments
+  (`sh -c 'a b'`).
 - All commands must run inside a spec-managed tree (`.spec/` is found by
   walking up from cwd — `spec init` creates it).
 - `.spec/config.yml` documents every key; regenerate it with

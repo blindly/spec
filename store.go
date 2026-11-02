@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -69,6 +70,39 @@ func replaceFile(tmp, dst string) error {
 	// best-effort cleanup; on Windows a running .exe.old can't be deleted
 	os.Remove(old)
 	return nil
+}
+
+// writeFileAtomic replaces path with data without ever leaving it truncated:
+// data goes to a synced temp file in the same directory, which is then
+// renamed over path. On any error the original is untouched and the temp
+// file is removed.
+func writeFileAtomic(path string, data []byte, perm os.FileMode) (err error) {
+	f, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	defer func() {
+		if err != nil {
+			os.Remove(tmp)
+		}
+	}()
+	if _, err = f.Write(data); err == nil {
+		err = f.Sync()
+	}
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Chmod(tmp, perm)
+	}
+	if err != nil {
+		return err
+	}
+	if runtime.GOOS == "windows" {
+		return replaceFile(tmp, path)
+	}
+	return os.Rename(tmp, path)
 }
 
 func (s Spec) Sections() []string {
@@ -164,13 +198,17 @@ func (st Store) nextID(specType string) string {
 	return fmt.Sprintf("%s-%03d", prefix, highest+1)
 }
 
+// typeDir is the directory under specs/ that holds specs of a type.
+func typeDir(specType string) string {
+	if specType == "feature" {
+		return "features"
+	}
+	return specType
+}
+
 func (st Store) Create(specType, title, body string, extra map[string][]string) (Spec, error) {
 	id := st.nextID(specType)
-	sub := map[string]string{"feature": "features", "adr": "adr", "imported": "imported"}[specType]
-	if sub == "" {
-		sub = specType
-	}
-	dir := filepath.Join(st.specPath(), sub)
+	dir := filepath.Join(st.specPath(), typeDir(specType))
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Spec{}, err
 	}

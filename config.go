@@ -63,6 +63,15 @@ func parseConfigFile(path string) map[string]string {
 	return out
 }
 
+// unquote strips one matching pair of outer quotes, keeping inner quotes
+// (e.g. agent_cmd: "mycli --model 'gpt 5' {prompt}") intact.
+func unquote(v string) string {
+	if n := len(v); n >= 2 && (v[0] == '"' || v[0] == '\'') && v[n-1] == v[0] {
+		return v[1 : n-1]
+	}
+	return v
+}
+
 // loadConfig merges the global config (~/.config/spec/config.yml) with the
 // repo's .spec/config.yml; repo keys win.
 func loadConfig(root string) Config {
@@ -76,7 +85,7 @@ func loadConfig(root string) Config {
 		case "agent":
 			cfg.Agent = strings.Trim(v, `"'`)
 		case "agent_cmd":
-			cfg.AgentCmd = strings.Trim(v, `"'`)
+			cfg.AgentCmd = unquote(v)
 		case "agent_timeout":
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				cfg.AgentTimeout = n
@@ -131,7 +140,7 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 # Lifecycle
 # statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
 
-# Verification — commands run by spec verify (no shell; plain argv)
+# Verification — run by spec verify and after spec apply (no shell; quotes group args)
 # verify: [go test ./..., spec validate, spec check]
 
 # Editor for spec edit / spec config edit (falls back to $EDITOR, then vi)
@@ -155,7 +164,7 @@ const repoConfigTemplate = `version: 1
 # Lifecycle
 # statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
 
-# Verification — commands run by spec verify (no shell; plain argv)
+# Verification — run by spec verify and after spec apply (no shell; quotes group args)
 # verify: [go test ./..., spec validate, spec check]
 
 # Editor for spec edit / spec config edit (falls back to $EDITOR, then vi)

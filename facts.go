@@ -85,7 +85,7 @@ func setFact(root, key, value string) error {
 			lines = append(lines, fmt.Sprintf("%s: %s", key, value), "")
 		}
 	}
-	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
+	return writeFileAtomic(path, []byte(strings.Join(lines, "\n")), 0o644)
 }
 
 // unsetFact removes a key line; reports whether anything changed.
@@ -111,7 +111,7 @@ func unsetFact(root, key string) (bool, error) {
 	if !removed {
 		return false, nil
 	}
-	return true, os.WriteFile(path, []byte(strings.Join(out, "\n")), 0o644)
+	return true, writeFileAtomic(path, []byte(strings.Join(out, "\n")), 0o644)
 }
 
 var factRefPattern = regexp.MustCompile(`\{fact:([a-zA-Z0-9_.-]+)\}`)

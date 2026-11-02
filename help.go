@@ -73,9 +73,12 @@ Manage facts from the CLI: ` + "`spec fact list|get|set|unset`" + `.
 spec status     # spec counts, REQ coverage
 spec new feature <title>
 spec search <query>
-spec validate   # frontmatter, sections, REQ refs, dependency cycles
+spec validate   # frontmatter, sections, type/id/dir match, REQ refs, cycles
 spec check      # audit {fact:key} references
-spec apply      # run the configured agent to implement specs (--print to output prompts)
+spec apply <id> # run the configured agent to implement a spec
+spec apply      # all accepted specs, after confirmation (--yes to skip)
+                # succeeds only if status reaches implemented and verify: passes
+                # --print outputs prompts · --no-verify skips verify
 spec verify     # run verify: commands from .spec/config.yml
 spec graph      # dependency graph (--mermaid)
 spec trace      # REQ → feature coverage

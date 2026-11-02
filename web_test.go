@@ -197,6 +197,43 @@ func TestWebHelp(t *testing.T) {
 	}
 }
 
+func TestWebEditTypeIsFixed(t *testing.T) {
+	st, srv, token := setupWeb(t)
+	if err := cmdNew(io.Discard, io.Discard, "feature", "fixed type"); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := http.Get(srv.URL + "/edit/FEAT-001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if strings.Contains(string(page), `name="type"`) || !strings.Contains(string(page), "<strong>feature</strong>") {
+		t.Fatalf("edit page should show type as text, not a field: %.500s", page)
+	}
+	// a submitted type is ignored; required sections checked against feature
+	featBody := "# fixed type\n\n## Summary\n\ns\n\n## Design\n\nd\n\n## Acceptance Criteria\n\n- [ ] x\n"
+	resp = postForm(t, srv.URL+"/edit/FEAT-001",
+		url.Values{"token": {token}, "type": {"adr"}, "status": {"proposed"}, "body": {featBody}})
+	resp.Body.Close()
+	if resp.StatusCode != 303 {
+		t.Fatalf("save failed: %d", resp.StatusCode)
+	}
+	s := st.Get("FEAT-001")
+	if s.Type() != "feature" || s.Status() != "proposed" {
+		t.Fatalf("type changed or status not saved: %s %s", s.Type(), s.Status())
+	}
+	// an adr-shaped body missing feature sections is rejected, even with type=adr
+	adrBody := "# x\n\n## Context\n\nc\n\n## Decision\n\nd\n\n## Consequences\n\nq\n"
+	resp = postForm(t, srv.URL+"/edit/FEAT-001",
+		url.Values{"token": {token}, "type": {"adr"}, "status": {"proposed"}, "body": {adrBody}})
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !strings.Contains(string(body), "missing required section") {
+		t.Fatalf("sections not checked against current type: %.300s", body)
+	}
+}
+
 func TestWebEditRejectsBadInput(t *testing.T) {
 	_, srv, token := setupWeb(t)
 	if err := cmdNew(io.Discard, io.Discard, "feature", "keep sections"); err != nil {
