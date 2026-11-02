@@ -8,7 +8,7 @@ A spec is a markdown file under ` + "`specs/`" + ` with YAML frontmatter:
 ` + "```" + `
 ---
 id: FEAT-001
-type: feature          # project | feature | adr | imported
+type: feature          # project | feature | adr | imported | idea
 status: proposed       # valid values come from .spec/config.yml (statuses:)
 depends_on: [FEAT-000] # optional; spec graph shows these, cycles fail validate
 ---
@@ -21,6 +21,24 @@ editor's save):
 - **feature**: Summary, Design, Acceptance Criteria — must list
   ` + "`Addresses: REQ-xxx`" + ` for existing REQ ids
 - **adr**: Context, Decision, Consequences
+- **idea**: none — just a title and notes
+
+## The inbox
+
+**Not sure what type something is yet? Capture it as an idea.** Ideas live
+in the inbox (the web UI's front page, ` + "`specs/inbox/`" + `, ids ` + "`IDEA-xxx`" + `)
+with their own lifecycle: **new** → **refined**, or **discarded**. When you
+know what it is, promote it:
+
+` + "```" + `
+spec idea "better search"          # capture
+spec promote IDEA-003 feature      # becomes FEAT-xxx; the idea's notes go into its first section
+spec discard IDEA-004              # decided against (kept, hidden in the inbox)
+` + "```" + `
+
+Promoting deletes the idea file — the new spec records ` + "`promoted_from`" + `,
+and git keeps the history. Ideas never appear on the board and are never
+applied.
 
 ## Choosing a type
 
@@ -32,9 +50,11 @@ Pick by the question the document answers:
 | **feature** | What should we build? | Adding or changing behavior; ` + "`spec apply`" + ` implements it |
 | **adr** | Why X instead of Y? | Recording a decision and the alternatives rejected; nothing to implement |
 | **imported** | — | Bringing in existing docs as reference (` + "`spec import`" + `) |
+| **idea** | Not sure yet | Capturing a thought before you know which of the above it is |
 
 Quick tests:
 
+- **Not sure yet?** → idea (promote it later)
 - **Can you write a checkbox that proves it's done?** → feature
 - **Did you reject an alternative someone might later ask about?** → adr
 - **Is the decision hard to reverse or costly to get wrong?** → adr
@@ -49,7 +69,7 @@ There is no bug type:
 - spec is wrong or ambiguous → edit the spec (or write an adr if it's a real decision)
 - bug reveals a missing requirement → add the REQ to the project spec, then a feature
 
-Choose the type at creation. It sets the id prefix (PROJ/FEAT/ADR/DOC),
+A spec's type is fixed once created. It sets the id prefix (PROJ/FEAT/ADR/DOC/IDEA),
 the directory, the required sections, and whether ` + "`spec apply`" + ` picks it up —
 changing it later means a new spec, not an edit. ` + "`spec refine`" + ` warns
 when a spec's content looks like a different type, but never changes it.
@@ -70,7 +90,10 @@ Manage facts from the CLI: ` + "`spec fact list|get|set|unset`" + `.
 ## CLI
 
 ` + "```" + `
-spec status     # spec counts, REQ coverage
+spec status     # inbox + spec counts, REQ coverage
+spec idea <title>                 # capture an idea (type decided later)
+spec promote <IDEA-id> [type]     # idea → project|feature|adr (default: suggested type)
+spec discard <IDEA-id>
 spec new feature <title>
 spec search <query>
 spec validate   # frontmatter, sections, type/id/dir match, REQ refs, cycles

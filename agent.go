@@ -167,7 +167,7 @@ func extractTypeSuggestion(output, current string) (rest, suggested, reason stri
 		return rest, "", ""
 	}
 	t := strings.ToLower(m[1])
-	if !validTypes[t] || t == current {
+	if !specTypes[t] || t == current {
 		return rest, "", ""
 	}
 	return rest, t, strings.TrimSpace(m[2])

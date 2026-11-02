@@ -18,6 +18,8 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
 - `specs/features/` — feature specs; reference REQs they implement
 - `specs/adr/` — architecture decision records
 - `specs/imported/` — imported docs
+- `specs/inbox/` — untyped ideas (`IDEA-xxx`, statuses new/refined/discarded);
+  not specs yet — never applied, not on the board
 - `.spec/config.yml` — agent, statuses, `verify:` commands
 - `.spec/facts.yml` — definite project facts, referenced in specs as `{fact:key}`
 
@@ -34,6 +36,9 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    - spec is wrong/ambiguous → edit the spec, or `spec new adr` if it's a real
      decision
    - bug exposed a missing requirement → add the REQ, write a feature spec
+   - not sure what it is yet → `spec idea <title>`; later
+     `spec promote <IDEA-id> <project|feature|adr>` (deletes the idea; the
+     new spec gets `promoted_from`)
 4. **Feature specs** must reference existing `REQ-xxx` ids on the
    "Addresses:" line — features citing undefined REQs fail `spec validate`.
 5. **After implementing**: set frontmatter `status: implemented`, then run

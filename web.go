@@ -52,11 +52,16 @@ nav{border-bottom:4px solid %s;padding-bottom:.5em}
 .card{border:1px solid var(--border,#444);border-radius:6px;padding:.5em .7em;margin-bottom:.6em}
 .card .title{margin:.2em 0}
 .card .type{font-size:.8em;color:var(--text-muted,#777)}
+.inbox td{vertical-align:middle}
+.inbox form{display:inline;margin:0}
+.inbox select,.inbox button{padding:.2em .5em;margin:0 .2em}
+.badge{display:inline-block;font-size:.8em;padding:.05em .5em;border-radius:3px;border:1px solid %s}
+.muted{color:var(--text-muted,#777)}
 footer{margin-top:2em;font-size:.85em;color:var(--text-muted,#777)}</style></head><body>
-<nav><span class="proj">%s</span><a href="/">specs</a><a href="/new">new spec</a><a href="/readme">readme</a><a href="/agents">agents</a><a href="/help">help</a></nav>%s
+<nav><span class="proj">%s</span><a href="/">inbox</a><a href="/board">board</a><a href="/new">new spec</a><a href="/readme">readme</a><a href="/agents">agents</a><a href="/help">help</a></nav>%s
 <footer>spec %s</footer></body></html>`,
 		html.EscapeString(projName), html.EscapeString(title), accent, accent,
-		accent, html.EscapeString(projName), body, html.EscapeString(version))
+		accent, accent, html.EscapeString(projName), body, html.EscapeString(version))
 }
 
 //go:embed assets/easymde assets/fontawesome assets/water assets/marked
@@ -92,15 +97,150 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/assets/", http.FileServerFS(assetsFS))
 
+	// inbox (landing page): untyped ideas as a list, newest first
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
 			return
 		}
+		showDiscarded := r.URL.Query().Get("all") == "1"
+		var ideas []Spec
+		discarded := 0
+		for _, s := range st.Specs() {
+			if !s.IsIdea() {
+				continue
+			}
+			if s.Status() == ideaDiscarded && !showDiscarded {
+				discarded++
+				continue
+			}
+			ideas = append(ideas, s)
+		}
+		sort.SliceStable(ideas, func(i, j int) bool {
+			ci, cj := metaGet(ideas[i].Meta, "created", ""), metaGet(ideas[j].Meta, "created", "")
+			if ci != cj {
+				return ci > cj
+			}
+			return ideas[i].ID() > ideas[j].ID()
+		})
+		var b strings.Builder
+		fmt.Fprintf(&b, `<h1>Inbox</h1>
+<form method="post" action="/idea"><input type="hidden" name="token" value="%s">
+<p><input name="title" placeholder="Capture an idea — just a title, decide the type later" size="60" required autofocus> <button>Add</button></p></form>`, token)
+		if len(ideas) == 0 && discarded == 0 {
+			b.WriteString(`<p>Inbox empty — capture an idea above, or go to the <a href="/board">board</a>.</p>`)
+		} else if len(ideas) > 0 {
+			b.WriteString(`<table class="inbox"><thead><tr><th>id</th><th>idea</th><th>status</th><th>suggested</th><th>created</th><th></th></tr></thead><tbody>`)
+			for _, s := range ideas {
+				id := html.EscapeString(s.ID())
+				suggested := metaGet(s.Meta, "suggested_type", "")
+				badge := ""
+				if suggested != "" {
+					badge = fmt.Sprintf(`<span class="badge" title="%s">%s</span>`,
+						html.EscapeString(metaGet(s.Meta, "suggested_reason", "")), html.EscapeString(suggested))
+				}
+				fmt.Fprintf(&b, `<tr><td><a href="/spec/%s">%s</a></td><td>%s</td><td>%s</td><td>%s</td><td class="muted">%s</td><td>`,
+					id, id, html.EscapeString(s.Title()), html.EscapeString(s.Status()), badge,
+					html.EscapeString(metaGet(s.Meta, "created", "")))
+				if s.Status() != ideaDiscarded {
+					fmt.Fprintf(&b, `<form method="post" action="/promote/%s"><input type="hidden" name="token" value="%s"><select name="type" required>`, id, token)
+					if suggested == "" {
+						b.WriteString(`<option value="" selected disabled>type…</option>`)
+					}
+					for _, t := range []string{"project", "feature", "adr"} {
+						sel := ""
+						if t == suggested {
+							sel = " selected"
+						}
+						fmt.Fprintf(&b, `<option%s>%s</option>`, sel, t)
+					}
+					fmt.Fprintf(&b, `</select><button>promote</button></form>
+<form method="post" action="/discard/%s"><input type="hidden" name="token" value="%s"><button>discard</button></form>`, id, token)
+				}
+				b.WriteString(`</td></tr>`)
+			}
+			b.WriteString(`</tbody></table>`)
+		}
+		switch {
+		case discarded > 0:
+			fmt.Fprintf(&b, `<p class="toggle muted">%d discarded — <a href="/?all=1">show</a></p>`, discarded)
+		case showDiscarded:
+			b.WriteString(`<p class="toggle muted"><a href="/">hide discarded</a></p>`)
+		}
+		render(w, "inbox", b.String())
+	})
+
+	// postOnly guards inbox write endpoints: POST with a valid form token.
+	postOnly := func(w http.ResponseWriter, r *http.Request) bool {
+		if r.Method != http.MethodPost || !checkToken(r) {
+			http.Error(w, "bad token", http.StatusForbidden)
+			return false
+		}
+		return true
+	}
+
+	mux.HandleFunc("/idea", func(w http.ResponseWriter, r *http.Request) {
+		if !postOnly(w, r) {
+			return
+		}
+		title := strings.TrimSpace(r.FormValue("title"))
+		if title == "" {
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
+		}
+		writeMu.Lock()
+		_, err := st.Create("idea", title, templateFor("idea", title), nil)
+		writeMu.Unlock()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	})
+
+	mux.HandleFunc("/promote/", func(w http.ResponseWriter, r *http.Request) {
+		if !postOnly(w, r) {
+			return
+		}
+		writeMu.Lock()
+		ns, err := promoteIdea(st, strings.TrimPrefix(r.URL.Path, "/promote/"), r.FormValue("type"), false)
+		writeMu.Unlock()
+		if err != nil {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusBadRequest)
+			render(w, "error", `<p style="color:red">`+html.EscapeString(err.Error())+`</p><p><a href="/">back to inbox</a></p>`)
+			return
+		}
+		http.Redirect(w, r, "/edit/"+ns.ID(), http.StatusSeeOther)
+	})
+
+	mux.HandleFunc("/discard/", func(w http.ResponseWriter, r *http.Request) {
+		if !postOnly(w, r) {
+			return
+		}
+		writeMu.Lock()
+		err := discardIdea(st, strings.TrimPrefix(r.URL.Path, "/discard/"))
+		writeMu.Unlock()
+		if err != nil {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusBadRequest)
+			render(w, "error", `<p style="color:red">`+html.EscapeString(err.Error())+`</p><p><a href="/">back to inbox</a></p>`)
+			return
+		}
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	})
+
+	mux.HandleFunc("/board", func(w http.ResponseWriter, r *http.Request) {
 		// finished specs (done_statuses) are hidden unless ?all=1
 		showAll := r.URL.Query().Get("all") == "1"
-		// group specs by status, columns ordered by configured statuses
-		specsAll := st.Specs()
+		// group specs by status, columns ordered by configured statuses;
+		// ideas live in the inbox, never on the board
+		var specsAll []Spec
+		for _, s := range st.Specs() {
+			if !s.IsIdea() {
+				specsAll = append(specsAll, s)
+			}
+		}
 		byStatus := map[string][]Spec{}
 		var extra []string // statuses present but not in cfg.Statuses
 		for _, s := range specsAll {
@@ -136,8 +276,8 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		var b strings.Builder
 		b.WriteString(`<h1>Specifications</h1>`)
 		if len(specsAll) == 0 {
-			b.WriteString(`<p>No specs yet — <a href="/new">create one</a>.</p>`)
-			render(w, "spec", b.String())
+			b.WriteString(`<p>No specs yet — <a href="/new">create one</a>, or promote an idea from the <a href="/">inbox</a>.</p>`)
+			render(w, "board", b.String())
 			return
 		}
 		toggle := ""
@@ -149,7 +289,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		}
 		if len(cols) == 0 {
 			b.WriteString(`<p>Nothing in progress.</p>` + toggle)
-			render(w, "spec", b.String())
+			render(w, "board", b.String())
 			return
 		}
 		b.WriteString(`<div class="board">`)
@@ -165,7 +305,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			b.WriteString("</div>")
 		}
 		b.WriteString("</div>" + toggle)
-		render(w, "spec", b.String())
+		render(w, "board", b.String())
 	})
 
 	mux.HandleFunc("/new", func(w http.ResponseWriter, r *http.Request) {
@@ -194,11 +334,17 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		fmt.Fprintf(&b, `<h1>New spec</h1><form method="post">
 <input type="hidden" name="token" value="%s">
 <p><select name="type">`, token)
-		for _, t := range []string{"project", "feature", "adr"} {
-			fmt.Fprintf(&b, `<option value="%s">%s</option>`, t, t)
+		// idea first and selected: not knowing the type yet is the common case
+		for _, t := range []string{"idea", "project", "feature", "adr"} {
+			sel := ""
+			if t == "idea" {
+				sel = " selected"
+			}
+			fmt.Fprintf(&b, `<option value="%s"%s>%s</option>`, t, sel, t)
 		}
 		b.WriteString(`</select> <input name="title" placeholder="Title" size="50" required>
-<button>Create</button></p></form>`)
+<button>Create</button></p></form>
+<p class="muted">Not sure what type it is? Keep <strong>idea</strong> — it goes to the inbox, and you can promote it to a project, feature, or adr later. See <a href="/help">help</a> for choosing a type.</p>`)
 		render(w, "new spec", b.String())
 	})
 
@@ -258,7 +404,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 <form method="post" action="/edit/%s"><input type="hidden" name="token" value="%s">
 <p>type: <strong>%s</strong> <small title="the type sets the id prefix, directory, and required sections">(fixed — to change the type, create a new spec)</small>
 · status: <select name="status">`, s.ID(), html.EscapeString(s.Title()), s.ID(), token, html.EscapeString(s.Type()))
-		for _, status := range statuses {
+		for _, status := range cfg.statusesFor(s.Type()) {
 			sel := ""
 			if s.Status() == status {
 				sel = " selected"
@@ -314,7 +460,7 @@ autoDownloadFontAwesome: false, spellChecker: false, status: ['lines','words','c
 		// any submitted "type" is ignored and the current one is kept
 		status := r.FormValue("status")
 		body := r.FormValue("body")
-		if !cfg.validStatus(status) {
+		if !cfg.validStatusFor(s.Type(), status) {
 			renderEdit(w, *s, "invalid status")
 			return
 		}

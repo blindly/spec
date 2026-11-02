@@ -17,6 +17,7 @@ type Config struct {
 	WebHost      string   // bind address for `spec web` (127.0.0.1 or 0.0.0.0)
 	Statuses     []string // valid spec statuses
 	DoneStatuses []string // statuses that count as finished (hidden on the board by default)
+	IdeaStatuses []string // valid statuses for inbox ideas (type idea)
 	Editor       string   // editor command for `spec config edit`
 	Verify       []string // commands run by spec verify
 }
@@ -24,11 +25,31 @@ type Config struct {
 var (
 	defaultStatuses     = []string{"draft", "proposed", "accepted", "implemented", "deprecated", "rejected"}
 	defaultDoneStatuses = []string{"implemented", "deprecated", "rejected"}
+	defaultIdeaStatuses = []string{"new", "refined", "discarded"}
 )
 
 func defaultConfig() Config {
 	return Config{Agent: "none", AgentTimeout: 3600, WebPort: 8080, WebHost: "127.0.0.1",
-		Statuses: defaultStatuses, DoneStatuses: defaultDoneStatuses}
+		Statuses: defaultStatuses, DoneStatuses: defaultDoneStatuses, IdeaStatuses: defaultIdeaStatuses}
+}
+
+// statusesFor returns the status list that applies to a spec type: ideas
+// have their own lifecycle, everything else uses statuses.
+func (c Config) statusesFor(specType string) []string {
+	if specType == "idea" {
+		return c.IdeaStatuses
+	}
+	return c.Statuses
+}
+
+// validStatusFor reports whether status is valid for a spec of specType.
+func (c Config) validStatusFor(specType, status string) bool {
+	for _, v := range c.statusesFor(specType) {
+		if v == status {
+			return true
+		}
+	}
+	return false
 }
 
 // isDone reports whether status counts as finished work.
@@ -113,7 +134,7 @@ func loadConfig(root string) Config {
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				cfg.WebPort = n
 			}
-		case "statuses", "verify", "done_statuses":
+		case "statuses", "verify", "done_statuses", "idea_statuses":
 			if strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]") {
 				var list []string
 				for _, item := range strings.Split(v[1:len(v)-1], ",") {
@@ -127,6 +148,8 @@ func loadConfig(root string) Config {
 						cfg.Statuses = list
 					case "done_statuses":
 						cfg.DoneStatuses = list
+					case "idea_statuses":
+						cfg.IdeaStatuses = list
 					default:
 						cfg.Verify = list
 					}
@@ -138,9 +161,10 @@ func loadConfig(root string) Config {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nstatuses: [%s]\ndone_statuses: [%s]\nverify: [%s]",
+	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]",
 		c.Agent, c.AgentCmd, c.AgentTimeout, c.WebHost, c.WebPort, c.editor(),
-		strings.Join(c.Statuses, ", "), strings.Join(c.DoneStatuses, ", "), strings.Join(c.Verify, ", "))
+		strings.Join(c.Statuses, ", "), strings.Join(c.DoneStatuses, ", "),
+		strings.Join(c.IdeaStatuses, ", "), strings.Join(c.Verify, ", "))
 }
 
 const globalConfigTemplate = `# Global defaults for all spec-managed repositories.
@@ -158,6 +182,7 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 # Lifecycle
 # statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
 # done_statuses: [implemented, deprecated, rejected]   # hidden on the board by default
+# idea_statuses: [new, refined, discarded]   # lifecycle for inbox ideas
 
 # Verification — run by spec verify and after spec apply (no shell; quotes group args)
 # verify: [go test ./..., spec validate, spec check]
@@ -183,6 +208,7 @@ const repoConfigTemplate = `version: 1
 # Lifecycle
 # statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
 # done_statuses: [implemented, deprecated, rejected]   # hidden on the board by default
+# idea_statuses: [new, refined, discarded]   # lifecycle for inbox ideas
 
 # Verification — run by spec verify and after spec apply (no shell; quotes group args)
 # verify: [go test ./..., spec validate, spec check]

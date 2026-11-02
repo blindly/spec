@@ -14,7 +14,10 @@ const usage = `spec — offline specification management
 
 Usage:
   spec init                          Initialize repository
-  spec new <project|feature|adr> <title>   Create a specification
+  spec idea <title>                  Capture an untyped idea in the inbox (not sure of the type yet)
+  spec promote <id> [type] [--force] Turn an idea into a project|feature|adr spec (deletes the idea)
+  spec discard <id>...               Mark ideas as discarded
+  spec new <project|feature|adr|idea> <title>   Create a specification
   spec bootstrap                     Bootstrap specs from existing project
   spec import <file>                 Import existing documentation
   spec analyze                       Analyze repository
@@ -67,9 +70,17 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 		}
 		return cmdUpdate(o, e, tag)
 	},
+	"idea": func(a []string, o, e io.Writer) error {
+		if len(a) < 1 {
+			return fmt.Errorf("usage: spec idea <title>")
+		}
+		return cmdNew(o, e, "idea", strings.Join(a, " "))
+	},
+	"discard": func(a []string, o, e io.Writer) error { return cmdDiscard(o, a) },
+	"promote": func(a []string, o, e io.Writer) error { return cmdPromote(o, a) },
 	"new": func(a []string, o, e io.Writer) error {
 		if len(a) < 2 {
-			return fmt.Errorf("usage: spec new <project|feature|adr> <title>")
+			return fmt.Errorf("usage: spec new <project|feature|adr|idea> <title>")
 		}
 		return cmdNew(o, e, a[0], strings.Join(a[1:], " "))
 	},

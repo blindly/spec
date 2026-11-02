@@ -15,7 +15,10 @@ go build -o spec .
 | Command | Description |
 | --- | --- |
 | `spec init` | Initialize spec management in a repository (seeds `AGENTS.md`, `CLAUDE.md`, and a `spec` skill under `.devin/skills/` + `.claude/skills/`) |
-| `spec new project\|feature\|adr <title>` | Create a specification |
+| `spec idea <title>` | Capture an untyped idea in the inbox (`specs/inbox/`) — decide the type later |
+| `spec promote <IDEA-id> [project\|feature\|adr] [--force]` | Turn an idea into a spec (defaults to its suggested type); the idea's notes go into the first section, `depends_on` references are updated, and the idea file is deleted |
+| `spec discard <IDEA-id>…` | Mark ideas discarded (kept, hidden in the inbox) |
+| `spec new project\|feature\|adr\|idea <title>` | Create a specification |
 | `spec bootstrap` | Generate a project spec from an existing repo |
 | `spec import <file>` | Import existing documentation |
 | `spec analyze` | Analyze the repository |
@@ -34,7 +37,7 @@ go build -o spec .
 | `spec verify` | Run configured `verify: [...]` commands (tests, validate, check) |
 | `spec config` | Show effective configuration and resolved agent |
 | `spec config init [global\|repo] [--force]` | Write config template with all options; `--force` regenerates |
-| `spec web [--port N]` | Local web UI: browse, create, edit body/status, view README/agent docs (default :8080) |
+| `spec web [--port N]` | Local web UI: inbox (front page) to capture/promote/discard ideas, board of specs by status, create, edit body/status, view README/agent docs (default :8080) |
 
 All operations are filesystem-only; no network access is required. LLM
 agent commands (`draft`, `bootstrap`, `refine`) only run if you configure
@@ -58,6 +61,7 @@ web_host: 127.0.0.1    # bind address for `spec web`; 0.0.0.0 exposes it (--host
 web_port: 8080         # default port for `spec web` (--port overrides)
 statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
 done_statuses: [implemented, deprecated, rejected]   # finished: hidden on the web board (?all=1 shows them)
+idea_statuses: [new, refined, discarded]   # lifecycle for inbox ideas (separate from statuses)
 verify: [go test ./..., spec validate, spec check]   # run by `spec verify` and after `spec apply`
 editor: vim            # falls back to $EDITOR, then vi
 ```

@@ -17,10 +17,15 @@ const (
 )
 
 var prefixes = map[string]string{
-	"project": "PROJ", "feature": "FEAT", "adr": "ADR", "imported": "DOC",
+	"project": "PROJ", "feature": "FEAT", "adr": "ADR", "imported": "DOC", "idea": "IDEA",
 }
 
-var validTypes = map[string]bool{"project": true, "feature": true, "adr": true}
+// validTypes are the types users can create with spec new / the web form.
+var validTypes = map[string]bool{"project": true, "feature": true, "adr": true, "idea": true}
+
+// specTypes are the real spec types an idea can be promoted to (and that
+// refine may suggest).
+var specTypes = map[string]bool{"project": true, "feature": true, "adr": true}
 
 type Spec struct {
 	Path string
@@ -42,12 +47,25 @@ func (s Spec) Type() string {
 	switch filepath.Base(filepath.Dir(s.Path)) {
 	case "features":
 		return "feature"
+	case "inbox":
+		return "idea"
 	case "adr", "project", "imported":
 		return filepath.Base(filepath.Dir(s.Path))
 	}
 	return ""
 }
-func (s Spec) Status() string { return metaGet(s.Meta, "status", "draft") }
+func (s Spec) Status() string { return metaGet(s.Meta, "status", initialStatus(s.Type())) }
+
+// IsIdea reports whether s is an untyped inbox idea.
+func (s Spec) IsIdea() bool { return s.Type() == "idea" }
+
+// initialStatus is the status a new spec of the given type starts with.
+func initialStatus(specType string) string {
+	if specType == "idea" {
+		return "new"
+	}
+	return "draft"
+}
 func (s Spec) Field(k string) []string {
 	if s.Meta[k] == nil {
 		return nil
@@ -200,8 +218,11 @@ func (st Store) nextID(specType string) string {
 
 // typeDir is the directory under specs/ that holds specs of a type.
 func typeDir(specType string) string {
-	if specType == "feature" {
+	switch specType {
+	case "feature":
 		return "features"
+	case "idea":
+		return "inbox"
 	}
 	return specType
 }
@@ -216,7 +237,7 @@ func (st Store) Create(specType, title, body string, extra map[string][]string) 
 		"id":      {id},
 		"title":   {title},
 		"type":    {specType},
-		"status":  {"draft"},
+		"status":  {initialStatus(specType)},
 		"created": {time.Now().Format("2006-01-02")},
 	}
 	for k, v := range extra {

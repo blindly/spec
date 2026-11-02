@@ -2,7 +2,7 @@
 created: 2026-11-01
 depends_on: [FEAT-006]
 id: FEAT-008
-status: proposed
+status: implemented
 title: Inbox for untyped ideas
 type: feature
 ---
@@ -103,19 +103,19 @@ Addresses: REQ-013, REQ-001
 
 ## Acceptance Criteria
 
-- [ ] `spec idea "x"` creates `specs/inbox/IDEA-001-x.md` with status `new` and the idea template
-- [ ] `idea_statuses` defaults to `[new, refined, discarded]`, and validate checks ideas against it
-- [ ] The web editor's status dropdown shows idea statuses for ideas and spec statuses for everything else
-- [ ] `spec discard IDEA-001` sets status `discarded`
-- [ ] `/` shows the inbox as a list with capture box, promote, and discard; the board is at `/board`
-- [ ] Discarded ideas are hidden from the inbox by default, with a show toggle
-- [ ] Ideas never appear on the board
-- [ ] `spec promote IDEA-001 adr` creates an ADR with the idea's notes in Context and `promoted_from: IDEA-001`
-- [ ] The idea file is deleted after promoting
-- [ ] `spec promote IDEA-001` with no type uses `suggested_type`, or errors if there isn't one
-- [ ] Promoting a discarded idea fails without `--force`
-- [ ] `depends_on` references to the idea are rewritten to the new id
-- [ ] `spec apply` refuses ideas, even with `--force`
-- [ ] Web promote and discard reject a bad token
-- [ ] Tests cover capture, statuses, discard, promote with and without a type, deletion, reference rewriting, and the inbox page
-- [ ] Docs updated (help text, README, SKILL.md, web help)
+- [x] `spec idea "x"` creates `specs/inbox/IDEA-001-x.md` with status `new` and the idea template
+- [x] `idea_statuses` defaults to `[new, refined, discarded]`, and validate checks ideas against it
+- [x] The web editor's status dropdown shows idea statuses for ideas and spec statuses for everything else
+- [x] `spec discard IDEA-001` sets status `discarded`
+- [x] `/` shows the inbox as a list with capture box, promote, and discard; the board is at `/board`
+- [x] Discarded ideas are hidden from the inbox by default, with a show toggle
+- [x] Ideas never appear on the board
+- [x] `spec promote IDEA-001 adr` creates an ADR with the idea's notes in Context and `promoted_from: IDEA-001`
+- [x] The idea file is deleted after promoting
+- [x] `spec promote IDEA-001` with no type uses `suggested_type`, or errors if there isn't one
+- [x] Promoting a discarded idea fails without `--force`
+- [x] `depends_on` references to the idea are rewritten to the new id
+- [x] `spec apply` refuses ideas, even with `--force`
+- [x] Web promote and discard reject a bad token
+- [x] Tests cover capture, statuses, discard, promote with and without a type, deletion, reference rewriting, and the inbox page
+- [x] Docs updated (help text, README, SKILL.md, web help)

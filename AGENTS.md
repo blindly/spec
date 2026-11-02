@@ -2,7 +2,8 @@
 
 This repository uses spec for spec-driven development.
 
-- Specs live in specs/ (project/, features/, adr/, imported/).
+- Specs live in specs/ (project/, features/, adr/, imported/); untyped
+  ideas live in specs/inbox/ until promoted (spec promote).
 - Each spec is markdown with YAML frontmatter (type, status, depends_on).
 - Valid statuses are configured in .spec/config.yml (statuses:).
 - .spec/facts.yml holds definite project facts, referenced as {fact:key}.

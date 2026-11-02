@@ -38,14 +38,14 @@ func TestWebIndexAndDetail(t *testing.T) {
 	if err := cmdNew(io.Discard, io.Discard, "feature", "web test"); err != nil {
 		t.Fatal(err)
 	}
-	resp, err := http.Get(srv.URL + "/")
+	resp, err := http.Get(srv.URL + "/board")
 	if err != nil {
 		t.Fatal(err)
 	}
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if !strings.Contains(string(body), "FEAT-001") {
-		t.Fatalf("index missing spec: %s", body)
+		t.Fatalf("board missing spec: %s", body)
 	}
 	resp, err = http.Get(srv.URL + "/spec/FEAT-001")
 	if err != nil {
@@ -87,14 +87,14 @@ func TestWebBoardHidesFinished(t *testing.T) {
 	srv := httptest.NewServer(webHandler(st, loadConfig(st.Root), "t"))
 	defer srv.Close()
 
-	page := get(srv, "/")
+	page := get(srv, "/board")
 	if !strings.Contains(page, "active one") || strings.Contains(page, "done one") || strings.Contains(page, "dead one") {
 		t.Fatalf("default board should show only active specs:\n%s", page)
 	}
-	if !strings.Contains(page, "2 finished spec(s) hidden") || !strings.Contains(page, `href="/?all=1"`) {
+	if !strings.Contains(page, "2 finished spec(s) hidden") || !strings.Contains(page, `href="/board?all=1"`) {
 		t.Fatalf("missing hidden count / show link:\n%s", page)
 	}
-	page = get(srv, "/?all=1")
+	page = get(srv, "/board?all=1")
 	if !strings.Contains(page, "done one") || !strings.Contains(page, "dead one") || !strings.Contains(page, "hide finished") {
 		t.Fatalf("?all=1 should show finished specs with a hide link:\n%s", page)
 	}
@@ -103,7 +103,7 @@ func TestWebBoardHidesFinished(t *testing.T) {
 	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"), []byte("done_statuses: [rejected]\n"), 0o644)
 	srv2 := httptest.NewServer(webHandler(st, loadConfig(st.Root), "t"))
 	defer srv2.Close()
-	page = get(srv2, "/")
+	page = get(srv2, "/board")
 	if !strings.Contains(page, "done one") || strings.Contains(page, "dead one") || !strings.Contains(page, "1 finished spec(s) hidden") {
 		t.Fatalf("custom done_statuses not honored:\n%s", page)
 	}
@@ -112,7 +112,7 @@ func TestWebBoardHidesFinished(t *testing.T) {
 	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"), []byte("done_statuses: [accepted, implemented, rejected]\n"), 0o644)
 	srv3 := httptest.NewServer(webHandler(st, loadConfig(st.Root), "t"))
 	defer srv3.Close()
-	if page = get(srv3, "/"); !strings.Contains(page, "Nothing in progress") || !strings.Contains(page, "3 finished spec(s) hidden") {
+	if page = get(srv3, "/board"); !strings.Contains(page, "Nothing in progress") || !strings.Contains(page, "3 finished spec(s) hidden") {
 		t.Fatalf("all-finished board:\n%s", page)
 	}
 }

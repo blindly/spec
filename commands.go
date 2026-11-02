@@ -74,7 +74,7 @@ func cmdInit(out, errOut io.Writer) error {
 
 func cmdNew(out, errOut io.Writer, specType, title string) error {
 	if !validTypes[specType] {
-		return fmt.Errorf("unknown spec type %q (want project|feature|adr)", specType)
+		return fmt.Errorf("unknown spec type %q (want project|feature|adr|idea)", specType)
 	}
 	st, err := mustStore()
 	if err != nil {
@@ -490,15 +490,32 @@ func cmdStatus(out, errOut io.Writer) error {
 	cfg := loadConfig(st.Root)
 	specs := st.Specs()
 
+	// ideas are counted separately: they have their own statuses
 	byType := map[string]int{}
 	byStatus := map[string]int{}
+	ideaStatus := map[string]int{}
+	ideas := 0
 	for _, s := range specs {
+		if s.IsIdea() {
+			ideas++
+			ideaStatus[s.Status()]++
+			continue
+		}
 		byType[s.Type()]++
 		byStatus[s.Status()]++
 	}
 
 	fmt.Fprintf(out, "Repository: %s\n\n", st.Root)
-	fmt.Fprintf(out, "Specs: %d\n", len(specs))
+	if ideas > 0 {
+		var parts []string
+		for _, status := range cfg.IdeaStatuses {
+			if ideaStatus[status] > 0 {
+				parts = append(parts, fmt.Sprintf("%d %s", ideaStatus[status], status))
+			}
+		}
+		fmt.Fprintf(out, "Inbox: %d idea(s) (%s)\n\n", ideas, strings.Join(parts, ", "))
+	}
+	fmt.Fprintf(out, "Specs: %d\n", len(specs)-ideas)
 	for _, t := range []string{"project", "feature", "adr", "imported"} {
 		if byType[t] > 0 {
 			fmt.Fprintf(out, "  %-10s %d\n", t, byType[t])
@@ -673,8 +690,8 @@ func cmdValidate(out, errOut io.Writer) error {
 				fail("%s (%s): type %s doesn't match directory specs/%s (want specs/%s)", rel, s.ID(), s.Type(), top, typeDir(s.Type()))
 			}
 		}
-		if !cfg.validStatus(s.Status()) {
-			fail("%s (%s): unknown status %q", rel, s.ID(), s.Status())
+		if !cfg.validStatusFor(s.Type(), s.Status()) {
+			fail("%s (%s): unknown status %q (valid for %s: %s)", rel, s.ID(), s.Status(), s.Type(), strings.Join(cfg.statusesFor(s.Type()), ", "))
 		}
 		for _, sec := range requiredSections[s.Type()] {
 			found := false
@@ -766,6 +783,9 @@ func cmdRoadmap(out, errOut io.Writer, file string) error {
 	cfg := loadConfig(st.Root)
 	groups := map[string][]Spec{}
 	for _, s := range st.Specs() {
+		if s.IsIdea() {
+			continue // ideas aren't on the roadmap until promoted
+		}
 		groups[s.Status()] = append(groups[s.Status()], s)
 	}
 	// configured statuses first, then any others found in the wild
@@ -976,6 +996,9 @@ func cmdApply(in io.Reader, out, errOut io.Writer, ids []string, opts applyOpts)
 			s := st.Get(id)
 			if s == nil {
 				return fmt.Errorf("no spec with id %s", id)
+			}
+			if s.IsIdea() {
+				return fmt.Errorf("%s is an idea — promote it to a spec first (spec promote %s <project|feature|adr>)", s.ID(), s.ID())
 			}
 			if !applyableStatus(*s) && !opts.Force {
 				return fmt.Errorf("%s is %s (type %s) — apply targets accepted/proposed feature or project specs (use --force to override)", s.ID(), s.Status(), s.Type())

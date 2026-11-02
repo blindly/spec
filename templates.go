@@ -66,12 +66,21 @@ TODO: What is the change that we're proposing and/or doing?
 TODO: What becomes easier or more difficult because of this change?
 `
 
+const ideaTemplate = `# %s
+
+## Notes
+
+TODO: what's the idea?
+`
+
 func templateFor(specType, title string) string {
 	switch specType {
 	case "project":
 		return fmt.Sprintf(projectTemplate, title)
 	case "adr":
 		return fmt.Sprintf(adrTemplate, title)
+	case "idea":
+		return fmt.Sprintf(ideaTemplate, title)
 	default:
 		return fmt.Sprintf(featureTemplate, title)
 	}
@@ -81,7 +90,8 @@ const agentsTemplate = `# Agent instructions
 
 This repository uses spec for spec-driven development.
 
-- Specs live in specs/ (project/, features/, adr/, imported/).
+- Specs live in specs/ (project/, features/, adr/, imported/); untyped
+  ideas live in specs/inbox/ until promoted (spec promote).
 - Each spec is markdown with YAML frontmatter (type, status, depends_on).
 - Valid statuses are configured in .spec/config.yml (statuses:).
 - .spec/facts.yml holds definite project facts, referenced as {fact:key}.
