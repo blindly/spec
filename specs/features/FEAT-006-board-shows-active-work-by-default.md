@@ -1,7 +1,7 @@
 ---
 created: 2026-11-01
 id: FEAT-006
-status: proposed
+status: implemented
 title: Board shows active work by default
 type: feature
 ---
@@ -42,10 +42,10 @@ Addresses: REQ-011
 
 ## Acceptance Criteria
 
-- [ ] The board hides columns for statuses in `done_statuses`
-- [ ] The board shows how many finished specs are hidden, with a link to `?all=1`
-- [ ] The board with `?all=1` shows every non-empty column, with a link back
-- [ ] `done_statuses` in config changes which columns are hidden
-- [ ] `spec status` groups done statuses under "finished"
-- [ ] Web and unit tests cover the default, `?all=1`, and a custom `done_statuses`
-- [ ] README config section documents `done_statuses`
+- [x] The board hides columns for statuses in `done_statuses`
+- [x] The board shows how many finished specs are hidden, with a link to `?all=1`
+- [x] The board with `?all=1` shows every non-empty column, with a link back
+- [x] `done_statuses` in config changes which columns are hidden
+- [x] `spec status` groups done statuses under "finished"
+- [x] Web and unit tests cover the default, `?all=1`, and a custom `done_statuses`
+- [x] README config section documents `done_statuses`

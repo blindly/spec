@@ -57,6 +57,7 @@ agent_timeout: 3600     # seconds
 web_host: 127.0.0.1    # bind address for `spec web`; 0.0.0.0 exposes it (--host overrides)
 web_port: 8080         # default port for `spec web` (--port overrides)
 statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
+done_statuses: [implemented, deprecated, rejected]   # finished: hidden on the web board (?all=1 shows them)
 verify: [go test ./..., spec validate, spec check]   # run by `spec verify` and after `spec apply`
 editor: vim            # falls back to $EDITOR, then vi
 ```

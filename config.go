@@ -16,14 +16,29 @@ type Config struct {
 	WebPort      int      // default port for `spec web`
 	WebHost      string   // bind address for `spec web` (127.0.0.1 or 0.0.0.0)
 	Statuses     []string // valid spec statuses
+	DoneStatuses []string // statuses that count as finished (hidden on the board by default)
 	Editor       string   // editor command for `spec config edit`
 	Verify       []string // commands run by spec verify
 }
 
-var defaultStatuses = []string{"draft", "proposed", "accepted", "implemented", "deprecated", "rejected"}
+var (
+	defaultStatuses     = []string{"draft", "proposed", "accepted", "implemented", "deprecated", "rejected"}
+	defaultDoneStatuses = []string{"implemented", "deprecated", "rejected"}
+)
 
 func defaultConfig() Config {
-	return Config{Agent: "none", AgentTimeout: 3600, WebPort: 8080, WebHost: "127.0.0.1", Statuses: defaultStatuses}
+	return Config{Agent: "none", AgentTimeout: 3600, WebPort: 8080, WebHost: "127.0.0.1",
+		Statuses: defaultStatuses, DoneStatuses: defaultDoneStatuses}
+}
+
+// isDone reports whether status counts as finished work.
+func (c Config) isDone(status string) bool {
+	for _, s := range c.DoneStatuses {
+		if s == status {
+			return true
+		}
+	}
+	return false
 }
 
 // globalConfigPath is the user-level config; repo .spec/config.yml overrides it.
@@ -98,7 +113,7 @@ func loadConfig(root string) Config {
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				cfg.WebPort = n
 			}
-		case "statuses", "verify":
+		case "statuses", "verify", "done_statuses":
 			if strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]") {
 				var list []string
 				for _, item := range strings.Split(v[1:len(v)-1], ",") {
@@ -107,9 +122,12 @@ func loadConfig(root string) Config {
 					}
 				}
 				if len(list) > 0 {
-					if k == "statuses" {
+					switch k {
+					case "statuses":
 						cfg.Statuses = list
-					} else {
+					case "done_statuses":
+						cfg.DoneStatuses = list
+					default:
 						cfg.Verify = list
 					}
 				}
@@ -120,9 +138,9 @@ func loadConfig(root string) Config {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nstatuses: [%s]\nverify: [%s]",
+	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nstatuses: [%s]\ndone_statuses: [%s]\nverify: [%s]",
 		c.Agent, c.AgentCmd, c.AgentTimeout, c.WebHost, c.WebPort, c.editor(),
-		strings.Join(c.Statuses, ", "), strings.Join(c.Verify, ", "))
+		strings.Join(c.Statuses, ", "), strings.Join(c.DoneStatuses, ", "), strings.Join(c.Verify, ", "))
 }
 
 const globalConfigTemplate = `# Global defaults for all spec-managed repositories.
@@ -139,6 +157,7 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 
 # Lifecycle
 # statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
+# done_statuses: [implemented, deprecated, rejected]   # hidden on the board by default
 
 # Verification — run by spec verify and after spec apply (no shell; quotes group args)
 # verify: [go test ./..., spec validate, spec check]
@@ -163,6 +182,7 @@ const repoConfigTemplate = `version: 1
 
 # Lifecycle
 # statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
+# done_statuses: [implemented, deprecated, rejected]   # hidden on the board by default
 
 # Verification — run by spec verify and after spec apply (no shell; quotes group args)
 # verify: [go test ./..., spec validate, spec check]

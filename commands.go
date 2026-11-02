@@ -504,15 +504,26 @@ func cmdStatus(out, errOut io.Writer) error {
 			fmt.Fprintf(out, "  %-10s %d\n", t, byType[t])
 		}
 	}
+	// active statuses first; done_statuses grouped under "finished"
 	fmt.Fprintln(out, "By status:")
-	for _, status := range cfg.Statuses {
-		if byStatus[status] > 0 {
-			fmt.Fprintf(out, "  %-12s %d\n", status, byStatus[status])
+	printStatuses := func(done bool, indent string) {
+		for _, status := range cfg.Statuses {
+			if byStatus[status] > 0 && cfg.isDone(status) == done {
+				fmt.Fprintf(out, "%s%-12s %d\n", indent, status, byStatus[status])
+			}
 		}
 	}
+	printStatuses(false, "  ")
 	for status, n := range byStatus {
 		if !cfg.validStatus(status) {
 			fmt.Fprintf(out, "  %-12s %d (not in config)\n", status, n)
+		}
+	}
+	for _, status := range cfg.Statuses {
+		if byStatus[status] > 0 && cfg.isDone(status) {
+			fmt.Fprintln(out, "  finished:")
+			printStatuses(true, "    ")
+			break
 		}
 	}
 

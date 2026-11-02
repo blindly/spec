@@ -281,6 +281,22 @@ func TestAgentDraftAndRefine(t *testing.T) {
 	}
 }
 
+func TestStatusGroupsFinished(t *testing.T) {
+	st := setupRepo(t)
+	body := "# x\n\n## Summary\n\ns\n\n## Design\n\nd\n\n## Acceptance Criteria\n\n- [ ] x\n"
+	st.Create("feature", "a", body, map[string][]string{"status": {"implemented"}})
+	st.Create("feature", "b", body, map[string][]string{"status": {"accepted"}})
+	var buf bytes.Buffer
+	if err := cmdStatus(&buf, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	acc, fin, impl := strings.Index(out, "accepted"), strings.Index(out, "finished:"), strings.Index(out, "implemented")
+	if acc < 0 || fin < 0 || impl < 0 || !(acc < fin && fin < impl) {
+		t.Fatalf("active statuses should precede the finished group:\n%s", out)
+	}
+}
+
 func TestValidateTypeMismatch(t *testing.T) {
 	st := setupRepo(t)
 	adr := "# x\n\n## Context\n\nc\n\n## Decision\n\nd\n\n## Consequences\n\nq\n"

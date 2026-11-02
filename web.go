@@ -97,19 +97,31 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			http.NotFound(w, r)
 			return
 		}
+		// finished specs (done_statuses) are hidden unless ?all=1
+		showAll := r.URL.Query().Get("all") == "1"
 		// group specs by status, columns ordered by configured statuses
+		specsAll := st.Specs()
 		byStatus := map[string][]Spec{}
 		var extra []string // statuses present but not in cfg.Statuses
-		for _, s := range st.Specs() {
+		for _, s := range specsAll {
 			byStatus[s.Status()] = append(byStatus[s.Status()], s)
 		}
 		var cols []string
+		hidden := 0
 		inCfg := map[string]bool{}
+		addCol := func(s string) {
+			if len(byStatus[s]) == 0 {
+				return
+			}
+			if cfg.isDone(s) && !showAll {
+				hidden += len(byStatus[s])
+				return
+			}
+			cols = append(cols, s)
+		}
 		for _, s := range statuses {
 			inCfg[s] = true
-			if len(byStatus[s]) > 0 {
-				cols = append(cols, s)
-			}
+			addCol(s)
 		}
 		for s := range byStatus {
 			if !inCfg[s] {
@@ -117,12 +129,26 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			}
 		}
 		sort.Strings(extra)
-		cols = append(cols, extra...)
+		for _, s := range extra {
+			addCol(s)
+		}
 
 		var b strings.Builder
 		b.WriteString(`<h1>Specifications</h1>`)
-		if len(cols) == 0 {
+		if len(specsAll) == 0 {
 			b.WriteString(`<p>No specs yet — <a href="/new">create one</a>.</p>`)
+			render(w, "spec", b.String())
+			return
+		}
+		toggle := ""
+		switch {
+		case hidden > 0:
+			toggle = fmt.Sprintf(`<p class="toggle">%d finished spec(s) hidden — <a href="%s?all=1">show</a></p>`, hidden, r.URL.Path)
+		case showAll:
+			toggle = fmt.Sprintf(`<p class="toggle"><a href="%s">hide finished</a></p>`, r.URL.Path)
+		}
+		if len(cols) == 0 {
+			b.WriteString(`<p>Nothing in progress.</p>` + toggle)
 			render(w, "spec", b.String())
 			return
 		}
@@ -138,7 +164,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			}
 			b.WriteString("</div>")
 		}
-		b.WriteString("</div>")
+		b.WriteString("</div>" + toggle)
 		render(w, "spec", b.String())
 	})
 
