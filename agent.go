@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -136,6 +137,24 @@ func bodyFromAgentOutput(out string) string {
 	return strings.TrimSpace(s) + "\n"
 }
 
+var typeSuggestionPattern = regexp.MustCompile(`(?m)^\s*SPEC-TYPE-SUGGESTION:\s*(\w+)\s*:?\s*(.*)$`)
+
+// extractTypeSuggestion strips the refine agent's SPEC-TYPE-SUGGESTION line
+// from its output and returns the suggested type and reason. The suggestion
+// is dropped when it names an unknown type or the spec's current type.
+func extractTypeSuggestion(output, current string) (rest, suggested, reason string) {
+	m := typeSuggestionPattern.FindStringSubmatch(output)
+	rest = typeSuggestionPattern.ReplaceAllString(output, "")
+	if m == nil {
+		return rest, "", ""
+	}
+	t := strings.ToLower(m[1])
+	if !validTypes[t] || t == current {
+		return rest, "", ""
+	}
+	return rest, t, strings.TrimSpace(m[2])
+}
+
 // readmeExcerpt returns the first ~maxBytes of the repo README, if any.
 func readmeExcerpt(root string, maxBytes int) string {
 	s, _ := findDoc(root, "README.md", "README.markdown", "README", "README.txt")
@@ -259,5 +278,11 @@ Rules:
 - Improve clarity and completeness; keep every existing "## Section" heading.
 - Do not invent new REQ ids; only reference existing ones.
 - Output ONLY the improved markdown body, no frontmatter.
+- Keep it a %s spec. If the content clearly belongs to a different type
+  (project: whole system + REQ ids; feature: behavior to build with checkable
+  acceptance criteria; adr: a decision with rejected alternatives), add one
+  final line, after the body:
+  SPEC-TYPE-SUGGESTION: <project|feature|adr>: <one-sentence reason>
+  Omit that line when the type fits.
 
 %s`

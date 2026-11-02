@@ -250,6 +250,47 @@ func TestAgentDraftAndRefine(t *testing.T) {
 	}
 }
 
+func TestExtractTypeSuggestion(t *testing.T) {
+	out := "# Spec\n\nbody\n\nSPEC-TYPE-SUGGESTION: adr: records a decision between two options\n"
+	rest, typ, reason := extractTypeSuggestion(out, "feature")
+	if typ != "adr" || reason != "records a decision between two options" || strings.Contains(rest, "SPEC-TYPE") {
+		t.Fatalf("got %q %q rest=%q", typ, reason, rest)
+	}
+	// same type, unknown type, or no marker → no suggestion, marker still stripped
+	for _, in := range []string{
+		"# S\n\nSPEC-TYPE-SUGGESTION: feature: fits\n",
+		"# S\n\nSPEC-TYPE-SUGGESTION: bug: nope\n",
+		"# S\n\nbody\n",
+	} {
+		rest, typ, _ := extractTypeSuggestion(in, "feature")
+		if typ != "" || strings.Contains(rest, "SPEC-TYPE") {
+			t.Fatalf("%q: got %q rest=%q", in, typ, rest)
+		}
+	}
+}
+
+func TestRefineWarnsOnTypeMismatch(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fake agent")
+	}
+	st := setupRepo(t)
+	cmdNew(io.Discard, io.Discard, "feature", "pick a db")
+	fake := filepath.Join(st.Root, "fakeagent.sh")
+	os.WriteFile(fake, []byte("#!/bin/sh\ncat > /dev/null\nprintf '# Pick a db\\n\\n## Summary\\n\\nS.\\n\\n## Design\\n\\nD.\\n\\n## Acceptance Criteria\\n\\n- [ ] x\\n\\nSPEC-TYPE-SUGGESTION: adr: chooses Postgres over SQLite\\n'\n"), 0o755)
+	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"), []byte("agent_cmd: sh "+fake+"\n"), 0o644)
+	var errBuf bytes.Buffer
+	if err := cmdRefine(io.Discard, &errBuf, "FEAT-001"); err != nil {
+		t.Fatal(err)
+	}
+	if w := errBuf.String(); !strings.Contains(w, "agent suggests adr") || !strings.Contains(w, "Postgres") {
+		t.Fatalf("missing type warning: %q", w)
+	}
+	s := st.Get("FEAT-001")
+	if s.Type() != "feature" || strings.Contains(s.Body, "SPEC-TYPE") {
+		t.Fatalf("type changed or marker saved: %s %q", s.Type(), s.Body)
+	}
+}
+
 func TestGlobalConfigMerge(t *testing.T) {
 	st := setupRepo(t)
 	// global config sets web_port + agent_cmd; repo overrides agent_cmd only

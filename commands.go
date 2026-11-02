@@ -217,12 +217,13 @@ func cmdRefine(out, errOut io.Writer, id string) error {
 	if ag == nil {
 		return fmt.Errorf("refine requires an LLM agent (none configured; set agent/agent_cmd in .spec/config.yml)")
 	}
-	prompt := fmt.Sprintf(refinePromptFmt, s.Type(), s.ID(), s.Title(), s.Body, repoContext(st, 50))
+	prompt := fmt.Sprintf(refinePromptFmt, s.Type(), s.ID(), s.Title(), s.Body, s.Type(), repoContext(st, 50))
 	fmt.Fprintf(out, "Refining %s via %s…\n", s.ID(), ag.name)
 	output, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
 	if err != nil {
 		return err
 	}
+	output, suggested, reason := extractTypeSuggestion(output, s.Type())
 	body := bodyFromAgentOutput(output)
 	if !strings.Contains(body, "# ") {
 		dumpAgentOutput(errOut, output)
@@ -232,6 +233,13 @@ func cmdRefine(out, errOut io.Writer, id string) error {
 		return err
 	}
 	fmt.Fprintln(out, "Refined", s.Path, "via", ag.name)
+	if suggested != "" {
+		fmt.Fprintf(errOut, "warning: %s may be the wrong type (is %s, agent suggests %s)", s.ID(), s.Type(), suggested)
+		if reason != "" {
+			fmt.Fprintf(errOut, " — %s", reason)
+		}
+		fmt.Fprintf(errOut, "\n  type not changed; to switch, create it as: spec new %s %q\n", suggested, s.Title())
+	}
 	return nil
 }
 

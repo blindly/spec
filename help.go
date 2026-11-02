@@ -51,7 +51,9 @@ There is no bug type:
 
 Choose the type at creation. It sets the id prefix (PROJ/FEAT/ADR/DOC),
 the directory, the required sections, and whether ` + "`spec apply`" + ` picks it up —
-changing it later means a new spec, not an edit. ADRs are never rewritten
+changing it later means a new spec, not an edit. ` + "`spec refine`" + ` warns
+when a spec's content looks like a different type, but never changes it.
+ADRs are never rewritten
 once accepted: write a new ADR that supersedes the old one and mark the old
 one deprecated.
 
