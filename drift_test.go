@@ -419,6 +419,62 @@ func newTestServer(t *testing.T, st Store) string {
 	return srv.URL
 }
 
+// The web server caches git state between requests; it must still notice
+// new commits and uncommitted edits.
+func TestWebGitCacheInvalidates(t *testing.T) {
+	st := setupRepo(t)
+	commit := gitInit(t, st)
+	s := liveFeature(t, st, "cached", "app.go")
+	writeFile(t, st, "app.go", "1")
+	commit("init")
+	srv := newTestServer(t, st)
+	badge := `may be stale</span>`
+	if strings.Contains(webGet(t, srv+"/system"), badge) {
+		t.Fatal("no drift yet")
+	}
+	writeFile(t, st, "app.go", "2") // uncommitted change to a covered file
+	if !strings.Contains(webGet(t, srv+"/system"), badge) {
+		t.Fatal("cache didn't notice an uncommitted edit")
+	}
+	os.WriteFile(st.Get(s.ID()).Path, []byte(dumpFrontmatter(s.Meta, s.Body+"\nupdated\n")), 0o644)
+	commit("update spec and code")
+	if strings.Contains(webGet(t, srv+"/system"), badge) {
+		t.Fatal("cache didn't notice a new commit")
+	}
+	writeFile(t, st, "app.go", "3")
+	commit("code only")
+	if !strings.Contains(webGet(t, srv+"/system"), badge) {
+		t.Fatal("cache didn't notice a commit touching covered code")
+	}
+}
+
+func TestSpecPatchChanges(t *testing.T) {
+	patch := `diff --git a/specs/features/F.md b/specs/features/F.md
+--- a/specs/features/F.md
++++ b/specs/features/F.md
+@@ -1,3 +1,4 @@
+ ---
++covers: [app.go]
+ id: F
+diff --git a/specs/features/G.md b/specs/features/G.md
+--- a/specs/features/G.md
++++ b/specs/features/G.md
+@@ -5,1 +5,1 @@
+-old text
++new text
+diff --git a/specs/features/H.md b/specs/features/H.md
+new file mode 100644
+--- /dev/null
++++ b/specs/features/H.md
+@@ -0,0 +1 @@
++# H
+`
+	got := specPatchChanges(patch)
+	if got["specs/features/F.md"] || !got["specs/features/G.md"] || !got["specs/features/H.md"] {
+		t.Fatalf("covers-only F should be false, G and H true: %v", got)
+	}
+}
+
 func TestWebDriftBadge(t *testing.T) {
 	st, s, _ := driftedSpec(t)
 	srv := newTestServer(t, st)

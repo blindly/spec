@@ -38,6 +38,7 @@ go build -o spec .
 | `spec check` | Audit `{fact:key}` references against facts.yml; warn about possibly-stale specs |
 | `spec drift [--review [--yes]] [id…]` | List system specs whose covered code (`covers:` frontmatter) changed since they were last updated or verified. `--review` asks the agent whether each is really stale: accurate → `verified:` stamp, stale → proposed update applied on confirmation. Needs git |
 | `spec covers [--infer] [id…]` | Show the files each spec covers; `--infer` fills empty `covers:` from the commits that touched each spec. `spec apply` records covers automatically |
+| `SPEC_TRACE=1 spec …` | Print every git command spec runs, with its duration, to stderr — for diagnosing slow drift checks or `/system` loads on a given machine |
 | `spec verified <id>…` | Stamp `verified: <HEAD>` — the spec was checked and is accurate; clears drift until covered code changes again |
 | `spec verify` | Run configured `verify: [...]` commands (tests, validate, check) |
 | `spec config` | Show effective configuration and resolved agent |

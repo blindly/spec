@@ -6,11 +6,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -23,59 +25,157 @@ type gitCommit struct {
 }
 
 // gitRepo is a snapshot of the history and working tree under a store root.
+// Loading it runs a fixed handful of git commands, however many specs or
+// commits there are.
 type gitRepo struct {
 	root    string
 	head    string
-	commits []gitCommit     // newest first
+	commits []gitCommit     // newest first; only files under specs/ or covered by a spec
 	dirty   map[string]bool // uncommitted changes (tracked or untracked), relative to root
-	shown   map[string]*string
+	// specChange["<sha>:<spec path>"] is true when that commit changed the
+	// spec's content, not just its covers: line. dirtySpecChange is the same
+	// for uncommitted edits.
+	specChange      map[string]bool
+	dirtySpecChange map[string]bool
 }
 
+// runGit runs git in root. With SPEC_TRACE set, each call's duration is
+// printed to stderr, to diagnose slow git on a given machine.
 func runGit(root string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = root
-	return cmd.Output()
+	start := time.Now()
+	out, err := cmd.Output()
+	if os.Getenv("SPEC_TRACE") != "" {
+		fmt.Fprintf(os.Stderr, "[git %4dms] %s\n", time.Since(start).Milliseconds(), strings.Join(args, " "))
+	}
+	return out, err
 }
 
-// loadGit reads the repo's history and dirty files; nil when root isn't in
-// a git work tree (or git isn't installed).
-func loadGit(root string) *gitRepo {
+// gitDirtyState returns HEAD and the uncommitted files under root; ok is
+// false when root isn't in a git work tree (or git isn't installed).
+func gitDirtyState(root string) (head string, dirty map[string]bool, ok bool) {
 	if out, err := runGit(root, "rev-parse", "--is-inside-work-tree"); err != nil || strings.TrimSpace(string(out)) != "true" {
-		return nil
+		return "", nil, false
 	}
-	g := &gitRepo{root: root, dirty: map[string]bool{}}
+	dirty = map[string]bool{}
 	if out, err := runGit(root, "rev-parse", "HEAD"); err == nil {
-		g.head = strings.TrimSpace(string(out))
+		head = strings.TrimSpace(string(out))
 	}
-	if g.head != "" {
-		out, err := runGit(root, "log", "--format=@@@%H%x09%cs%x09%s", "--name-only", "--relative")
-		if err != nil {
-			return nil
-		}
-		for _, block := range strings.Split(string(out), "@@@")[1:] {
-			lines := strings.Split(strings.TrimSpace(block), "\n")
-			parts := strings.SplitN(lines[0], "\t", 3)
-			if len(parts) < 3 {
-				continue
-			}
-			c := gitCommit{SHA: parts[0], Date: parts[1], Subject: parts[2]}
-			for _, f := range lines[1:] {
-				if f = strings.TrimSpace(f); f != "" {
-					c.Files = append(c.Files, f)
-				}
-			}
-			g.commits = append(g.commits, c)
-		}
+	if head != "" {
 		if out, err := runGit(root, "diff", "--name-only", "--relative", "HEAD"); err == nil {
-			addLines(g.dirty, out)
+			addLines(dirty, out)
 		}
 	}
 	if out, err := runGit(root, "ls-files", "--others", "--exclude-standard"); err == nil {
-		addLines(g.dirty, out)
+		addLines(dirty, out)
+	}
+	return head, dirty, true
+}
+
+// coverPathspec turns a covers: entry into a git pathspec.
+func coverPathspec(c string) string {
+	if strings.ContainsAny(c, "*?[") && !strings.HasSuffix(c, "/") {
+		return ":(glob)" + c
+	}
+	return c
+}
+
+// loadGit reads what drift and the system view need: history limited to
+// specs/ and the files specs cover, plus the working tree. Reading the whole
+// repo's history instead was ~90% of a /system page load.
+func loadGit(root string) *gitRepo {
+	paths := []string{specDir}
+	seen := map[string]bool{}
+	for _, s := range (Store{Root: root}).Specs() {
+		for _, c := range s.Field("covers") {
+			if !seen[c] {
+				seen[c] = true
+				paths = append(paths, coverPathspec(c))
+			}
+		}
+	}
+	return loadGitPaths(root, paths, false)
+}
+
+// loadGitFull lists commits that touched specs/ with every file each one
+// changed — what spec covers --infer needs to discover code files.
+func loadGitFull(root string) *gitRepo {
+	return loadGitPaths(root, []string{specDir}, true)
+}
+
+func loadGitPaths(root string, paths []string, fullDiff bool) *gitRepo {
+	head, dirty, ok := gitDirtyState(root)
+	if !ok {
+		return nil
+	}
+	g := &gitRepo{root: root, head: head, dirty: dirty, specChange: map[string]bool{}, dirtySpecChange: map[string]bool{}}
+	if head == "" {
+		return g
+	}
+	args := []string{"log", "--format=@@@%H%x09%cs%x09%s", "--name-only", "--relative"}
+	if fullDiff {
+		args = append(args, "--full-diff")
+	}
+	out, err := runGit(root, append(append(args, "--"), paths...)...)
+	if err != nil {
+		return nil
+	}
+	for _, block := range strings.Split(string(out), "@@@")[1:] {
+		lines := strings.Split(strings.TrimSpace(block), "\n")
+		parts := strings.SplitN(lines[0], "\t", 3)
+		if len(parts) < 3 {
+			continue
+		}
+		c := gitCommit{SHA: parts[0], Date: parts[1], Subject: parts[2]}
+		for _, f := range lines[1:] {
+			if f = strings.TrimSpace(f); f != "" {
+				c.Files = append(c.Files, f)
+			}
+		}
+		g.commits = append(g.commits, c)
+	}
+	// one patch log over specs/ tells, for every commit, whether it changed
+	// a spec's content or only its covers: line
+	if out, err := runGit(root, "log", "-p", "--format=@@@%H", "--relative", "--", specDir); err == nil {
+		for _, block := range strings.Split(string(out), "@@@")[1:] {
+			sha, patch, _ := strings.Cut(block, "\n")
+			for f, changed := range specPatchChanges(patch) {
+				g.specChange[strings.TrimSpace(sha)+":"+f] = changed
+			}
+		}
+	}
+	if out, err := runGit(root, "diff", "--relative", "HEAD", "--", specDir); err == nil {
+		g.dirtySpecChange = specPatchChanges(string(out))
 	}
 	return g
+}
+
+// specPatchChanges reads a unified diff and reports, per file, whether any
+// changed line is something other than a covers: line.
+func specPatchChanges(patch string) map[string]bool {
+	out := map[string]bool{}
+	file := ""
+	for _, line := range strings.Split(patch, "\n") {
+		switch {
+		case strings.HasPrefix(line, "diff --git "):
+			file = ""
+		case strings.HasPrefix(line, "--- a/") && file == "":
+			file = line[len("--- a/"):]
+			out[file] = out[file] || false
+		case strings.HasPrefix(line, "+++ b/"):
+			file = line[len("+++ b/"):]
+			out[file] = out[file] || false
+		case strings.HasPrefix(line, "+++ ") || strings.HasPrefix(line, "--- "):
+		case file != "" && (strings.HasPrefix(line, "+") || strings.HasPrefix(line, "-")):
+			if !strings.HasPrefix(strings.TrimSpace(line[1:]), "covers:") {
+				out[file] = true
+			}
+		}
+	}
+	return out
 }
 
 func addLines(set map[string]bool, out []byte) {
@@ -159,48 +259,12 @@ type driftInfo struct {
 	Uncommitted []string    // covered files with uncommitted changes
 }
 
-// specContent is what counts as "the spec" for drift: everything except
-// covers:, which is bookkeeping about the spec, not a change to what it says.
-func specContent(text string) string {
-	meta, body := parseFrontmatter(toUTF8([]byte(text)))
-	delete(meta, "covers")
-	return dumpFrontmatter(meta, body)
-}
-
-// showFile returns a file's content at a commit ("" if it didn't exist).
-func (g *gitRepo) showFile(rev, rel string) (string, bool) {
-	key := rev + ":" + rel
-	if g.shown == nil {
-		g.shown = map[string]*string{}
-	}
-	if v, ok := g.shown[key]; ok {
-		return derefOK(v)
-	}
-	var v *string
-	if out, err := runGit(g.root, "show", rev+":./"+rel); err == nil {
-		s := string(out)
-		v = &s
-	}
-	g.shown[key] = v
-	return derefOK(v)
-}
-
-func derefOK(v *string) (string, bool) {
-	if v == nil {
-		return "", false
-	}
-	return *v, true
-}
-
-// contentChanged reports whether commit c changed the spec's content (not
-// just its covers:) compared with its parent.
+// contentChanged reports whether commit sha changed the spec's content, not
+// just its covers: line (covers: is bookkeeping about the spec, not a change
+// to what it says). Unknown commits count as content changes.
 func (g *gitRepo) contentChanged(sha, rel string) bool {
-	now, ok := g.showFile(sha, rel)
-	if !ok {
-		return false
-	}
-	before, ok := g.showFile(sha+"^", rel)
-	return !ok || specContent(now) != specContent(before)
+	changed, ok := g.specChange[sha+":"+rel]
+	return !ok || changed
 }
 
 // drift returns why s may be stale, or nil if it's in sync (or can't tell:
@@ -212,10 +276,9 @@ func (g *gitRepo) drift(s Spec) *driftInfo {
 		return nil
 	}
 	if g.dirty[rel] {
-		data, _ := os.ReadFile(s.Path)
-		head, ok := g.showFile("HEAD", rel)
-		if !ok || specContent(string(data)) != specContent(head) {
-			return nil // being edited: counts as updated
+		// untracked (new) spec, or uncommitted edits beyond covers: → being edited
+		if changed, tracked := g.dirtySpecChange[rel]; !tracked || changed {
+			return nil
 		}
 	}
 	cp := -1
@@ -316,6 +379,60 @@ func (g *gitRepo) inferCovers(s Spec) []string {
 	return out
 }
 
+// gitCache keeps a loaded gitRepo between web requests and reloads it only
+// when the repo changes: a new HEAD, a different set of uncommitted files,
+// or an edit to one of them.
+type gitCache struct {
+	mu   sync.Mutex
+	key  string
+	repo *gitRepo
+}
+
+func (c *gitCache) get(root string) *gitRepo {
+	key := gitStateKey(root)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if key != "" && key == c.key {
+		return c.repo
+	}
+	c.repo, c.key = loadGit(root), key
+	return c.repo
+}
+
+// gitStateKey fingerprints HEAD plus the working tree (git status, and the
+// size and mtime of each listed file). "" means "don't cache" (no git, or no
+// commits yet).
+func gitStateKey(root string) string {
+	out, err := runGit(root, "rev-parse", "HEAD", "--show-toplevel")
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) < 2 {
+		return ""
+	}
+	status, err := runGit(root, "status", "--porcelain=v1", "-uall")
+	if err != nil {
+		return ""
+	}
+	h := sha256.New()
+	h.Write(out)
+	h.Write(status)
+	for _, l := range strings.Split(string(status), "\n") {
+		if len(l) < 4 {
+			continue
+		}
+		p := l[3:]
+		if i := strings.Index(p, " -> "); i >= 0 {
+			p = p[i+4:]
+		}
+		if fi, err := os.Stat(filepath.Join(lines[1], strings.Trim(p, `"`))); err == nil {
+			fmt.Fprintf(h, "%s %d %d\n", p, fi.Size(), fi.ModTime().UnixNano())
+		}
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 // treeSnap fingerprints the working tree so spec apply can tell which files
 // the agent changed: HEAD plus a content hash of every dirty file.
 type treeSnap struct {
@@ -324,12 +441,12 @@ type treeSnap struct {
 }
 
 func snapshotTree(root string) *treeSnap {
-	g := loadGit(root)
-	if g == nil {
+	head, dirty, ok := gitDirtyState(root) // working tree only; no history needed
+	if !ok {
 		return nil
 	}
-	s := &treeSnap{head: g.head, files: map[string]string{}}
-	for f := range g.dirty {
+	s := &treeSnap{head: head, files: map[string]string{}}
+	for f := range dirty {
 		s.files[f] = fileHash(filepath.Join(root, filepath.FromSlash(f)))
 	}
 	return s

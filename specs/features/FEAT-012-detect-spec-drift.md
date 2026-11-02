@@ -68,6 +68,11 @@ Addresses: REQ-014
   `spec covers --infer`").
 - Requires git; without it, drift reports that it's unavailable and other
   commands stay silent.
+- **Cost:** a fixed handful of git commands per check, independent of the
+  number of specs or commits. History is read only for `specs/` and covered
+  paths, and one `git log -p -- specs/` decides which spec commits were
+  covers-only. `spec web` caches the result until HEAD or the working tree
+  changes. `SPEC_TRACE=1` prints each git call with its duration.
 
 ### Commands
 

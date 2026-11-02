@@ -135,6 +135,7 @@ func mdBlock(markdown string) string {
 func webHandler(st Store, cfg Config, token string) http.Handler {
 	statuses := cfg.Statuses
 	var writeMu sync.Mutex
+	var gits gitCache // git state reused across requests until the repo changes
 
 	// resolve branding per request so creating a project spec while the
 	// server runs updates the badge without a restart
@@ -303,7 +304,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			return
 		}
 		b.WriteString(`<p class="muted">What the system does today. These specs are kept current as the system changes; work in progress is on the <a href="/board">board</a>.</p>`)
-		g := loadGit(st.Root)
+		g := gits.get(st.Root)
 		dates := lastChanged(st, g, all)
 		for _, sec := range []struct{ typ, title string }{
 			{"project", "Project"}, {"feature", "Features"}, {"adr", "Decisions"}, {"imported", "Imported docs"},
@@ -518,7 +519,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			html.EscapeString(s.ID()), html.EscapeString(heading),
 			html.EscapeString(s.Type()), html.EscapeString(s.Status()),
 			archivedNote, s.ID())
-		if g := loadGit(st.Root); g != nil && inSystem(cfg, *s) {
+		if g := gits.get(st.Root); g != nil && inSystem(cfg, *s) {
 			if d := g.drift(*s); d != nil {
 				b.WriteString(driftHTML(d))
 			}

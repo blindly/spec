@@ -316,7 +316,7 @@ func cmdCovers(out io.Writer, args []string) error {
 		}
 		return nil
 	}
-	g := loadGit(st.Root)
+	g := loadGitFull(st.Root)
 	if g == nil {
 		return fmt.Errorf("spec covers --infer needs git (this isn't a git repository)")
 	}
