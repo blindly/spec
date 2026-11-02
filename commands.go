@@ -203,6 +203,12 @@ func cmdBootstrap(out, errOut io.Writer) error {
 }
 
 func cmdRefine(out, errOut io.Writer, id string) error {
+	return refine(os.Stdin, out, errOut, id, false)
+}
+
+// refine improves a spec's body via the agent. Ideas take their own path
+// (refineIdea): they always get a type suggestion, which is recorded.
+func refine(in io.Reader, out, errOut io.Writer, id string, force bool) error {
 	st, err := mustStore()
 	if err != nil {
 		return err
@@ -215,6 +221,9 @@ func cmdRefine(out, errOut io.Writer, id string) error {
 	ag, err := resolveAgent(cfg)
 	if err != nil {
 		return err
+	}
+	if s.IsIdea() {
+		return refineIdea(in, out, errOut, st, cfg, ag, s, force)
 	}
 	if ag == nil {
 		return fmt.Errorf("refine requires an LLM agent (none configured; set agent/agent_cmd in .spec/config.yml)")

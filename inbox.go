@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -151,6 +152,115 @@ func promoteIdea(st Store, id, typ string, force bool) (Spec, error) {
 	return ns, nil
 }
 
+var (
+	adrSignals     = []string{"instead of", "chose", "choose", "alternative", " vs ", " vs.", "versus", "should we", "trade-off", "tradeoff", "decide", "decision"}
+	featureSignals = []string{"- [ ]", "- [x]", " should ", " must ", "users can", "add support", "allow "}
+)
+
+// suggestTypeHeuristic is the offline fallback for refining an idea: it
+// counts decision words (→ adr) against behavior words (→ feature). No clear
+// winner → no suggestion.
+func suggestTypeHeuristic(body string) (typ, reason string) {
+	text := " " + strings.ToLower(strings.ReplaceAll(body, ideaTodo, "")) + " "
+	hits := func(signals []string) (n int, found []string) {
+		for _, sig := range signals {
+			if c := strings.Count(text, sig); c > 0 {
+				n += c
+				found = append(found, strings.TrimSpace(sig))
+			}
+		}
+		return n, found
+	}
+	adrN, adrFound := hits(adrSignals)
+	featN, featFound := hits(featureSignals)
+	featN -= strings.Count(text, "should we") // "should we…?" is a decision, not a requirement
+	switch {
+	case adrN > featN:
+		return "adr", "heuristic: mentions " + strings.Join(adrFound, ", ")
+	case featN > adrN:
+		return "feature", "heuristic: mentions " + strings.Join(featFound, ", ")
+	}
+	return "", ""
+}
+
+// refineIdea refines an idea's notes via the agent (or, with no agent, only
+// suggests a type heuristically), records suggested_type/suggested_reason,
+// moves new → refined, and offers to promote.
+func refineIdea(in io.Reader, out, errOut io.Writer, st Store, cfg Config, ag *agent, s *Spec, force bool) error {
+	if s.Status() == ideaDiscarded && !force {
+		return fmt.Errorf("%s is discarded (use --force to refine anyway)", s.ID())
+	}
+	update := map[string][]string{}
+	var suggested, reason string
+	if ag == nil {
+		suggested, reason = suggestTypeHeuristic(s.Body)
+		if suggested == "" {
+			fmt.Fprintln(out, "No agent configured and the heuristic found no clear type signal — set agent/agent_cmd in .spec/config.yml for a real refine.")
+			return nil
+		}
+	} else {
+		prompt := fmt.Sprintf(ideaRefinePromptFmt, s.ID(), s.Title(), s.Body, repoContext(st, 50))
+		fmt.Fprintf(out, "Refining %s via %s…\n", s.ID(), ag.name)
+		output, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
+		if err != nil {
+			return err
+		}
+		output, suggested, reason = extractTypeSuggestion(output, s.Type())
+		body := bodyFromAgentOutput(output)
+		if !strings.Contains(body, "# ") {
+			dumpAgentOutput(errOut, output)
+			return fmt.Errorf("agent returned no markdown body — idea left unchanged")
+		}
+		s.Body = body
+		if s.Status() == "new" {
+			update["status"] = []string{ideaRefined}
+		}
+	}
+	if suggested != "" {
+		update["suggested_type"] = []string{suggested}
+		update["suggested_reason"] = []string{reason}
+	}
+	if err := setIdeaMeta(s, update); err != nil {
+		return err
+	}
+	if ag != nil {
+		fmt.Fprintln(out, "Refined", s.Path, "via", ag.name)
+	}
+	if suggested == "" {
+		fmt.Fprintln(out, "No type suggestion from agent"+previousSuggestion(s))
+		return nil
+	}
+	fmt.Fprintf(out, "Suggested: %s — %s\n", suggested, reason)
+	if !stdinIsTerminal() {
+		fmt.Fprintf(out, "To promote: spec promote %s %s\n", s.ID(), suggested)
+		return nil
+	}
+	fmt.Fprint(out, "Promote now? [y/N] ")
+	answer, _ := bufio.NewReader(in).ReadString('\n')
+	if a := strings.ToLower(strings.TrimSpace(answer)); a != "y" && a != "yes" {
+		fmt.Fprintf(out, "Not promoted. Later: spec promote %s %s\n", s.ID(), suggested)
+		return nil
+	}
+	ns, err := promoteIdea(st, s.ID(), suggested, force)
+	if err != nil {
+		return err
+	}
+	reportPromote(out, s.ID(), ns)
+	return nil
+}
+
+func previousSuggestion(s *Spec) string {
+	if t := metaGet(s.Meta, "suggested_type", ""); t != "" {
+		return " (kept earlier suggestion: " + t + ")"
+	}
+	return ""
+}
+
+func reportPromote(out io.Writer, ideaID string, ns Spec) {
+	fmt.Fprintf(out, "Promoted %s → %s (%s)\nCreated %s — fill in its sections: spec edit %s\n",
+		ideaID, ns.ID(), ns.Type(), ns.Path, ns.ID())
+}
+
 func cmdDiscard(out io.Writer, ids []string) error {
 	if len(ids) == 0 {
 		return fmt.Errorf("usage: spec discard <IDEA-id>...")
@@ -196,7 +306,6 @@ func cmdPromote(out io.Writer, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "Promoted %s → %s (%s)\nCreated %s — fill in its sections: spec edit %s\n",
-		pos[0], ns.ID(), ns.Type(), ns.Path, ns.ID())
+	reportPromote(out, pos[0], ns)
 	return nil
 }

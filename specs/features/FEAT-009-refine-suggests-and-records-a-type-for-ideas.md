@@ -2,7 +2,7 @@
 created: 2026-11-01
 depends_on: [FEAT-008]
 id: FEAT-009
-status: proposed
+status: implemented
 title: Refine suggests and records a type for ideas
 type: feature
 ---
@@ -57,13 +57,13 @@ Addresses: REQ-013
 
 ## Acceptance Criteria
 
-- [ ] Refining an idea with an agent that emits a suggestion saves `suggested_type` and `suggested_reason`
-- [ ] The suggestion line never appears in the saved body
-- [ ] Refining a `new` idea sets its status to `refined`; refining a `discarded` idea fails without `--force`
-- [ ] The inbox shows the suggested type as a badge and preselects it in the promote form
-- [ ] A missing or invalid suggestion prints "no type suggestion from agent" and keeps any previous suggestion
-- [ ] On a terminal, answering `y` to "Promote now?" promotes the idea with the suggested type
-- [ ] Not on a terminal, refine prints the promote command and doesn't prompt
-- [ ] With no agent, refine on an idea records a heuristic suggestion and leaves the body unchanged
-- [ ] Refining a typed spec behaves exactly as before
-- [ ] Tests cover each case with fake agents
+- [x] Refining an idea with an agent that emits a suggestion saves `suggested_type` and `suggested_reason`
+- [x] The suggestion line never appears in the saved body
+- [x] Refining a `new` idea sets its status to `refined`; refining a `discarded` idea fails without `--force`
+- [x] The inbox shows the suggested type as a badge and preselects it in the promote form
+- [x] A missing or invalid suggestion prints "no type suggestion from agent" and keeps any previous suggestion
+- [x] On a terminal, answering `y` to "Promote now?" promotes the idea with the suggested type
+- [x] Not on a terminal, refine prints the promote command and doesn't prompt
+- [x] With no agent, refine on an idea records a heuristic suggestion and leaves the body unchanged
+- [x] Refining a typed spec behaves exactly as before
+- [x] Tests cover each case with fake agents

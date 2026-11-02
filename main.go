@@ -29,7 +29,8 @@ Usage:
   spec trace                         Requirements traceability
   spec draft feature <title>         Generate feature draft (LLM agent if configured)
   spec edit <id>                     Open a spec in your editor
-  spec refine <id>                   LLM agent improves an existing spec
+  spec refine <id> [--force]         LLM agent improves an existing spec; for ideas, also
+                                       suggests a type and offers to promote (--force: discarded ideas)
   spec apply [flags] [id...]         Run agent to implement specs (no ids: all accepted, after confirmation)
                                        --print outputs prompts · --yes skips confirmation
                                        --no-verify skips verify · --force allows any status
@@ -142,10 +143,22 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 		return cmdEdit(o, e, a[0])
 	},
 	"refine": func(a []string, o, e io.Writer) error {
-		if len(a) < 1 {
-			return fmt.Errorf("usage: spec refine <id>")
+		var ids []string
+		force := false
+		for _, arg := range a {
+			switch {
+			case arg == "--force":
+				force = true
+			case strings.HasPrefix(arg, "--"):
+				return fmt.Errorf("unknown flag %s", arg)
+			default:
+				ids = append(ids, arg)
+			}
 		}
-		return cmdRefine(o, e, a[0])
+		if len(ids) != 1 {
+			return fmt.Errorf("usage: spec refine <id> [--force]")
+		}
+		return refine(os.Stdin, o, e, ids[0], force)
 	},
 	"draft": func(a []string, o, e io.Writer) error {
 		if len(a) < 2 || a[0] != "feature" {

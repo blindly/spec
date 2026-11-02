@@ -36,9 +36,10 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    - spec is wrong/ambiguous → edit the spec, or `spec new adr` if it's a real
      decision
    - bug exposed a missing requirement → add the REQ, write a feature spec
-   - not sure what it is yet → `spec idea <title>`; later
-     `spec promote <IDEA-id> <project|feature|adr>` (deletes the idea; the
-     new spec gets `promoted_from`)
+   - not sure what it is yet → `spec idea <title>`; `spec refine <IDEA-id>`
+     suggests a type; then `spec promote <IDEA-id> [project|feature|adr]`
+     (defaults to the suggestion; deletes the idea; the new spec gets
+     `promoted_from`)
 4. **Feature specs** must reference existing `REQ-xxx` ids on the
    "Addresses:" line — features citing undefined REQs fail `spec validate`.
 5. **After implementing**: set frontmatter `status: implemented`, then run

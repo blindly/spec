@@ -25,6 +25,16 @@ func TestFrontmatterRoundTrip(t *testing.T) {
 	}
 }
 
+func TestFrontmatterRewriteIsStable(t *testing.T) {
+	text := dumpFrontmatter(map[string][]string{"id": {"X-1"}}, "# Title\n\nbody\n")
+	for i := 0; i < 3; i++ {
+		meta, body := parseFrontmatter(text)
+		if again := dumpFrontmatter(meta, body); again != text {
+			t.Fatalf("rewrite %d changed the file:\n%q\nvs\n%q", i, text, again)
+		}
+	}
+}
+
 func TestFrontmatterNoHeader(t *testing.T) {
 	meta, body := parseFrontmatter("# Just markdown\n")
 	if len(meta) != 0 || body != "# Just markdown\n" {

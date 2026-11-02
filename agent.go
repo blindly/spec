@@ -288,6 +288,26 @@ Rules:
 
 %s`
 
+const ideaRefinePromptFmt = `You are refining an untyped idea (id %s, title %q) from a spec inbox.
+
+Current notes:
+
+%s
+
+Rules:
+- Flesh out the notes: clarify the problem, the goal, and open questions. Keep
+  it short and informal — this is not a spec yet, so don't add spec sections.
+- Keep the "# <title>" heading and a "## Notes" section; output ONLY the
+  markdown body, no frontmatter.
+- Then decide which spec type this idea should become:
+  - project: describes a whole system and its requirements (usually one per repo)
+  - feature: behavior to build or change, with outcomes you could check off
+  - adr: a decision between alternatives, worth recording why
+- End your output with exactly one final line, after the body:
+  SPEC-TYPE-SUGGESTION: <project|feature|adr>: <one-sentence reason>
+
+%s`
+
 const refinePromptFmt = `You are improving an existing %s specification (id %s, title %q).
 
 Current body:

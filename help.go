@@ -32,9 +32,15 @@ know what it is, promote it:
 
 ` + "```" + `
 spec idea "better search"          # capture
+spec refine IDEA-003               # agent fleshes out the notes and suggests a type → refined
 spec promote IDEA-003 feature      # becomes FEAT-xxx; the idea's notes go into its first section
 spec discard IDEA-004              # decided against (kept, hidden in the inbox)
 ` + "```" + `
+
+Refining an idea records the agent's ` + "`suggested_type`" + ` (shown as a badge in
+the inbox and preselected for promote) and offers to promote right away.
+Without an agent, refine only guesses the type from keywords, labelled
+"heuristic". ` + "`spec promote`" + ` with no type uses the suggestion.
 
 Promoting deletes the idea file — the new spec records ` + "`promoted_from`" + `,
 and git keeps the history. Ideas never appear on the board and are never

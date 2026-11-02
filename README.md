@@ -29,7 +29,7 @@ go build -o spec .
 | `spec graph [--mermaid]` | Dependency graph from `depends_on` frontmatter |
 | `spec trace` | Requirements traceability matrix (REQ → features) |
 | `spec draft feature <title>` | Generate a feature draft (LLM agent if configured, else heuristic) |
-| `spec refine <id>` | LLM agent rewrites an existing spec's body in place |
+| `spec refine <id> [--force]` | LLM agent rewrites an existing spec's body in place. For ideas: fleshes out the notes, records a `suggested_type` (new → refined), and offers to promote; without an agent, records a keyword-heuristic suggestion only. `--force` refines discarded ideas |
 | `spec apply [--print\|--yes\|--no-verify\|--force] [id…]` | Run the configured agent to implement specs. Named ids may be accepted or proposed; with no ids, all accepted specs after a confirmation (`--yes` skips it). Success means the spec reached `implemented` and `verify:` passed (`--no-verify` skips it). `--print` outputs the prompt(s) |
 | `spec status` | Summarize repo spec state (counts, coverage, agent) |
 | `spec fact [list\|get\|set\|unset]` | Manage `.spec/facts.yml` project facts |
