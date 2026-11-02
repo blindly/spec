@@ -97,6 +97,8 @@ This repository uses spec for spec-driven development.
 - .spec/facts.yml holds definite project facts, referenced as {fact:key}.
 - Run spec check to validate specs and spec verify to run configured checks.
 - When implementing a spec, update its frontmatter status to implemented.
+- Implemented specs are living documentation: if a change alters behavior
+  another spec describes, update that spec in the same change.
 `
 
 const claudeTemplate = `@AGENTS.md

@@ -11,7 +11,7 @@ import (
 
 func TestArchiveAndUnarchive(t *testing.T) {
 	st := setupRepo(t)
-	id := featureWithStatus(t, st, "old work", "implemented")
+	id := featureWithStatus(t, st, "old work", "deprecated")
 	orig := st.Get(id).Path
 	var out bytes.Buffer
 	if err := cmdArchive(&out, []string{id}); err != nil {
@@ -46,7 +46,7 @@ func TestArchiveAndUnarchive(t *testing.T) {
 func TestArchiveEligibility(t *testing.T) {
 	st := setupRepo(t)
 	active := featureWithStatus(t, st, "in flight", "accepted")
-	done := featureWithStatus(t, st, "done", "implemented")
+	done := featureWithStatus(t, st, "done", "deprecated")
 	if err := cmdArchive(io.Discard, []string{done, active}); err == nil || !strings.Contains(err.Error(), "--force") {
 		t.Fatalf("archiving an accepted spec should need --force: %v", err)
 	}
@@ -55,6 +55,21 @@ func TestArchiveEligibility(t *testing.T) {
 	}
 	if err := cmdArchive(io.Discard, []string{active, "--force"}); err != nil || !st.Get(active).Archived {
 		t.Fatalf("--force should archive: %v", err)
+	}
+	// implemented specs are living documentation: not archivable by default
+	live := featureWithStatus(t, st, "live", "implemented")
+	if err := cmdArchive(io.Discard, []string{live}); err == nil || !strings.Contains(err.Error(), "living documentation") {
+		t.Fatalf("archiving an implemented spec should explain why not: %v", err)
+	}
+	if st.Get(live).Archived {
+		t.Fatal("implemented spec was archived")
+	}
+	if err := cmdArchive(io.Discard, []string{done}); err != nil {
+		t.Fatalf("deprecated spec should archive without --force: %v", err)
+	}
+	rej := featureWithStatus(t, st, "nope", "rejected")
+	if err := cmdArchive(io.Discard, []string{rej}); err != nil {
+		t.Fatalf("rejected spec should archive without --force: %v", err)
 	}
 	newIdea(t, st, "live idea", nil)
 	newIdea(t, st, "dead idea", map[string][]string{"status": {"discarded"}})
@@ -108,7 +123,7 @@ func TestArchivedStillSearchableTraceableValid(t *testing.T) {
 	st := setupRepo(t)
 	st.Create("project", "proj", "# proj\n\n## Overview\n\no\n\n## Requirements\n\n- REQ-001: thing\n", map[string][]string{"status": {"implemented"}})
 	body := "# old\n\n## Summary\n\nfindme\n\n## Requirements\n\nAddresses: REQ-001\n\n## Design\n\nd\n\n## Acceptance Criteria\n\n- [x] x\n"
-	old, _ := st.Create("feature", "old", body, map[string][]string{"status": {"implemented"}})
+	old, _ := st.Create("feature", "old", body, map[string][]string{"status": {"deprecated"}})
 	// a live spec depends on the soon-archived one
 	st.Create("feature", "new", "# new\n\n## Summary\n\ns\n\n## Design\n\nd\n\n## Acceptance Criteria\n\n- [ ] x\n", map[string][]string{"depends_on": {old.ID()}})
 	if err := cmdArchive(io.Discard, []string{old.ID()}); err != nil {
@@ -149,7 +164,7 @@ func TestArchivedIdeaCantBePromotedOrRefined(t *testing.T) {
 
 func TestWebArchive(t *testing.T) {
 	st, srv, _ := setupWeb(t)
-	gone := featureWithStatus(t, st, "gone feature", "implemented")
+	gone := featureWithStatus(t, st, "gone feature", "rejected")
 	featureWithStatus(t, st, "live feature", "accepted")
 	newIdea(t, st, "gone idea", map[string][]string{"status": {"discarded"}})
 	if err := cmdArchive(io.Discard, []string{gone, "IDEA-001"}); err != nil {

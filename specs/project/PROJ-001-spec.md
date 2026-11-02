@@ -53,12 +53,18 @@ and implement specs. A local web UI provides browsing and editing.
 - REQ-009: Definite project values live in `.spec/facts.yml` and specs
   reference them with fact placeholders; `spec check` audits the references.
 - REQ-010: `spec trace` and `spec status` report REQ → feature coverage.
-- REQ-011: Default views (the web board, `spec status`) focus on active
-  work; finished specs stay reachable but out of the way.
-- REQ-012: Finished specs can be archived out of all active views while
-  remaining in the repo, searchable, and referenceable.
+- REQ-011: Default views (the web board, `spec status`) show every spec that
+  is still valid — including implemented specs, which are the living
+  description of the system. Only specs that are no longer valid
+  (deprecated, rejected) are kept out of the way.
+- REQ-012: Specs that are no longer valid can be archived out of all active
+  views while remaining in the repo, searchable, and referenceable. Valid
+  (implemented) specs are not archived.
 - REQ-013: Users can capture an idea without choosing a spec type, and turn
   it into a typed spec later, with the tool suggesting the type.
+- REQ-014: Implemented specs stay accurate. A change that alters behavior
+  described by an existing spec updates that spec as part of the same
+  change, so specs don't silently go stale after implementation.
 
 ## Architecture
 

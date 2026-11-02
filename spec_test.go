@@ -296,14 +296,16 @@ func TestStatusGroupsFinished(t *testing.T) {
 	body := "# x\n\n## Summary\n\ns\n\n## Design\n\nd\n\n## Acceptance Criteria\n\n- [ ] x\n"
 	st.Create("feature", "a", body, map[string][]string{"status": {"implemented"}})
 	st.Create("feature", "b", body, map[string][]string{"status": {"accepted"}})
+	st.Create("feature", "c", body, map[string][]string{"status": {"deprecated"}})
 	var buf bytes.Buffer
 	if err := cmdStatus(&buf, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	acc, fin, impl := strings.Index(out, "accepted"), strings.Index(out, "finished:"), strings.Index(out, "implemented")
-	if acc < 0 || fin < 0 || impl < 0 || !(acc < fin && fin < impl) {
-		t.Fatalf("active statuses should precede the finished group:\n%s", out)
+	// implemented is live (ADR-003): listed with active work, before "finished"
+	acc, impl, fin, dep := strings.Index(out, "accepted"), strings.Index(out, "implemented"), strings.Index(out, "finished:"), strings.Index(out, "deprecated")
+	if acc < 0 || impl < 0 || fin < 0 || dep < 0 || !(acc < fin && impl < fin && fin < dep) {
+		t.Fatalf("accepted and implemented should precede the finished group (deprecated):\n%s", out)
 	}
 }
 
@@ -510,6 +512,35 @@ func TestApplyPromptIncludesVerify(t *testing.T) {
 	out := buf.String()
 	if !strings.Contains(out, "unit tests") || !strings.Contains(out, "go test ./...") {
 		t.Fatalf("verify/test instructions missing from apply prompt:\n%s", out)
+	}
+}
+
+// ADR-003: agents must keep other specs accurate, and archived specs are
+// flagged as history in the prompt's spec list.
+func TestApplyPromptKeepsSpecsCurrent(t *testing.T) {
+	st := setupRepo(t)
+	featureWithStatus(t, st, "target", "accepted")
+	old := featureWithStatus(t, st, "old", "deprecated")
+	if err := cmdArchive(io.Discard, []string{old}); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := cmdApply(strings.NewReader(""), &buf, io.Discard, []string{"FEAT-001"}, applyOpts{Print: true}); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		"update that spec's text in the same change",
+		"Do not change other specs' status",
+		"list any other specs you updated",
+		old + " (feature, deprecated, archived — history, may be outdated)",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("apply prompt missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "Do not edit the spec files under specs/") {
+		t.Fatal("old no-edit rule still in the prompt")
 	}
 }
 

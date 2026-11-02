@@ -18,7 +18,7 @@ go build -o spec .
 | `spec idea <title>` | Capture an untyped idea in the inbox (`specs/inbox/`) — decide the type later |
 | `spec promote <IDEA-id> [project\|feature\|adr] [--force]` | Turn an idea into a spec (defaults to its suggested type); the idea's notes go into the first section, `depends_on` references are updated, and the idea file is deleted |
 | `spec discard <IDEA-id>…` | Mark ideas discarded (kept, hidden in the inbox) |
-| `spec archive <id>… [--force]` | Move finished specs (`done_statuses`) and discarded ideas to `specs/archive/<type dir>/`, stamped `archived:`. Archived specs keep their ids and stay searchable and traceable, but leave the board, inbox, `status` counts, `roadmap`, and `apply` |
+| `spec archive <id>… [--force]` | Move specs that are no longer valid (`done_statuses`: deprecated, rejected) and discarded ideas to `specs/archive/<type dir>/`, stamped `archived:`. Implemented specs are living documentation and need `--force`. Archived specs keep their ids and stay searchable and traceable, but leave the board, inbox, `status` counts, `roadmap`, and `apply` |
 | `spec unarchive <id>…` | Move archived specs back |
 | `spec new project\|feature\|adr\|idea <title>` | Create a specification |
 | `spec bootstrap` | Generate a project spec from an existing repo |
@@ -62,7 +62,7 @@ agent_timeout: 3600     # seconds
 web_host: 127.0.0.1    # bind address for `spec web`; 0.0.0.0 exposes it (--host overrides)
 web_port: 8080         # default port for `spec web` (--port overrides)
 statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
-done_statuses: [implemented, deprecated, rejected]   # finished: hidden on the web board (?all=1 shows them)
+done_statuses: [deprecated, rejected]   # no longer valid: hidden on the web board (?all=1 shows them); implemented specs stay visible
 idea_statuses: [new, refined, discarded]   # lifecycle for inbox ideas (separate from statuses)
 verify: [go test ./..., spec validate, spec check]   # run by `spec verify` and after `spec apply`
 editor: vim            # falls back to $EDITOR, then vi

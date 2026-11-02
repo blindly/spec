@@ -11,18 +11,20 @@ type: feature
 
 ## Summary
 
-Add `spec archive <id>...`, which moves finished specs into
-`specs/archive/`. Archived specs disappear from the board, `apply`,
-`status`, and `roadmap`, but stay in the repo, so they remain searchable,
-referenceable, and in git history. `spec unarchive` moves them back.
+Add `spec archive <id>...`, which moves specs that are no longer valid
+(deprecated, rejected) and discarded ideas into `specs/archive/`. Archived
+specs disappear from the board, `apply`, `status`, and `roadmap`, but stay
+in the repo, so they remain searchable, referenceable, and in git history.
+`spec unarchive` moves them back. Implemented specs are living
+documentation and are not archived (ADR-003).
 
 ## Motivation
 
-Hiding finished specs on the board (FEAT-006) fixes day-to-day clutter, but
-the files keep piling up under `specs/features/`, and every command keeps
-loading them as live work. Archiving is the long-term answer: once an
-area is stable and folded into the project spec's requirements, its
-feature specs can be retired.
+Specs that no longer describe the system (deprecated, rejected) and ideas
+that were decided against pile up and clutter every view. Archiving retires
+them while keeping the history. "Finished" here means "no longer valid", not
+"implemented": an implemented spec stays visible for as long as it's true,
+and is updated when the system changes (FEAT-010).
 
 ## Requirements
 
@@ -34,9 +36,11 @@ Addresses: REQ-012, REQ-011
   same filename, e.g. `specs/archive/features/FEAT-002-….md`. Its id never
   changes.
 - **`spec archive <id>...`** sets frontmatter `archived: <date>` and moves
-  the file. Only specs whose status is in `done_statuses` can be archived,
-  plus ideas whose status is `discarded` (FEAT-008); anything else needs
-  `--force`.
+  the file. Only specs whose status is in `done_statuses` (default
+  deprecated, rejected) can be archived, plus ideas whose status is
+  `discarded` (FEAT-008); anything else needs `--force`. Archiving an
+  implemented spec explains that it's living documentation and should be
+  updated or deprecated instead.
 - **`spec unarchive <id>...`** removes `archived:` and moves the file back.
 - **Loading:** the store still loads archived specs, so ids stay unique,
   `nextID` never reuses an archived id, and `depends_on` references to them
@@ -61,7 +65,8 @@ Addresses: REQ-012, REQ-011
 ## Acceptance Criteria
 
 - [x] `spec archive FEAT-002` moves the file to `specs/archive/features/` and sets `archived:`
-- [x] Archiving a non-done spec fails without `--force`; discarded ideas can be archived
+- [x] Archiving a non-done spec fails without `--force`; deprecated/rejected specs and discarded ideas can be archived
+- [x] Archiving an implemented spec fails without `--force`, explaining it's living documentation
 - [x] `spec unarchive` restores the original location and removes `archived:`
 - [x] Archived specs don't appear on the board, even with `?all=1`
 - [x] `/archive` lists archived specs with links to their pages

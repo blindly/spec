@@ -213,9 +213,13 @@ func findDoc(root string, names ...string) (string, string) {
 // repoContext summarizes the repository for prompt grounding.
 func repoContext(st Store, maxEntries int) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Repository root: %s\n\nExisting specs:\n", st.Root)
+	fmt.Fprintf(&b, "Repository root: %s\n\nExisting specs (implemented = describes the current system):\n", st.Root)
 	for _, s := range st.Specs() {
-		fmt.Fprintf(&b, "- %s (%s, %s): %s\n", s.ID(), s.Type(), s.Status(), s.Title())
+		note := ""
+		if s.Archived {
+			note = ", archived — history, may be outdated"
+		}
+		fmt.Fprintf(&b, "- %s (%s, %s%s): %s\n", s.ID(), s.Type(), s.Status(), note, s.Title())
 	}
 	if facts := loadFacts(st.Root); len(facts) > 0 {
 		b.WriteString("\nProject facts (definite values — use these, do not invent):\n")
@@ -281,10 +285,15 @@ Rules:
 - Modify the codebase so the spec's Acceptance Criteria are met.
 - Write unit tests covering the Acceptance Criteria — tests are the proof of done.
 - Keep changes focused on this spec; do not rewrite unrelated code.
-- Do not edit the spec files under specs/, with one exception: when you are
-  done, set this spec's frontmatter status to "implemented". spec checks that
-  status to decide whether the work is finished, so leave it unchanged if you
-  could not complete the spec.%s
+- Keep the other specs accurate. Implemented specs are the living
+  documentation of this system: if your change alters behavior that another
+  spec under specs/ describes, update that spec's text in the same change so
+  it matches what the system now does. Do not change other specs' status,
+  id, or type, and leave specs/archive/ alone (it is history).
+- When you are done, set this spec's frontmatter status to "implemented".
+  spec checks that status to decide whether the work is finished, so leave
+  it unchanged if you could not complete the spec.
+- In your final message, list any other specs you updated and why.%s
 
 %s`
 

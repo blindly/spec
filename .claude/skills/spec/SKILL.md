@@ -20,9 +20,10 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
 - `specs/imported/` — imported docs
 - `specs/inbox/` — untyped ideas (`IDEA-xxx`, statuses new/refined/discarded);
   not specs yet — never applied, not on the board
-- `specs/archive/` — archived specs (same layout; `spec archive`/`unarchive`).
-  History: still searchable and count for `spec trace`, but never applied —
-  don't implement or edit them unless asked
+- `specs/archive/` — archived specs (same layout; `spec archive`/`unarchive`):
+  deprecated/rejected specs and discarded ideas. History — read them for
+  context, but they may be outdated; never implement them, and trust
+  live specs and the code where they differ
 - `.spec/config.yml` — agent, statuses, `verify:` commands
 - `.spec/facts.yml` — definite project facts, referenced in specs as `{fact:key}`
 
@@ -47,6 +48,11 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    "Addresses:" line — features citing undefined REQs fail `spec validate`.
 5. **After implementing**: set frontmatter `status: implemented`, then run
    `spec validate`, `spec check`, and `spec verify`.
+6. **Keep specs current.** Implemented specs are the living documentation of
+   the system, not finished history. If your change alters behavior another
+   spec describes, update that spec's text in the same change (don't change
+   its status). If a spec no longer describes the system at all, mark it
+   `deprecated` — don't leave it silently stale.
 
 ## Rules
 

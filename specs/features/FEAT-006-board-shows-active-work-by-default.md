@@ -10,16 +10,17 @@ type: feature
 
 ## Summary
 
-The web board shows every spec, so it gets longer with each finished
-feature. This feature hides finished specs (implemented, deprecated,
-rejected) from the board by default, behind a toggle, so the board stays
-focused on what still needs attention.
+The web board (at `/board`) hides specs that are no longer valid
+(deprecated, rejected) by default, behind a toggle, so the board shows what
+the system is and what's being worked on. Implemented specs stay visible:
+they're the living description of the system (ADR-003).
 
 ## Motivation
 
-Finished specs are mostly history. Once there are dozens of them, they push
-the draft/proposed/accepted work, which is what you actually act on, out of
-view.
+Deprecated and rejected specs no longer describe the system, and they push
+valid specs out of view. Implemented specs were originally hidden too, but
+that made valid documentation disappear after implementation (see ADR-003
+and FEAT-010), so they're now treated as live.
 
 ## Requirements
 
@@ -27,22 +28,22 @@ Addresses: REQ-011
 
 ## Design
 
-- **New config key `done_statuses`**, default
-  `[implemented, deprecated, rejected]`. It's configurable because
+- **Config key `done_statuses`**, default `[deprecated, rejected]`: the
+  statuses that mean "no longer valid". It's configurable because
   `statuses:` is too.
 - **Board default:** columns for done statuses are hidden. Below the board,
-  a line reads "N finished specs hidden — show". It links to the board with
-  `?all=1`, which shows every column, and that view has a "hide finished"
-  link back. (The board is at `/` today; FEAT-008 moves it to `/board`.)
-- **Empty columns** stay hidden in both views, as today.
-- **`spec status`** keeps showing counts for every status, but lists done
-  statuses after a blank line labelled "finished", so active work comes
-  first.
+  a line reads "N finished spec(s) hidden — show". It links to
+  `/board?all=1`, which shows every column, and that view has a "hide
+  finished" link back.
+- **Empty columns** stay hidden in both views.
+- **`spec status`** shows counts for every status, but lists done statuses
+  under a "finished" heading, after active and implemented ones.
 - **No change** to `spec apply`, `validate`, `trace`, or `roadmap`.
 
 ## Acceptance Criteria
 
-- [x] The board hides columns for statuses in `done_statuses`
+- [x] The board hides columns for statuses in `done_statuses` (default: deprecated, rejected)
+- [x] Implemented specs are visible on the board by default
 - [x] The board shows how many finished specs are hidden, with a link to `?all=1`
 - [x] The board with `?all=1` shows every non-empty column, with a link back
 - [x] `done_statuses` in config changes which columns are hidden

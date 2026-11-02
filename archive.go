@@ -14,8 +14,9 @@ func relPath(st Store, path string) string {
 	return path
 }
 
-// archivable reports whether s may be archived without --force: finished
-// specs (done_statuses) and discarded ideas.
+// archivable reports whether s may be archived without --force: specs that
+// are no longer valid (done_statuses) and discarded ideas. Implemented specs
+// are living documentation and aren't archivable by default (ADR-003).
 func archivable(cfg Config, s Spec) bool {
 	if s.IsIdea() {
 		return s.Status() == ideaDiscarded
@@ -62,7 +63,11 @@ func cmdArchive(out io.Writer, args []string) error {
 			return fmt.Errorf("%s is already archived", id)
 		}
 		if !archivable(cfg, *s) && !force {
-			want := "a finished status (" + strings.Join(cfg.DoneStatuses, ", ") + ")"
+			if s.Status() == "implemented" {
+				return fmt.Errorf("%s is implemented — implemented specs are living documentation and stay visible; "+
+					"if it no longer describes the system, update it or mark it deprecated, then archive (or use --force)", id)
+			}
+			want := "a no-longer-valid status (" + strings.Join(cfg.DoneStatuses, ", ") + ")"
 			if s.IsIdea() {
 				want = "status discarded"
 			}

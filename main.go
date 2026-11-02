@@ -17,7 +17,7 @@ Usage:
   spec idea <title>                  Capture an untyped idea in the inbox (not sure of the type yet)
   spec promote <id> [type] [--force] Turn an idea into a project|feature|adr spec (deletes the idea)
   spec discard <id>...               Mark ideas as discarded
-  spec archive <id>... [--force]     Move finished specs / discarded ideas to specs/archive/
+  spec archive <id>... [--force]     Move no-longer-valid specs (deprecated/rejected) and discarded ideas to specs/archive/
   spec unarchive <id>...             Move archived specs back
   spec new <project|feature|adr|idea> <title>   Create a specification
   spec bootstrap                     Bootstrap specs from existing project

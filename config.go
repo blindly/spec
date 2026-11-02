@@ -23,8 +23,10 @@ type Config struct {
 }
 
 var (
-	defaultStatuses     = []string{"draft", "proposed", "accepted", "implemented", "deprecated", "rejected"}
-	defaultDoneStatuses = []string{"implemented", "deprecated", "rejected"}
+	defaultStatuses = []string{"draft", "proposed", "accepted", "implemented", "deprecated", "rejected"}
+	// implemented is deliberately not "done": an implemented spec is the
+	// living description of the system (ADR-003)
+	defaultDoneStatuses = []string{"deprecated", "rejected"}
 	defaultIdeaStatuses = []string{"new", "refined", "discarded"}
 )
 
@@ -181,7 +183,7 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 
 # Lifecycle
 # statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
-# done_statuses: [implemented, deprecated, rejected]   # hidden on the board by default
+# done_statuses: [deprecated, rejected]   # no longer valid: hidden on the board by default (implemented specs stay visible)
 # idea_statuses: [new, refined, discarded]   # lifecycle for inbox ideas
 
 # Verification — run by spec verify and after spec apply (no shell; quotes group args)
@@ -207,7 +209,7 @@ const repoConfigTemplate = `version: 1
 
 # Lifecycle
 # statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
-# done_statuses: [implemented, deprecated, rejected]   # hidden on the board by default
+# done_statuses: [deprecated, rejected]   # no longer valid: hidden on the board by default (implemented specs stay visible)
 # idea_statuses: [new, refined, discarded]   # lifecycle for inbox ideas
 
 # Verification — run by spec verify and after spec apply (no shell; quotes group args)

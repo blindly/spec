@@ -48,16 +48,23 @@ applied.
 
 ## Board and archive
 
-The [board](/board) shows active specs by status. Finished ones
-(` + "`done_statuses`" + `, default implemented/deprecated/rejected) are hidden behind a
-"show" toggle. When finished work is no longer worth seeing at all, archive it:
+**Implemented specs are living documentation.** An implemented spec
+describes how the system works today, so it stays visible on the
+[board](/board) for as long as it's true. When later work changes behavior a
+spec describes, that spec is updated in the same change (` + "`spec apply`" + ` tells
+agents to do this). Only specs that are no longer valid
+(` + "`done_statuses`" + `, default deprecated/rejected) are hidden behind a "show"
+toggle.
+
+When a spec stops describing the system, mark it **deprecated** (or update
+it). Deprecated and rejected specs, and discarded ideas, can then be archived:
 
 ` + "```" + `
 spec archive FEAT-002 FEAT-004     # → specs/archive/features/, stamped archived: <date>
 spec unarchive FEAT-002            # moves it back
 ` + "```" + `
 
-Only finished specs and discarded ideas can be archived (` + "`--force`" + ` overrides).
+Implemented specs can't be archived without ` + "`--force`" + ` — they're still valid.
 Archived specs keep their ids, stay searchable (` + "`spec search`" + ` marks them),
 still count as REQ coverage in ` + "`spec trace`" + `, and are listed on the
 [archive](/archive) page — but they're off the board, the inbox, ` + "`status`" + `
@@ -117,7 +124,7 @@ spec status     # inbox + spec counts, REQ coverage
 spec idea <title>                 # capture an idea (type decided later)
 spec promote <IDEA-id> [type]     # idea → project|feature|adr (default: suggested type)
 spec discard <IDEA-id>
-spec archive <id>...              # finished specs / discarded ideas → specs/archive/
+spec archive <id>...              # deprecated/rejected specs, discarded ideas → specs/archive/
 spec unarchive <id>...
 spec new feature <title>
 spec search <query>
