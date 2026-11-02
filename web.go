@@ -548,8 +548,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		}
 		fmt.Fprintf(&b, `<h1>Edit %s — %s</h1>
 <form method="post" action="/edit/%s"><input type="hidden" name="token" value="%s">
-<p>type: <strong>%s</strong> <small title="the type sets the id prefix, directory, and required sections">(fixed — to change the type, create a new spec)</small>
-· status: <select name="status">`, s.ID(), html.EscapeString(s.Title()), s.ID(), token, html.EscapeString(s.Type()))
+<p><label for="status">status</label> <select id="status" name="status">`, s.ID(), html.EscapeString(s.Title()), s.ID(), token)
 		for _, status := range cfg.statusesFor(s.Type()) {
 			sel := ""
 			if s.Status() == status {
@@ -558,6 +557,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			fmt.Fprintf(&b, `<option%s>%s</option>`, sel, status)
 		}
 		fmt.Fprintf(&b, `</select></p>
+<p>type <strong>%s</strong> <small class="muted" title="the type sets the id prefix, directory, and required sections">(fixed — to change the type, create a new spec)</small></p>
 <link rel="stylesheet" href="/assets/fontawesome/css/font-awesome.min.css">
 <link rel="stylesheet" href="/assets/easymde/easymde.min.css">
 <style>
@@ -583,7 +583,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 <script src="/assets/easymde/easymde.min.js"></script>
 <script>new EasyMDE({element: document.getElementById('body-editor'),
 autoDownloadFontAwesome: false, spellChecker: false, status: ['lines','words','cursor']});</script>`,
-			html.EscapeString(s.Body), s.ID())
+			html.EscapeString(s.Type()), html.EscapeString(s.Body), s.ID())
 		render(w, "edit "+s.ID(), b.String())
 	}
 

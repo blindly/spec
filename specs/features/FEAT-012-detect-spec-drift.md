@@ -6,7 +6,7 @@ id: FEAT-012
 status: implemented
 title: Detect spec drift
 type: feature
-verified: 1948f34f254beec69052d5f5429bcf90ca415938
+verified: d23f2b5b854e38256f881e654b212674f42aa8ad
 ---
 
 # Detect spec drift
