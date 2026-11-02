@@ -39,7 +39,7 @@ go build -o spec .
 | `spec verify` | Run configured `verify: [...]` commands (tests, validate, check) |
 | `spec config` | Show effective configuration and resolved agent |
 | `spec config init [global\|repo] [--force]` | Write config template with all options; `--force` regenerates |
-| `spec web [--port N]` | Local web UI: inbox (front page) to capture/promote/discard ideas, board of specs by status, archive list, create, edit body/status, view README/agent docs (default :8080) |
+| `spec web [--port N]` | Local web UI with three views: **inbox** (front page) to capture/promote/discard ideas, **board** of work in progress by status, and **system** — implemented specs and accepted ADRs, the living documentation. Plus an archive list, create, edit body/status, README/agent docs (default :8080) |
 
 All operations are filesystem-only; no network access is required. LLM
 agent commands (`draft`, `bootstrap`, `refine`) only run if you configure

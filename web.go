@@ -58,7 +58,7 @@ nav{border-bottom:4px solid %s;padding-bottom:.5em}
 .badge{display:inline-block;font-size:.8em;padding:.05em .5em;border-radius:3px;border:1px solid %s}
 .muted{color:var(--text-muted,#777)}
 footer{margin-top:2em;font-size:.85em;color:var(--text-muted,#777)}</style></head><body>
-<nav><span class="proj">%s</span><a href="/">inbox</a><a href="/board">board</a><a href="/new">new spec</a><a href="/readme">readme</a><a href="/agents">agents</a><a href="/help">help</a></nav>%s
+<nav><span class="proj">%s</span><a href="/">inbox</a><a href="/board">board</a><a href="/system">system</a><a href="/new">new spec</a><a href="/readme">readme</a><a href="/agents">agents</a><a href="/help">help</a></nav>%s
 <footer>spec %s</footer></body></html>`,
 		html.EscapeString(projName), html.EscapeString(title), accent, accent,
 		accent, accent, html.EscapeString(projName), body, html.EscapeString(version))
@@ -230,6 +230,51 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	})
 
+	// system: specs that describe the system today (implemented features and
+	// projects, accepted ADRs, imported docs), grouped by type — the living
+	// documentation, kept separate from work in progress on the board
+	mux.HandleFunc("/system", func(w http.ResponseWriter, r *http.Request) {
+		groups := map[string][]Spec{}
+		var all []Spec
+		for _, s := range st.Specs() {
+			if inSystem(cfg, s) {
+				groups[s.Type()] = append(groups[s.Type()], s)
+				all = append(all, s)
+			}
+		}
+		var b strings.Builder
+		b.WriteString(`<h1>System</h1>`)
+		if len(all) == 0 {
+			b.WriteString(`<p>Nothing in the system yet — specs appear here once implemented (ADRs once accepted).</p>`)
+			render(w, "system", b.String())
+			return
+		}
+		b.WriteString(`<p class="muted">What the system does today. These specs are kept current as the system changes; work in progress is on the <a href="/board">board</a>.</p>`)
+		dates := lastChanged(st, all)
+		for _, sec := range []struct{ typ, title string }{
+			{"project", "Project"}, {"feature", "Features"}, {"adr", "Decisions"}, {"imported", "Imported docs"},
+		} {
+			specs := groups[sec.typ]
+			if len(specs) == 0 {
+				continue
+			}
+			fmt.Fprintf(&b, `<h2>%s <span class="muted">%d</span></h2>
+<table class="inbox"><thead><tr><th>id</th><th>title</th><th>last changed</th><th>depends on</th></tr></thead><tbody>`, sec.title, len(specs))
+			for _, s := range specs {
+				id := html.EscapeString(s.ID())
+				var deps []string
+				for _, d := range s.Field("depends_on") {
+					d = html.EscapeString(d)
+					deps = append(deps, fmt.Sprintf(`<a href="/spec/%s">%s</a>`, d, d))
+				}
+				fmt.Fprintf(&b, `<tr><td><a href="/spec/%s">%s</a></td><td>%s</td><td class="muted">%s</td><td>%s</td></tr>`,
+					id, id, html.EscapeString(s.Title()), html.EscapeString(dates[s.Path]), strings.Join(deps, ", "))
+			}
+			b.WriteString(`</tbody></table>`)
+		}
+		render(w, "system", b.String())
+	})
+
 	// archive: read-only list of archived specs (moved to specs/archive/)
 	mux.HandleFunc("/archive", func(w http.ResponseWriter, r *http.Request) {
 		var b strings.Builder
@@ -260,14 +305,17 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 	mux.HandleFunc("/board", func(w http.ResponseWriter, r *http.Request) {
 		// finished specs (done_statuses) are hidden unless ?all=1
 		showAll := r.URL.Query().Get("all") == "1"
-		// group specs by status, columns ordered by configured statuses;
-		// ideas live in the inbox and archived specs in /archive — never here
+		// group specs by status, columns ordered by configured statuses. The
+		// board is work in progress only: ideas live in the inbox, specs that
+		// describe the current system in /system, archived ones in /archive
 		var specsAll []Spec
-		archived := 0
+		archived, system := 0, 0
 		for _, s := range st.Specs() {
 			switch {
 			case s.Archived:
 				archived++
+			case inSystem(cfg, s):
+				system++
 			case !s.IsIdea():
 				specsAll = append(specsAll, s)
 			}
@@ -304,14 +352,17 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			addCol(s)
 		}
 
-		archiveLink := ""
+		footerLinks := ""
+		if system > 0 {
+			footerLinks = fmt.Sprintf(`<p class="toggle muted">%d spec(s) in the system — <a href="/system">view system</a></p>`, system)
+		}
 		if archived > 0 {
-			archiveLink = fmt.Sprintf(`<p class="toggle muted">%d archived — <a href="/archive">view archive</a></p>`, archived)
+			footerLinks += fmt.Sprintf(`<p class="toggle muted">%d archived — <a href="/archive">view archive</a></p>`, archived)
 		}
 		var b strings.Builder
-		b.WriteString(`<h1>Specifications</h1>`)
+		b.WriteString(`<h1>Board</h1>`)
 		if len(specsAll) == 0 {
-			b.WriteString(`<p>No active specs — <a href="/new">create one</a>, or promote an idea from the <a href="/">inbox</a>.</p>` + archiveLink)
+			b.WriteString(`<p>No work in progress — <a href="/new">create a spec</a>, or promote an idea from the <a href="/">inbox</a>.</p>` + footerLinks)
 			render(w, "board", b.String())
 			return
 		}
@@ -322,7 +373,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		case showAll:
 			toggle = fmt.Sprintf(`<p class="toggle"><a href="%s">hide finished</a></p>`, r.URL.Path)
 		}
-		toggle += archiveLink
+		toggle += footerLinks
 		if len(cols) == 0 {
 			b.WriteString(`<p>Nothing in progress.</p>` + toggle)
 			render(w, "board", b.String())

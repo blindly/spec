@@ -11,9 +11,10 @@ type: feature
 ## Summary
 
 The web board (at `/board`) hides specs that are no longer valid
-(deprecated, rejected) by default, behind a toggle, so the board shows what
-the system is and what's being worked on. Implemented specs stay visible:
-they're the living description of the system (ADR-003).
+(deprecated, rejected) by default, behind a toggle, so the board shows what's
+being worked on. Implemented specs aren't hidden either: they're the living
+description of the system (ADR-003) and have their own view, `/system`
+(FEAT-011), so the board holds only work in progress.
 
 ## Motivation
 
@@ -43,7 +44,7 @@ Addresses: REQ-011
 ## Acceptance Criteria
 
 - [x] The board hides columns for statuses in `done_statuses` (default: deprecated, rejected)
-- [x] Implemented specs are visible on the board by default
+- [x] Implemented specs stay visible by default (in `/system`, FEAT-011)
 - [x] The board shows how many finished specs are hidden, with a link to `?all=1`
 - [x] The board with `?all=1` shows every non-empty column, with a link back
 - [x] `done_statuses` in config changes which columns are hidden

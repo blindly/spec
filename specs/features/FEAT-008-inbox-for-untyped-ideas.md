@@ -67,7 +67,7 @@ Addresses: REQ-013, REQ-001
 ### Inbox page (web landing page)
 
 - `/` becomes the inbox, shown as a list, not a board. The board moves to
-  `/board`. Nav: **inbox**, board, new spec, readme, agents, help.
+  `/board`. Nav: **inbox**, board, system (FEAT-011), new spec, readme, agents, help.
 - One row per idea, newest first: id, title, status, the suggested-type
   badge (FEAT-009), and created date. Each row has:
   - a **promote** form: a type select (project/feature/adr) preselected to

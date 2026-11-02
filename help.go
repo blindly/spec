@@ -46,15 +46,24 @@ Promoting deletes the idea file — the new spec records ` + "`promoted_from`" +
 and git keeps the history. Ideas never appear on the board and are never
 applied.
 
-## Board and archive
+## Inbox, board, system
+
+The web UI has three views, one per stage:
+
+| View | Shows | Answers |
+|---|---|---|
+| [inbox](/) | ideas | What might we do? |
+| [board](/board) | work in progress: draft/proposed/accepted features, draft/proposed ADRs | What are we working on? |
+| [system](/system) | implemented features and projects, accepted ADRs, imported docs | What does the system do today? |
 
 **Implemented specs are living documentation.** An implemented spec
-describes how the system works today, so it stays visible on the
-[board](/board) for as long as it's true. When later work changes behavior a
-spec describes, that spec is updated in the same change (` + "`spec apply`" + ` tells
-agents to do this). Only specs that are no longer valid
-(` + "`done_statuses`" + `, default deprecated/rejected) are hidden behind a "show"
-toggle.
+describes how the system works today, so it stays in the system view for as
+long as it's true. When later work changes behavior a spec describes, that
+spec is updated in the same change (` + "`spec apply`" + ` tells agents to do this).
+Specs that are no longer valid (` + "`done_statuses`" + `, default deprecated/rejected)
+are hidden behind the board's "show" toggle.
+
+## Archive
 
 When a spec stops describing the system, mark it **deprecated** (or update
 it). Deprecated and rejected specs, and discarded ideas, can then be archived:

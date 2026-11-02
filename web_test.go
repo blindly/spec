@@ -87,35 +87,30 @@ func TestWebBoardHidesFinished(t *testing.T) {
 	srv := httptest.NewServer(webHandler(st, loadConfig(st.Root), "t"))
 	defer srv.Close()
 
-	// implemented specs are living documentation (ADR-003): always visible;
-	// only no-longer-valid ones (rejected) are hidden by default
+	// the board is work in progress: implemented specs live in /system
+	// (FEAT-011), no-longer-valid ones (rejected) are hidden by default
 	page := get(srv, "/board")
-	if !strings.Contains(page, "active one") || !strings.Contains(page, "live one") || strings.Contains(page, "dead one") {
-		t.Fatalf("default board should show active and implemented specs, not rejected:\n%s", page)
+	if !strings.Contains(page, "active one") || strings.Contains(page, "live one") || strings.Contains(page, "dead one") {
+		t.Fatalf("default board should show only work in progress:\n%s", page)
 	}
 	if !strings.Contains(page, "1 finished spec(s) hidden") || !strings.Contains(page, `href="/board?all=1"`) {
 		t.Fatalf("missing hidden count / show link:\n%s", page)
 	}
+	if !strings.Contains(page, `1 spec(s) in the system — <a href="/system">view system</a>`) {
+		t.Fatalf("missing link to the system view:\n%s", page)
+	}
 	page = get(srv, "/board?all=1")
-	if !strings.Contains(page, "dead one") || !strings.Contains(page, "hide finished") {
-		t.Fatalf("?all=1 should show finished specs with a hide link:\n%s", page)
+	if !strings.Contains(page, "dead one") || !strings.Contains(page, "hide finished") || strings.Contains(page, "live one") {
+		t.Fatalf("?all=1 should show finished (not system) specs with a hide link:\n%s", page)
 	}
 
-	// custom done_statuses still honored (here, a repo opting to hide implemented too)
-	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"), []byte("done_statuses: [implemented, rejected]\n"), 0o644)
+	// custom done_statuses still honored; everything left finished →
+	// "Nothing in progress" plus the show link
+	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"), []byte("done_statuses: [accepted, rejected]\n"), 0o644)
 	srv2 := httptest.NewServer(webHandler(st, loadConfig(st.Root), "t"))
 	defer srv2.Close()
-	page = get(srv2, "/board")
-	if strings.Contains(page, "live one") || strings.Contains(page, "dead one") || !strings.Contains(page, "2 finished spec(s) hidden") {
-		t.Fatalf("custom done_statuses not honored:\n%s", page)
-	}
-
-	// everything finished → "Nothing in progress" plus the show link
-	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"), []byte("done_statuses: [accepted, implemented, rejected]\n"), 0o644)
-	srv3 := httptest.NewServer(webHandler(st, loadConfig(st.Root), "t"))
-	defer srv3.Close()
-	if page = get(srv3, "/board"); !strings.Contains(page, "Nothing in progress") || !strings.Contains(page, "3 finished spec(s) hidden") {
-		t.Fatalf("all-finished board:\n%s", page)
+	if page = get(srv2, "/board"); !strings.Contains(page, "Nothing in progress") || !strings.Contains(page, "2 finished spec(s) hidden") {
+		t.Fatalf("custom done_statuses / all-finished board:\n%s", page)
 	}
 }
 
