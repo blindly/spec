@@ -1,4 +1,5 @@
 ---
+covers: [help.go, web.go]
 created: 2026-11-02
 id: FEAT-014
 status: implemented

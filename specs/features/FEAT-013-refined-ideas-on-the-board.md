@@ -1,10 +1,12 @@
 ---
+covers: [help.go, web.go]
 created: 2026-11-02
 depends_on: [FEAT-008, FEAT-009, FEAT-011]
 id: FEAT-013
 status: implemented
 title: Refined ideas on the board
 type: feature
+verified: aeb547a901c588465f7629d37525ae76f8c9a61f
 ---
 
 # Refined ideas on the board

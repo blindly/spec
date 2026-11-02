@@ -6,7 +6,7 @@ id: FEAT-008
 status: implemented
 title: Inbox for untyped ideas
 type: feature
-verified: 687a56151c2be80fd1218cd418555caf36d90fcd
+verified: aeb547a901c588465f7629d37525ae76f8c9a61f
 ---
 
 # Inbox for untyped ideas

@@ -5,7 +5,7 @@ id: ADR-003
 status: accepted
 title: Implemented specs are living documentation
 type: adr
-verified: 79c7ddfbcf19372fec6714881a1f9d24ce29cff0
+verified: aeb547a901c588465f7629d37525ae76f8c9a61f
 ---
 
 # Implemented specs are living documentation
