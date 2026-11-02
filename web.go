@@ -107,7 +107,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		var ideas []Spec
 		discarded := 0
 		for _, s := range st.Specs() {
-			if !s.IsIdea() {
+			if !s.IsIdea() || s.Archived {
 				continue
 			}
 			if s.Status() == ideaDiscarded && !showDiscarded {
@@ -230,14 +230,45 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	})
 
+	// archive: read-only list of archived specs (moved to specs/archive/)
+	mux.HandleFunc("/archive", func(w http.ResponseWriter, r *http.Request) {
+		var b strings.Builder
+		b.WriteString(`<h1>Archive</h1>`)
+		var rows []Spec
+		for _, s := range st.Specs() {
+			if s.Archived {
+				rows = append(rows, s)
+			}
+		}
+		if len(rows) == 0 {
+			b.WriteString(`<p>Nothing archived. Finished specs can be archived with <code>spec archive &lt;id&gt;</code>.</p>`)
+			render(w, "archive", b.String())
+			return
+		}
+		b.WriteString(`<p class="muted">Archived specs are kept for history and still searchable. Restore one with <code>spec unarchive &lt;id&gt;</code>.</p>
+<table class="inbox"><thead><tr><th>id</th><th>title</th><th>type</th><th>status</th><th>archived</th></tr></thead><tbody>`)
+		for _, s := range rows {
+			id := html.EscapeString(s.ID())
+			fmt.Fprintf(&b, `<tr><td><a href="/spec/%s">%s</a></td><td>%s</td><td>%s</td><td>%s</td><td class="muted">%s</td></tr>`,
+				id, id, html.EscapeString(s.Title()), html.EscapeString(s.Type()), html.EscapeString(s.Status()),
+				html.EscapeString(metaGet(s.Meta, "archived", "")))
+		}
+		b.WriteString(`</tbody></table><p><a href="/board">back to board</a></p>`)
+		render(w, "archive", b.String())
+	})
+
 	mux.HandleFunc("/board", func(w http.ResponseWriter, r *http.Request) {
 		// finished specs (done_statuses) are hidden unless ?all=1
 		showAll := r.URL.Query().Get("all") == "1"
 		// group specs by status, columns ordered by configured statuses;
-		// ideas live in the inbox, never on the board
+		// ideas live in the inbox and archived specs in /archive — never here
 		var specsAll []Spec
+		archived := 0
 		for _, s := range st.Specs() {
-			if !s.IsIdea() {
+			switch {
+			case s.Archived:
+				archived++
+			case !s.IsIdea():
 				specsAll = append(specsAll, s)
 			}
 		}
@@ -273,10 +304,14 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			addCol(s)
 		}
 
+		archiveLink := ""
+		if archived > 0 {
+			archiveLink = fmt.Sprintf(`<p class="toggle muted">%d archived — <a href="/archive">view archive</a></p>`, archived)
+		}
 		var b strings.Builder
 		b.WriteString(`<h1>Specifications</h1>`)
 		if len(specsAll) == 0 {
-			b.WriteString(`<p>No specs yet — <a href="/new">create one</a>, or promote an idea from the <a href="/">inbox</a>.</p>`)
+			b.WriteString(`<p>No active specs — <a href="/new">create one</a>, or promote an idea from the <a href="/">inbox</a>.</p>` + archiveLink)
 			render(w, "board", b.String())
 			return
 		}
@@ -287,6 +322,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		case showAll:
 			toggle = fmt.Sprintf(`<p class="toggle"><a href="%s">hide finished</a></p>`, r.URL.Path)
 		}
+		toggle += archiveLink
 		if len(cols) == 0 {
 			b.WriteString(`<p>Nothing in progress.</p>` + toggle)
 			render(w, "board", b.String())
@@ -356,10 +392,14 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 			return
 		}
 		var b strings.Builder
-		fmt.Fprintf(&b, "<h1>%s — %s</h1><p>type: %s · status: %s · <a href=\"/edit/%s\">edit</a></p>",
+		archivedNote := ""
+		if s.Archived {
+			archivedNote = fmt.Sprintf(` · <a href="/archive">archived</a> %s`, html.EscapeString(metaGet(s.Meta, "archived", "")))
+		}
+		fmt.Fprintf(&b, "<h1>%s — %s</h1><p>type: %s · status: %s%s · <a href=\"/edit/%s\">edit</a></p>",
 			html.EscapeString(s.ID()), html.EscapeString(s.Title()),
 			html.EscapeString(s.Type()), html.EscapeString(s.Status()),
-			s.ID())
+			archivedNote, s.ID())
 		b.WriteString(mdBlock(s.Body))
 		render(w, s.ID(), b.String())
 	})

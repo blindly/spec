@@ -18,6 +18,8 @@ go build -o spec .
 | `spec idea <title>` | Capture an untyped idea in the inbox (`specs/inbox/`) — decide the type later |
 | `spec promote <IDEA-id> [project\|feature\|adr] [--force]` | Turn an idea into a spec (defaults to its suggested type); the idea's notes go into the first section, `depends_on` references are updated, and the idea file is deleted |
 | `spec discard <IDEA-id>…` | Mark ideas discarded (kept, hidden in the inbox) |
+| `spec archive <id>… [--force]` | Move finished specs (`done_statuses`) and discarded ideas to `specs/archive/<type dir>/`, stamped `archived:`. Archived specs keep their ids and stay searchable and traceable, but leave the board, inbox, `status` counts, `roadmap`, and `apply` |
+| `spec unarchive <id>…` | Move archived specs back |
 | `spec new project\|feature\|adr\|idea <title>` | Create a specification |
 | `spec bootstrap` | Generate a project spec from an existing repo |
 | `spec import <file>` | Import existing documentation |
@@ -37,7 +39,7 @@ go build -o spec .
 | `spec verify` | Run configured `verify: [...]` commands (tests, validate, check) |
 | `spec config` | Show effective configuration and resolved agent |
 | `spec config init [global\|repo] [--force]` | Write config template with all options; `--force` regenerates |
-| `spec web [--port N]` | Local web UI: inbox (front page) to capture/promote/discard ideas, board of specs by status, create, edit body/status, view README/agent docs (default :8080) |
+| `spec web [--port N]` | Local web UI: inbox (front page) to capture/promote/discard ideas, board of specs by status, archive list, create, edit body/status, view README/agent docs (default :8080) |
 
 All operations are filesystem-only; no network access is required. LLM
 agent commands (`draft`, `bootstrap`, `refine`) only run if you configure

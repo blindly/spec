@@ -29,8 +29,8 @@ func getIdea(st Store, id string) (*Spec, error) {
 	return s, nil
 }
 
-// setIdeaMeta rewrites an idea's frontmatter keys (nil value deletes).
-func setIdeaMeta(s *Spec, kv map[string][]string) error {
+// setSpecMeta rewrites a spec's frontmatter keys (nil value deletes).
+func setSpecMeta(s *Spec, kv map[string][]string) error {
 	meta := map[string][]string{}
 	for k, v := range s.Meta {
 		meta[k] = v
@@ -54,7 +54,7 @@ func discardIdea(st Store, id string) error {
 	if err != nil {
 		return err
 	}
-	return setIdeaMeta(s, map[string][]string{"status": {ideaDiscarded}})
+	return setSpecMeta(s, map[string][]string{"status": {ideaDiscarded}})
 }
 
 // ideaNotes extracts an idea's content for carrying into a promoted spec:
@@ -106,6 +106,9 @@ func promoteIdea(st Store, id, typ string, force bool) (Spec, error) {
 	s, err := getIdea(st, id)
 	if err != nil {
 		return Spec{}, err
+	}
+	if s.Archived {
+		return Spec{}, fmt.Errorf("%s is archived — run spec unarchive %s first", id, id)
 	}
 	if s.Status() == ideaDiscarded && !force {
 		return Spec{}, fmt.Errorf("%s is discarded (use --force to promote anyway)", id)
@@ -187,6 +190,9 @@ func suggestTypeHeuristic(body string) (typ, reason string) {
 // suggests a type heuristically), records suggested_type/suggested_reason,
 // moves new → refined, and offers to promote.
 func refineIdea(in io.Reader, out, errOut io.Writer, st Store, cfg Config, ag *agent, s *Spec, force bool) error {
+	if s.Archived {
+		return fmt.Errorf("%s is archived — run spec unarchive %s first", s.ID(), s.ID())
+	}
 	if s.Status() == ideaDiscarded && !force {
 		return fmt.Errorf("%s is discarded (use --force to refine anyway)", s.ID())
 	}
@@ -220,7 +226,7 @@ func refineIdea(in io.Reader, out, errOut io.Writer, st Store, cfg Config, ag *a
 		update["suggested_type"] = []string{suggested}
 		update["suggested_reason"] = []string{reason}
 	}
-	if err := setIdeaMeta(s, update); err != nil {
+	if err := setSpecMeta(s, update); err != nil {
 		return err
 	}
 	if ag != nil {

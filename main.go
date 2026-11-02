@@ -17,6 +17,8 @@ Usage:
   spec idea <title>                  Capture an untyped idea in the inbox (not sure of the type yet)
   spec promote <id> [type] [--force] Turn an idea into a project|feature|adr spec (deletes the idea)
   spec discard <id>...               Mark ideas as discarded
+  spec archive <id>... [--force]     Move finished specs / discarded ideas to specs/archive/
+  spec unarchive <id>...             Move archived specs back
   spec new <project|feature|adr|idea> <title>   Create a specification
   spec bootstrap                     Bootstrap specs from existing project
   spec import <file>                 Import existing documentation
@@ -77,8 +79,10 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 		}
 		return cmdNew(o, e, "idea", strings.Join(a, " "))
 	},
-	"discard": func(a []string, o, e io.Writer) error { return cmdDiscard(o, a) },
-	"promote": func(a []string, o, e io.Writer) error { return cmdPromote(o, a) },
+	"discard":   func(a []string, o, e io.Writer) error { return cmdDiscard(o, a) },
+	"archive":   func(a []string, o, e io.Writer) error { return cmdArchive(o, a) },
+	"unarchive": func(a []string, o, e io.Writer) error { return cmdUnarchive(o, a) },
+	"promote":   func(a []string, o, e io.Writer) error { return cmdPromote(o, a) },
 	"new": func(a []string, o, e io.Writer) error {
 		if len(a) < 2 {
 			return fmt.Errorf("usage: spec new <project|feature|adr|idea> <title>")

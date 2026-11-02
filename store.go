@@ -28,10 +28,15 @@ var validTypes = map[string]bool{"project": true, "feature": true, "adr": true, 
 var specTypes = map[string]bool{"project": true, "feature": true, "adr": true}
 
 type Spec struct {
-	Path string
-	Meta map[string][]string
-	Body string
+	Path     string
+	Meta     map[string][]string
+	Body     string
+	Archived bool // file lives under specs/archive/ (set by Store.Specs)
 }
+
+// archiveDirName is the subdirectory of specs/ holding archived specs, laid
+// out like specs/ itself (archive/features/, archive/adr/, …).
+const archiveDirName = "archive"
 
 func (s Spec) ID() string {
 	return metaGet(s.Meta, "id", strings.TrimSuffix(filepath.Base(s.Path), ".md"))
@@ -184,7 +189,9 @@ func (st Store) Specs() []Spec {
 			return nil
 		}
 		meta, body := parseFrontmatter(toUTF8(data))
-		out = append(out, Spec{Path: path, Meta: meta, Body: body})
+		rel, _ := filepath.Rel(root, path)
+		archived := strings.HasPrefix(filepath.ToSlash(rel), archiveDirName+"/")
+		out = append(out, Spec{Path: path, Meta: meta, Body: body, Archived: archived})
 		return nil
 	})
 	sort.Slice(out, func(i, j int) bool { return out[i].ID() < out[j].ID() })
@@ -214,6 +221,72 @@ func (st Store) nextID(specType string) string {
 		}
 	}
 	return fmt.Sprintf("%s-%03d", prefix, highest+1)
+}
+
+// typeDirOf returns the top-level type directory a spec lives in, looking
+// through specs/archive/ (specs/archive/features/x.md → "features").
+func (st Store) typeDirOf(s Spec) string {
+	rel, _ := filepath.Rel(st.specPath(), s.Path)
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	if s.Archived && len(parts) > 1 {
+		parts = parts[1:]
+	}
+	return parts[0]
+}
+
+// moveSpec rewrites s's frontmatter with meta, then moves the file to dst.
+// If the move fails, the original frontmatter is restored.
+func moveSpec(s Spec, meta map[string][]string, dst string) error {
+	if _, err := os.Stat(dst); err == nil {
+		return fmt.Errorf("%s already exists", dst)
+	}
+	if err := writeFileAtomic(s.Path, []byte(dumpFrontmatter(meta, s.Body)), 0o644); err != nil {
+		return err
+	}
+	err := os.MkdirAll(filepath.Dir(dst), 0o755)
+	if err == nil {
+		err = os.Rename(s.Path, dst)
+	}
+	if err == nil {
+		return nil
+	}
+	err = fmt.Errorf("moving %s to %s: %w", s.Path, dst, err)
+	if rerr := writeFileAtomic(s.Path, []byte(dumpFrontmatter(s.Meta, s.Body)), 0o644); rerr != nil {
+		err = fmt.Errorf("%v; restoring frontmatter also failed: %w", err, rerr)
+	}
+	return err
+}
+
+// Archive moves s to specs/archive/<same relative path> and stamps
+// archived: <date>. Unarchive reverses it.
+func (st Store) Archive(s Spec) (string, error) {
+	if s.Archived {
+		return "", fmt.Errorf("%s is already archived", s.ID())
+	}
+	rel, _ := filepath.Rel(st.specPath(), s.Path)
+	dst := filepath.Join(st.specPath(), archiveDirName, rel)
+	meta := copyMeta(s.Meta)
+	meta["archived"] = []string{time.Now().Format("2006-01-02")}
+	return dst, moveSpec(s, meta, dst)
+}
+
+func (st Store) Unarchive(s Spec) (string, error) {
+	if !s.Archived {
+		return "", fmt.Errorf("%s is not archived", s.ID())
+	}
+	rel, _ := filepath.Rel(filepath.Join(st.specPath(), archiveDirName), s.Path)
+	dst := filepath.Join(st.specPath(), rel)
+	meta := copyMeta(s.Meta)
+	delete(meta, "archived")
+	return dst, moveSpec(s, meta, dst)
+}
+
+func copyMeta(m map[string][]string) map[string][]string {
+	out := make(map[string][]string, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
 }
 
 // typeDir is the directory under specs/ that holds specs of a type.

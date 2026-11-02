@@ -2,7 +2,7 @@
 created: 2026-11-01
 depends_on: [FEAT-006, FEAT-008]
 id: FEAT-007
-status: proposed
+status: implemented
 title: Archive finished specs
 type: feature
 ---
@@ -60,15 +60,15 @@ Addresses: REQ-012, REQ-011
 
 ## Acceptance Criteria
 
-- [ ] `spec archive FEAT-002` moves the file to `specs/archive/features/` and sets `archived:`
-- [ ] Archiving a non-done spec fails without `--force`; discarded ideas can be archived
-- [ ] `spec unarchive` restores the original location and removes `archived:`
-- [ ] Archived specs don't appear on the board, even with `?all=1`
-- [ ] `/archive` lists archived specs with links to their pages
-- [ ] `spec apply <archived id>` errors and suggests `unarchive`
-- [ ] `spec status` shows an "archived: N" line and excludes archived specs from other counts
-- [ ] `spec search` marks archived results; `spec trace` counts archived features as coverage
-- [ ] `nextID` never reuses an archived id
-- [ ] `spec validate` accepts archived specs in `specs/archive/<type dir>/`
-- [ ] Tests cover archive, unarchive, `--force`, and each command's handling
-- [ ] Docs updated (help text, README, SKILL.md, web help)
+- [x] `spec archive FEAT-002` moves the file to `specs/archive/features/` and sets `archived:`
+- [x] Archiving a non-done spec fails without `--force`; discarded ideas can be archived
+- [x] `spec unarchive` restores the original location and removes `archived:`
+- [x] Archived specs don't appear on the board, even with `?all=1`
+- [x] `/archive` lists archived specs with links to their pages
+- [x] `spec apply <archived id>` errors and suggests `unarchive`
+- [x] `spec status` shows an "archived: N" line and excludes archived specs from other counts
+- [x] `spec search` marks archived results; `spec trace` counts archived features as coverage
+- [x] `nextID` never reuses an archived id
+- [x] `spec validate` accepts archived specs in `specs/archive/<type dir>/`
+- [x] Tests cover archive, unarchive, `--force`, and each command's handling
+- [x] Docs updated (help text, README, SKILL.md, web help)

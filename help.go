@@ -46,6 +46,23 @@ Promoting deletes the idea file — the new spec records ` + "`promoted_from`" +
 and git keeps the history. Ideas never appear on the board and are never
 applied.
 
+## Board and archive
+
+The [board](/board) shows active specs by status. Finished ones
+(` + "`done_statuses`" + `, default implemented/deprecated/rejected) are hidden behind a
+"show" toggle. When finished work is no longer worth seeing at all, archive it:
+
+` + "```" + `
+spec archive FEAT-002 FEAT-004     # → specs/archive/features/, stamped archived: <date>
+spec unarchive FEAT-002            # moves it back
+` + "```" + `
+
+Only finished specs and discarded ideas can be archived (` + "`--force`" + ` overrides).
+Archived specs keep their ids, stay searchable (` + "`spec search`" + ` marks them),
+still count as REQ coverage in ` + "`spec trace`" + `, and are listed on the
+[archive](/archive) page — but they're off the board, the inbox, ` + "`status`" + `
+counts, ` + "`roadmap`" + `, and ` + "`apply`" + `.
+
 ## Choosing a type
 
 Pick by the question the document answers:
@@ -100,6 +117,8 @@ spec status     # inbox + spec counts, REQ coverage
 spec idea <title>                 # capture an idea (type decided later)
 spec promote <IDEA-id> [type]     # idea → project|feature|adr (default: suggested type)
 spec discard <IDEA-id>
+spec archive <id>...              # finished specs / discarded ideas → specs/archive/
+spec unarchive <id>...
 spec new feature <title>
 spec search <query>
 spec validate   # frontmatter, sections, type/id/dir match, REQ refs, cycles

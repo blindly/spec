@@ -20,6 +20,9 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
 - `specs/imported/` — imported docs
 - `specs/inbox/` — untyped ideas (`IDEA-xxx`, statuses new/refined/discarded);
   not specs yet — never applied, not on the board
+- `specs/archive/` — archived specs (same layout; `spec archive`/`unarchive`).
+  History: still searchable and count for `spec trace`, but never applied —
+  don't implement or edit them unless asked
 - `.spec/config.yml` — agent, statuses, `verify:` commands
 - `.spec/facts.yml` — definite project facts, referenced in specs as `{fact:key}`
 

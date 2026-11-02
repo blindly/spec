@@ -476,7 +476,11 @@ func cmdSearch(out, errOut io.Writer, query string) error {
 				continue
 			}
 			if !header {
-				fmt.Fprintf(out, "%s  %s  %s\n", s.ID(), s.Status(), rel)
+				mark := ""
+				if s.Archived {
+					mark = "  [archived]"
+				}
+				fmt.Fprintf(out, "%s  %s  %s%s\n", s.ID(), s.Status(), rel, mark)
 				header = true
 				found = true
 			}
@@ -503,8 +507,12 @@ func cmdStatus(out, errOut io.Writer) error {
 	byType := map[string]int{}
 	byStatus := map[string]int{}
 	ideaStatus := map[string]int{}
-	ideas := 0
+	ideas, archived := 0, 0
 	for _, s := range specs {
+		if s.Archived {
+			archived++
+			continue
+		}
 		if s.IsIdea() {
 			ideas++
 			ideaStatus[s.Status()]++
@@ -524,7 +532,7 @@ func cmdStatus(out, errOut io.Writer) error {
 		}
 		fmt.Fprintf(out, "Inbox: %d idea(s) (%s)\n\n", ideas, strings.Join(parts, ", "))
 	}
-	fmt.Fprintf(out, "Specs: %d\n", len(specs)-ideas)
+	fmt.Fprintf(out, "Specs: %d\n", len(specs)-ideas-archived)
 	for _, t := range []string{"project", "feature", "adr", "imported"} {
 		if byType[t] > 0 {
 			fmt.Fprintf(out, "  %-10s %d\n", t, byType[t])
@@ -551,6 +559,9 @@ func cmdStatus(out, errOut io.Writer) error {
 			printStatuses(true, "    ")
 			break
 		}
+	}
+	if archived > 0 {
+		fmt.Fprintf(out, "Archived: %d (specs/%s/)\n", archived, archiveDirName)
 	}
 
 	// Requirement coverage
@@ -694,9 +705,9 @@ func cmdValidate(out, errOut io.Writer) error {
 			if !strings.HasPrefix(s.ID(), prefix+"-") {
 				fail("%s (%s): type %s doesn't match id prefix (want %s-xxx)", rel, s.ID(), s.Type(), prefix)
 			}
-			underSpecs, _ := filepath.Rel(st.specPath(), s.Path)
-			if top := strings.SplitN(filepath.ToSlash(underSpecs), "/", 2)[0]; top != typeDir(s.Type()) {
-				fail("%s (%s): type %s doesn't match directory specs/%s (want specs/%s)", rel, s.ID(), s.Type(), top, typeDir(s.Type()))
+			if top := st.typeDirOf(s); top != typeDir(s.Type()) {
+				fail("%s (%s): type %s doesn't match directory %s (want specs/%s or specs/%s/%s)",
+					rel, s.ID(), s.Type(), top, typeDir(s.Type()), archiveDirName, typeDir(s.Type()))
 			}
 		}
 		if !cfg.validStatusFor(s.Type(), s.Status()) {
@@ -792,8 +803,8 @@ func cmdRoadmap(out, errOut io.Writer, file string) error {
 	cfg := loadConfig(st.Root)
 	groups := map[string][]Spec{}
 	for _, s := range st.Specs() {
-		if s.IsIdea() {
-			continue // ideas aren't on the roadmap until promoted
+		if s.IsIdea() || s.Archived {
+			continue // ideas aren't on the roadmap until promoted; archived specs are history
 		}
 		groups[s.Status()] = append(groups[s.Status()], s)
 	}
@@ -942,9 +953,15 @@ func cmdTrace(out, errOut io.Writer) error {
 			if s.Type() != "feature" {
 				continue
 			}
+			// archived features still count as coverage (the work happened)
 			for _, m := range reqPattern.FindAllString(s.Body, -1) {
 				if m == req {
-					impls = append(impls, s.ID())
+					label := s.ID()
+					if s.Archived {
+						label += " (archived)"
+					}
+					impls = append(impls, label)
+					break
 				}
 			}
 		}
@@ -992,7 +1009,7 @@ func cmdApply(in io.Reader, out, errOut io.Writer, ids []string, opts applyOpts)
 	if len(ids) == 0 {
 		// implicit scope: only approved (accepted) specs, never proposed
 		for _, s := range st.Specs() {
-			if applyableStatus(s) && s.Status() == "accepted" {
+			if !s.Archived && applyableStatus(s) && s.Status() == "accepted" {
 				targets = append(targets, s)
 			}
 		}
@@ -1005,6 +1022,9 @@ func cmdApply(in io.Reader, out, errOut io.Writer, ids []string, opts applyOpts)
 			s := st.Get(id)
 			if s == nil {
 				return fmt.Errorf("no spec with id %s", id)
+			}
+			if s.Archived {
+				return fmt.Errorf("%s is archived — run spec unarchive %s first", s.ID(), s.ID())
 			}
 			if s.IsIdea() {
 				return fmt.Errorf("%s is an idea — promote it to a spec first (spec promote %s <project|feature|adr>)", s.ID(), s.ID())
