@@ -132,9 +132,51 @@ func TestWebProjectBranding(t *testing.T) {
 	if !strings.Contains(s, "hsl(") {
 		t.Fatal("no per-project accent color")
 	}
-	name, hue := projectIdent(st)
+	name, hue := projectIdent(st, "")
 	if name != "Acme Thing" || hue < 0 || hue >= 360 {
 		t.Fatalf("bad projectIdent: %q %d", name, hue)
+	}
+}
+
+// FEAT-014: project_name fact → project spec title → git remote → folder.
+func TestProjectNameOrder(t *testing.T) {
+	st := setupRepo(t)
+	if got := projectName(st, ""); got != filepath.Base(st.Root) {
+		t.Fatalf("fallback should be the folder, got %q", got)
+	}
+	if got := projectName(st, "remote-repo"); got != "remote-repo" {
+		t.Fatalf("remote should beat the folder, got %q", got)
+	}
+	proj, _ := st.Create("project", "Spec Title", "# p\n\n## Overview\n\no\n\n## Requirements\n\n- REQ-001: x\n", map[string][]string{"status": {"deprecated"}})
+	if got := projectName(st, "remote-repo"); got != "Spec Title" {
+		t.Fatalf("project spec title should beat the remote, got %q", got)
+	}
+	if err := cmdArchive(io.Discard, []string{proj.ID()}); err != nil {
+		t.Fatal(err)
+	}
+	if got := projectName(st, "remote-repo"); got != "remote-repo" {
+		t.Fatalf("archived project spec should be ignored, got %q", got)
+	}
+	if err := setFact(st.Root, "project_name", "Explicit Name"); err != nil {
+		t.Fatal(err)
+	}
+	if got := projectName(st, "remote-repo"); got != "Explicit Name" {
+		t.Fatalf("project_name fact should win, got %q", got)
+	}
+}
+
+func TestRepoNameFromURL(t *testing.T) {
+	for in, want := range map[string]string{
+		"git@github.com:acme/truecare-website.git":  "truecare-website",
+		"https://github.com/acme/truecare-website":  "truecare-website",
+		"https://github.com/acme/truecare-website/": "truecare-website",
+		"ssh://git@host:2222/acme/repo.git":         "repo",
+		"/srv/git/local-repo.git":                   "local-repo",
+		`C:\repos\win-repo`:                         "win-repo",
+	} {
+		if got := repoNameFromURL(in); got != want {
+			t.Fatalf("%q: got %q want %q", in, got, want)
+		}
 	}
 }
 

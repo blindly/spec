@@ -21,20 +21,52 @@ func webToken() string {
 	return hex.EncodeToString(b)
 }
 
-// projectIdent returns the repo's display name — the project spec's title
-// when present, else the directory name — plus a stable accent hue derived
-// from it so different repos get different color schemes.
-func projectIdent(st Store) (string, int) {
-	name := filepath.Base(st.Root)
-	for _, s := range st.Specs() {
-		if s.Type() == "project" {
-			name = s.Title()
-			break
-		}
-	}
+// projectIdent returns the repo's display name (see projectName) plus a
+// stable accent hue derived from it, so different repos get different color
+// schemes.
+func projectIdent(st Store, remoteName string) (string, int) {
+	name := projectName(st, remoteName)
 	h := fnv.New32a()
 	h.Write([]byte(name))
 	return name, int(h.Sum32() % 360)
+}
+
+// projectName picks the name shown in the web UI (FEAT-014): an explicit
+// project_name fact, then the project spec's title, then the git remote's
+// repo name, and only then the folder name (which depends on where the repo
+// was cloned).
+func projectName(st Store, remoteName string) string {
+	if v := factsMap(loadFacts(st.Root))["project_name"]; v != "" {
+		return v
+	}
+	for _, s := range st.Specs() {
+		if s.Type() == "project" && !s.Archived {
+			return s.Title()
+		}
+	}
+	if remoteName != "" {
+		return remoteName
+	}
+	return filepath.Base(st.Root)
+}
+
+// remoteRepoName reads remote.origin.url and returns its repo name:
+// git@host:org/name.git, https://host/org/name, and /path/name.git all give
+// "name". "" without git or a remote.
+func remoteRepoName(root string) string {
+	out, err := runGit(root, "config", "--get", "remote.origin.url")
+	if err != nil {
+		return ""
+	}
+	return repoNameFromURL(strings.TrimSpace(string(out)))
+}
+
+func repoNameFromURL(u string) string {
+	u = strings.TrimSuffix(strings.TrimRight(u, "/"), ".git")
+	if i := strings.LastIndexAny(u, "/:\\"); i >= 0 {
+		u = u[i+1:]
+	}
+	return u
 }
 
 func page(w http.ResponseWriter, title, body, projName string, hue int) {
@@ -167,11 +199,12 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 	statuses := cfg.Statuses
 	var writeMu sync.Mutex
 	var gits gitCache // git state reused across requests until the repo changes
+	remote := remoteRepoName(st.Root) // read once: remotes rarely change
 
-	// resolve branding per request so creating a project spec while the
-	// server runs updates the badge without a restart
+	// resolve branding per request so a new project_name fact or project
+	// spec updates the badge without a restart
 	render := func(w http.ResponseWriter, title, body string) {
-		name, hue := projectIdent(st)
+		name, hue := projectIdent(st, remote)
 		page(w, title, body, name, hue)
 	}
 

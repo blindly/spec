@@ -91,6 +91,10 @@ into LLM agent prompts so drafts use real values instead of inventing
 them. `spec check` reports references to undefined facts and defined
 facts that nothing references.
 
+The web UI's project badge uses the `project_name` fact if set
+(`spec fact set project_name "My Project"`), else the project spec's title,
+else the git remote's repo name, else the folder name.
+
 ## Testing
 
 ```bash

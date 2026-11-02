@@ -153,6 +153,10 @@ substituted at spec creation and injected into agent prompts.
 
 Manage facts from the CLI: ` + "`spec fact list|get|set|unset`" + `.
 
+The project name in the web UI's badge comes from the ` + "`project_name`" + ` fact
+if set (` + "`spec fact set project_name \"My Project\"`" + `), else the project spec's
+title, else the git remote's repo name, else the folder name.
+
 ## CLI
 
 ` + "```" + `
