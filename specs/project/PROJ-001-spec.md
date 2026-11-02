@@ -33,9 +33,9 @@ and implement specs. A local web UI provides browsing and editing.
 ## Requirements
 
 - REQ-001: Specs are markdown files with frontmatter under `specs/`, typed
-  `project`, `feature`, `adr`, or `imported`. The type determines the id
-  prefix (PROJ/FEAT/ADR/DOC), the directory, and the required sections, and
-  these must stay consistent.
+  `project`, `feature`, `adr`, `imported`, or `idea`. The type determines the
+  id prefix (PROJ/FEAT/ADR/DOC/IDEA), the directory, and the required
+  sections, and these must stay consistent.
 - REQ-002: `spec validate` enforces required sections, configured statuses,
   references to defined `REQ-xxx` ids, and the absence of dependency cycles.
 - REQ-003: All operations other than agent commands work offline. Agents
@@ -53,6 +53,12 @@ and implement specs. A local web UI provides browsing and editing.
 - REQ-009: Definite project values live in `.spec/facts.yml` and specs
   reference them with fact placeholders; `spec check` audits the references.
 - REQ-010: `spec trace` and `spec status` report REQ → feature coverage.
+- REQ-011: Default views (the web board, `spec status`) focus on active
+  work; finished specs stay reachable but out of the way.
+- REQ-012: Finished specs can be archived out of all active views while
+  remaining in the repo, searchable, and referenceable.
+- REQ-013: Users can capture an idea without choosing a spec type, and turn
+  it into a typed spec later, with the tool suggesting the type.
 
 ## Architecture
 
