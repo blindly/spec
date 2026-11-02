@@ -85,6 +85,17 @@ func docPage(title, caption, doc string) string {
 	return b.String()
 }
 
+// splitLeadingH1 returns the text of a markdown body's opening "# " heading
+// and the body without it; heading is "" if the body doesn't start with one.
+func splitLeadingH1(body string) (heading, rest string) {
+	trimmed := strings.TrimLeft(body, "\n")
+	line, after, _ := strings.Cut(trimmed, "\n")
+	if !strings.HasPrefix(line, "# ") {
+		return "", body
+	}
+	return strings.TrimSpace(line[2:]), after
+}
+
 // driftHTML is the "may be stale" notice on a spec's page.
 func driftHTML(d *driftInfo) string {
 	var b strings.Builder
@@ -497,8 +508,14 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 		if s.Archived {
 			archivedNote = fmt.Sprintf(` · <a href="/archive">archived</a> %s`, html.EscapeString(metaGet(s.Meta, "archived", "")))
 		}
+		// the body usually opens with "# <title>": show it once, in the page
+		// heading (which also carries the id), not again above the body
+		heading, body := splitLeadingH1(s.Body)
+		if heading == "" {
+			heading = s.Title()
+		}
 		fmt.Fprintf(&b, "<h1>%s — %s</h1><p>type: %s · status: %s%s · <a href=\"/edit/%s\">edit</a></p>",
-			html.EscapeString(s.ID()), html.EscapeString(s.Title()),
+			html.EscapeString(s.ID()), html.EscapeString(heading),
 			html.EscapeString(s.Type()), html.EscapeString(s.Status()),
 			archivedNote, s.ID())
 		if g := loadGit(st.Root); g != nil && inSystem(cfg, *s) {
@@ -506,7 +523,7 @@ func webHandler(st Store, cfg Config, token string) http.Handler {
 				b.WriteString(driftHTML(d))
 			}
 		}
-		b.WriteString(mdBlock(s.Body))
+		b.WriteString(mdBlock(body))
 		render(w, s.ID(), b.String())
 	})
 

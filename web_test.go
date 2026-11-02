@@ -222,6 +222,30 @@ func TestWebDocPagesNoDuplicateHeading(t *testing.T) {
 	}
 }
 
+// The spec page shows the title once: in the page heading (with the id), not
+// again from the body's own "# " heading.
+func TestWebSpecPageNoDuplicateTitle(t *testing.T) {
+	st, srv, _ := setupWeb(t)
+	st.Create("feature", "Board view", "# Board view\n\n## Summary\n\ns\n", nil)
+	page := webGet(t, srv.URL+"/spec/FEAT-001")
+	if !strings.Contains(page, "<h1>FEAT-001 — Board view</h1>") || strings.Contains(page, "# Board view") {
+		t.Fatalf("title should appear once, in the page heading:\n%s", page)
+	}
+	if !strings.Contains(page, "## Summary") {
+		t.Fatalf("rest of the body missing:\n%s", page)
+	}
+	// body heading edited to differ from frontmatter title → body wins
+	st.Create("feature", "Old title", "# New title\n\nbody\n", nil)
+	if page := webGet(t, srv.URL+"/spec/FEAT-002"); !strings.Contains(page, "<h1>FEAT-002 — New title</h1>") || strings.Contains(page, "# New title") {
+		t.Fatalf("body heading should be used once:\n%s", page)
+	}
+	// no body heading → frontmatter title
+	st.Create("feature", "Only meta", "just text\n", nil)
+	if page := webGet(t, srv.URL+"/spec/FEAT-003"); !strings.Contains(page, "<h1>FEAT-003 — Only meta</h1>") || !strings.Contains(page, "just text") {
+		t.Fatalf("frontmatter title fallback:\n%s", page)
+	}
+}
+
 func TestWebReadmeCaseInsensitive(t *testing.T) {
 	st, srv, _ := setupWeb(t)
 	os.WriteFile(filepath.Join(st.Root, "README.MD"), []byte("# Shouty readme\n"), 0o644)
