@@ -138,26 +138,36 @@ func bodyFromAgentOutput(out string) string {
 
 // readmeExcerpt returns the first ~maxBytes of the repo README, if any.
 func readmeExcerpt(root string, maxBytes int) string {
-	for _, name := range []string{"README.md", "README", "Readme.md", "readme.md"} {
-		data, err := os.ReadFile(filepath.Join(root, name))
-		if err == nil && len(data) > 0 {
-			s := toUTF8(data)
-			if maxBytes > 0 && len(s) > maxBytes {
-				s = s[:maxBytes] + "\n…"
-			}
-			return strings.TrimSpace(s)
-		}
+	s, _ := findDoc(root, "README.md", "README.markdown", "README", "README.txt")
+	if maxBytes > 0 && len(s) > maxBytes {
+		s = strings.TrimSpace(s[:maxBytes]) + "\n…"
 	}
-	return ""
+	return s
 }
 
 // agentsExcerpt returns the repo's agent-instructions doc (AGENTS.md preferred,
 // else CLAUDE.md) and the filename it came from.
 func agentsExcerpt(root string) (string, string) {
-	for _, name := range []string{"AGENTS.md", "CLAUDE.md", "agents.md", "Agents.md", "claude.md", "Claude.md"} {
-		data, err := os.ReadFile(filepath.Join(root, name))
-		if err == nil && len(data) > 0 {
-			return strings.TrimSpace(toUTF8(data)), name
+	return findDoc(root, "AGENTS.md", "CLAUDE.md")
+}
+
+// findDoc returns the content and actual filename of the first non-empty file
+// in root matching one of names, compared case-insensitively (README.MD,
+// readme.md, … all match README.md). Earlier names take precedence.
+func findDoc(root string, names ...string) (string, string) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return "", ""
+	}
+	for _, want := range names {
+		for _, e := range entries {
+			if e.IsDir() || !strings.EqualFold(e.Name(), want) {
+				continue
+			}
+			data, err := os.ReadFile(filepath.Join(root, e.Name()))
+			if err == nil && len(data) > 0 {
+				return strings.TrimSpace(toUTF8(data)), e.Name()
+			}
 		}
 	}
 	return "", ""

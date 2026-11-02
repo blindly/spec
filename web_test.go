@@ -156,6 +156,20 @@ func TestWebAgents(t *testing.T) {
 	}
 }
 
+func TestWebReadmeCaseInsensitive(t *testing.T) {
+	st, srv, _ := setupWeb(t)
+	os.WriteFile(filepath.Join(st.Root, "README.MD"), []byte("# Shouty readme\n"), 0o644)
+	resp, err := http.Get(srv.URL + "/readme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !strings.Contains(string(body), "Shouty readme") {
+		t.Fatalf("README.MD not found: %.300s", body)
+	}
+}
+
 func TestWebHelp(t *testing.T) {
 	st, srv, _ := setupWeb(t)
 	resp, err := http.Get(srv.URL + "/help")
