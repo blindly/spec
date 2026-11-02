@@ -44,6 +44,8 @@ Addresses: REQ-011, REQ-012, REQ-014
   - if your change alters behavior described by another spec, update that
     spec's text in the same change so it stays accurate
   - don't change other specs' status, ids, or types
+  - for accepted ADRs, don't edit the original sections; add a dated entry
+    under `## Corrections` instead (see ADR-003's Corrections)
   - set this spec's status to `implemented` when done (unchanged)
 - **Prompt spec list** (`repoContext`): mark archived specs, e.g.
   `FEAT-002 (feature, deprecated, archived — history, may be outdated)`.

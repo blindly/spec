@@ -289,7 +289,9 @@ Rules:
   documentation of this system: if your change alters behavior that another
   spec under specs/ describes, update that spec's text in the same change so
   it matches what the system now does. Do not change other specs' status,
-  id, or type, and leave specs/archive/ alone (it is history).
+  id, or type, and leave specs/archive/ alone (it is history). For accepted
+  ADRs, don't edit the original sections: add a dated entry under a
+  "## Corrections" section at the end instead.
 - When you are done, set this spec's frontmatter status to "implemented".
   spec checks that status to decide whether the work is finished, so leave
   it unchanged if you could not complete the spec.

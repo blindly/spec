@@ -131,9 +131,14 @@ A spec's type is fixed once created. It sets the id prefix (PROJ/FEAT/ADR/DOC/ID
 the directory, the required sections, and whether ` + "`spec apply`" + ` picks it up —
 changing it later means a new spec, not an edit. ` + "`spec refine`" + ` warns
 when a spec's content looks like a different type, but never changes it.
-ADRs are never rewritten
-once accepted: write a new ADR that supersedes the old one and mark the old
-one deprecated.
+Accepted ADRs keep their original text, so the record of what was decided
+stays intact:
+
+- **A detail is out of date** (a name, a page, where something lives) but
+  the decision stands → add a dated entry under a ` + "`## Corrections`" + `
+  section at the end. Don't edit the original sections.
+- **The decision itself changes** → write a new ADR that supersedes the old
+  one, and mark the old one deprecated.
 
 ## Facts
 

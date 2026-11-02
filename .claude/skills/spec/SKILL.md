@@ -52,7 +52,10 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    the system, not finished history. If your change alters behavior another
    spec describes, update that spec's text in the same change (don't change
    its status). If a spec no longer describes the system at all, mark it
-   `deprecated` — don't leave it silently stale.
+   `deprecated` — don't leave it silently stale. Accepted ADRs are the
+   exception: don't edit their original sections — add a dated entry under
+   `## Corrections` at the end (or, if the decision itself changed, write a
+   new ADR that supersedes it).
 7. **Check for drift.** `spec drift` lists specs whose `covers:` files
    changed since they were last updated. Before finishing, fix any your work
    made stale; if a flagged spec is still accurate, `spec verified <id>`.

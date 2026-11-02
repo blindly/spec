@@ -60,3 +60,11 @@ Alternatives considered:
   step, and isn't part of this decision.
 - Partial replacement (one spec superseding part of another) has no explicit
   marker yet; agents update the older spec's text instead.
+
+## Corrections
+
+- **2026-11-02:** "Implemented specs stay visible on the board" — since
+  FEAT-011, implemented specs (and accepted ADRs) are shown in the system
+  view (`/system`), and the board holds only work in progress. The decision
+  stands: implemented specs are never hidden as finished. Found by
+  `spec drift` (FEAT-012).
