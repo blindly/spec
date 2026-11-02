@@ -22,6 +22,39 @@ editor's save):
   ` + "`Addresses: REQ-xxx`" + ` for existing REQ ids
 - **adr**: Context, Decision, Consequences
 
+## Choosing a type
+
+Pick by the question the document answers:
+
+| Type | Answers | Use when |
+|---|---|---|
+| **project** | What is this system, and what must it do? | Describing the whole system and its ` + "`REQ-xxx`" + ` requirements — usually one per repo |
+| **feature** | What should we build? | Adding or changing behavior; ` + "`spec apply`" + ` implements it |
+| **adr** | Why X instead of Y? | Recording a decision and the alternatives rejected; nothing to implement |
+| **imported** | — | Bringing in existing docs as reference (` + "`spec import`" + `) |
+
+Quick tests:
+
+- **Can you write a checkbox that proves it's done?** → feature
+- **Did you reject an alternative someone might later ask about?** → adr
+- **Is the decision hard to reverse or costly to get wrong?** → adr
+
+Features and ADRs often come in pairs: the feature is the work, the ADR
+records why it was done that way. Don't write an ADR for every choice —
+only ones a future reader would question.
+
+There is no bug type:
+
+- code violates a spec → fix the code
+- spec is wrong or ambiguous → edit the spec (or write an adr if it's a real decision)
+- bug reveals a missing requirement → add the REQ to the project spec, then a feature
+
+Choose the type at creation. It sets the id prefix (PROJ/FEAT/ADR/DOC),
+the directory, the required sections, and whether ` + "`spec apply`" + ` picks it up —
+changing it later means a new spec, not an edit. ADRs are never rewritten
+once accepted: write a new ADR that supersedes the old one and mark the old
+one deprecated.
+
 ## Facts
 
 ` + "`.spec/facts.yml`" + ` holds definite project values (domain, phone,
