@@ -30,6 +30,7 @@ Usage:
   spec graph [--mermaid]             Dependency graph
   spec trace                         Requirements traceability
   spec draft feature <title>         Generate feature draft (LLM agent if configured)
+  spec view [--cmd CMD] <id>...       Print specs (or use an external viewer)
   spec edit <id>                     Open a spec in your editor
   spec refine <id> [--force]         LLM agent improves an existing spec; for ideas, also
                                        suggests a type and offers to promote (--force: discarded ideas)
@@ -37,7 +38,7 @@ Usage:
                                        --print outputs prompts · --yes skips confirmation
                                        --no-verify skips verify · --force allows any status
   spec status                        Summarize repository spec state
-  spec fact [list|get|set|unset]     Manage .spec/facts.yml project facts
+  spec fact [list|get <key>|set <key> <value>|unset <key>|discover [--yes]]     Manage .spec/facts.yml project facts
   spec check                         Audit {fact:key} references vs facts.yml; warn about drift
   spec drift [--review [--yes]] [id...]   Specs whose covered code changed since they were last updated;
                                        --review asks the agent if each is stale and proposes an update
@@ -147,6 +148,7 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 		}
 		return cmdApply(os.Stdin, o, e, ids, opts)
 	},
+	"view": cmdView,
 	"edit": func(a []string, o, e io.Writer) error {
 		if len(a) < 1 {
 			return fmt.Errorf("usage: spec edit <id>")

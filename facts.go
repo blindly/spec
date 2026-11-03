@@ -149,6 +149,11 @@ func cmdFact(out, errOut io.Writer, args []string) error {
 		return nil
 	}
 	switch args[0] {
+	case "discover":
+		if len(args) > 2 || (len(args) == 2 && args[1] != "--yes") {
+			return fmt.Errorf("usage: spec fact discover [--yes]")
+		}
+		return discoverFacts(st, os.Stdin, out, errOut, len(args) == 2)
 	case "get":
 		if len(args) < 2 {
 			return fmt.Errorf("usage: spec fact get <key>")
@@ -179,7 +184,7 @@ func cmdFact(out, errOut io.Writer, args []string) error {
 		}
 		fmt.Fprintf(out, "Removed %s\n", args[1])
 	default:
-		return fmt.Errorf("usage: spec fact [list|get <key>|set <key> <value>|unset <key>]")
+		return fmt.Errorf("usage: spec fact [list|get <key>|set <key> <value>|unset <key>|discover [--yes]]")
 	}
 	return nil
 }

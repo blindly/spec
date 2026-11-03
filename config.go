@@ -18,6 +18,7 @@ type Config struct {
 	Statuses     []string // valid spec statuses
 	DoneStatuses []string // statuses that count as finished (hidden on the board by default)
 	IdeaStatuses []string // valid statuses for inbox ideas (type idea)
+	Viewer       string   // external renderer for spec view; empty uses built-in output
 	Editor       string   // editor command for `spec config edit`
 	Verify       []string // commands run by spec verify
 }
@@ -128,6 +129,8 @@ func loadConfig(root string) Config {
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				cfg.AgentTimeout = n
 			}
+		case "viewer":
+			cfg.Viewer = unquote(v)
 		case "editor":
 			cfg.Editor = strings.Trim(v, `"'`)
 		case "web_host":
@@ -163,8 +166,8 @@ func loadConfig(root string) Config {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]",
-		c.Agent, c.AgentCmd, c.AgentTimeout, c.WebHost, c.WebPort, c.editor(),
+	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nviewer: %s\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]",
+		c.Agent, c.AgentCmd, c.AgentTimeout, c.WebHost, c.WebPort, c.editor(), c.Viewer,
 		strings.Join(c.Statuses, ", "), strings.Join(c.DoneStatuses, ", "),
 		strings.Join(c.IdeaStatuses, ", "), strings.Join(c.Verify, ", "))
 }
@@ -191,6 +194,9 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 
 # Editor for spec edit / spec config edit (falls back to $EDITOR, then vi)
 # editor: vim
+
+# Viewer for spec view (default: built-in plain output; no $PAGER)
+# viewer: "glow --style dark {file}"   # {file} = path; absent = appended
 `
 
 const repoConfigTemplate = `version: 1
@@ -217,6 +223,9 @@ const repoConfigTemplate = `version: 1
 
 # Editor for spec edit / spec config edit (falls back to $EDITOR, then vi)
 # editor: vim
+
+# Viewer for spec view (default: built-in plain output; no $PAGER)
+# viewer: "glow --style dark {file}"   # {file} = path; absent = appended
 `
 
 // initGlobalConfig writes the annotated template; refuses to overwrite

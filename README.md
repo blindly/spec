@@ -24,6 +24,7 @@ go build -o spec .
 | `spec bootstrap` | Generate a project spec from an existing repo |
 | `spec import <file>` | Import existing documentation |
 | `spec analyze` | Analyze the repository |
+| `spec view [--cmd CMD] <id>…` | Print specs; optionally use an external viewer |
 | `spec search <query>` | Search specifications |
 | `spec validate` | Validate specs (sections, ids, links, requirements) |
 | `spec export [file.json]` | Export metadata as JSON |
@@ -34,7 +35,7 @@ go build -o spec .
 | `spec refine <id> [--force]` | LLM agent rewrites an existing spec's body in place. For ideas: fleshes out the notes, records a `suggested_type` (new → refined), and offers to promote; without an agent, records a keyword-heuristic suggestion only. `--force` refines discarded ideas |
 | `spec apply [--print\|--yes\|--no-verify\|--force] [id…]` | Run the configured agent to implement specs. Named ids may be accepted or proposed; with no ids, all accepted specs after a confirmation (`--yes` skips it). Success means the spec reached `implemented` and `verify:` passed (`--no-verify` skips it). `--print` outputs the prompt(s) |
 | `spec status` | Summarize repo spec state (counts, coverage, agent) |
-| `spec fact [list\|get\|set\|unset]` | Manage `.spec/facts.yml` project facts |
+| `spec fact [list\|get\|set\|unset\|discover [--yes]]` | Manage `.spec/facts.yml` project facts |
 | `spec check` | Audit `{fact:key}` references against facts.yml; warn about possibly-stale specs |
 | `spec drift [--review [--yes]] [id…]` | List system specs whose covered code (`covers:` frontmatter) changed since they were last updated or verified. `--review` asks the agent whether each is really stale: accurate → `verified:` stamp, stale → proposed update applied on confirmation. Needs git |
 | `spec covers [--infer] [id…]` | Show the files each spec covers; `--infer` fills empty `covers:` from the commits that touched each spec. `spec apply` records covers automatically |
@@ -70,6 +71,7 @@ done_statuses: [deprecated, rejected]   # no longer valid: hidden on the web boa
 idea_statuses: [new, refined, discarded]   # lifecycle for inbox ideas (separate from statuses)
 verify: [go test ./..., spec validate, spec check]   # run by `spec verify` and after `spec apply`
 editor: vim            # falls back to $EDITOR, then vi
+viewer: "glow --style dark {file}" # optional; default is built-in plain output
 ```
 
 `spec config init [global|repo]` writes the annotated template listing
@@ -91,6 +93,11 @@ into LLM agent prompts so drafts use real values instead of inventing
 them. `spec check` reports references to undefined facts and defined
 facts that nothing references.
 
+`spec fact discover` seeds missing placeholder keys with empty values and
+proposes values from structured repository files, or from the configured
+agent. Proposals require confirmation (`--yes` accepts all); existing keys
+are preserved.
+
 The web UI's project badge uses the `project_name` fact if set
 (`spec fact set project_name "My Project"`), else the project spec's title,
 else the git remote's repo name, else the folder name.
@@ -100,3 +107,8 @@ else the git remote's repo name, else the folder name.
 ```bash
 go test ./...
 ```
+
+`spec view` accepts active, archived, and inbox ids. `--cmd` overrides
+`viewer:`; commands use quote-aware arguments without a shell. `{file}`
+is replaced with the path, or the path is appended when absent. Each spec
+runs its own viewer. The default prints a header and body and ignores `$PAGER`.

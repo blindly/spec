@@ -6,7 +6,7 @@ id: FEAT-010
 status: implemented
 title: Keep implemented specs visible and current
 type: feature
-verified: aeb547a901c588465f7629d37525ae76f8c9a61f
+verified: 5b0875bb8b0357c589fcb24a23d5539ca323737f
 ---
 
 # Keep implemented specs visible and current

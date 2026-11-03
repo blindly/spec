@@ -40,7 +40,7 @@ and implement specs. A local web UI provides browsing and editing.
   references to defined `REQ-xxx` ids, and the absence of dependency cycles.
 - REQ-003: All operations other than agent commands work offline. Agents
   run only when configured.
-- REQ-004: Agent commands (`draft`, `refine`, `apply`) run the configured
+- REQ-004: Agent commands (`draft`, `refine`, `apply`, `fact discover`) run the configured
   agent CLI with a timeout and report the actual outcome to the user.
 - REQ-005: `spec apply` runs agents only on a scope the user has explicitly
   approved; it never starts unexpected or unreviewed agent runs.
@@ -52,6 +52,9 @@ and implement specs. A local web UI provides browsing and editing.
   specs.
 - REQ-009: Definite project values live in `.spec/facts.yml` and specs
   reference them with fact placeholders; `spec check` audits the references.
+  `spec fact discover` seeds missing placeholders offline and proposes
+  values from structured files or the configured agent for confirmation.
+  Existing keys are preserved; `--yes` accepts all new candidates.
 - REQ-010: `spec trace` and `spec status` report REQ → feature coverage.
 - REQ-011: Default views (the web UI, `spec status`) show every spec that
   is still valid — including implemented specs, which are the living

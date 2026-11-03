@@ -151,7 +151,10 @@ bodies as ` + "`{fact:key}`" + ` instead of inventing values — they are
 substituted at spec creation and injected into agent prompts.
 ` + "`spec check`" + ` fails on references to undefined keys.
 
-Manage facts from the CLI: ` + "`spec fact list|get|set|unset`" + `.
+Manage facts from the CLI: ` + "`spec fact list|get|set|unset|discover [--yes]`" + `.
+
+` + "`spec fact discover`" + ` seeds missing placeholders and proposes repository values
+for confirmation; ` + "`--yes`" + ` accepts all proposals. Existing keys are preserved.
 
 The project name in the web UI's badge comes from the ` + "`project_name`" + ` fact
 if set (` + "`spec fact set project_name \"My Project\"`" + `), else the project spec's

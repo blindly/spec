@@ -35,10 +35,13 @@ Addresses: REQ-004
   - double quotes keep spaces and allow `\"` and `\\` escapes
   - a backslash outside quotes escapes the next character
   - no variable expansion, globbing, pipes, or redirects
-- Use it for `agent_cmd` (in `resolveAgent`) and for each `verify:` command.
+- Use it for `agent_cmd` (in `resolveAgent`), each `verify:` command, and
+  external `spec view` commands (`viewer:` or `--cmd`). Viewer `{file}`
+  placeholders are substituted after splitting, preserving paths with spaces.
 - `{prompt}` is still substituted inside any argument, quoted or not.
 - An unterminated quote is a config error, reported when the agent is
-  resolved or before verify runs, naming the offending command.
+  resolved, before verify runs, or when launching a viewer, naming the
+  offending command.
 
 ## Acceptance Criteria
 
