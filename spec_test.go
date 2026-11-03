@@ -278,6 +278,48 @@ func TestAgentOversizedPromptFallsBackToStdin(t *testing.T) {
 	}
 }
 
+func TestList(t *testing.T) {
+	st := setupRepo(t)
+	if _, err := st.Create("feature", "Alpha", "# Alpha\n", nil); err != nil {
+		t.Fatal(err)
+	}
+	arch, err := st.Create("adr", "Old decision", "# Old\n", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	arch.Meta["status"] = []string{"deprecated"}
+	if _, err := st.Archive(arch); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := cmdList(&buf, io.Discard, nil); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "FEAT-001") || !strings.Contains(out, "Alpha") ||
+		!strings.Contains(out, "specs/features/FEAT-001-alpha.md") {
+		t.Fatalf("listing missing spec or path:\n%s", out)
+	}
+	if strings.Contains(out, "ADR-001") {
+		t.Fatalf("archived spec listed by default:\n%s", out)
+	}
+	buf.Reset()
+	if err := cmdList(&buf, io.Discard, []string{"--all"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "ADR-001") || !strings.Contains(buf.String(), "(archived)") {
+		t.Fatalf("--all did not list archived spec:\n%s", buf.String())
+	}
+	buf.Reset()
+	if err := cmdList(&buf, io.Discard, []string{"--paths"}); err != nil {
+		t.Fatal(err)
+	}
+	got := strings.TrimSpace(buf.String())
+	if got != "specs/features/FEAT-001-alpha.md" {
+		t.Fatalf("--paths output: %q", got)
+	}
+}
+
 func TestConfigParsing(t *testing.T) {
 	st := setupRepo(t)
 	cfg := loadConfig(st.Root)

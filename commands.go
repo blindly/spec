@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"text/tabwriter"
 	"time"
 )
 
@@ -271,6 +272,48 @@ func refine(in io.Reader, out, errOut io.Writer, id string, force bool) error {
 		fmt.Fprintf(errOut, "\n  type not changed; to switch, create it as: spec new %s %q\n", suggested, s.Title())
 	}
 	return nil
+}
+
+// cmdList prints one aligned line per spec — id, type, status, title, and
+// repo-relative path — so users can find an id for spec edit or a path for
+// $EDITOR. --paths prints paths only (for xargs/scripts); --all includes
+// archived specs, which default views hide (REQ-011).
+func cmdList(out, errOut io.Writer, args []string) error {
+	var all, paths bool
+	for _, a := range args {
+		switch a {
+		case "--all", "-a":
+			all = true
+		case "--paths":
+			paths = true
+		default:
+			return fmt.Errorf("unknown flag %s", a)
+		}
+	}
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
+	w := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
+	for _, s := range st.Specs() {
+		if s.Archived && !all {
+			continue
+		}
+		rel, err := filepath.Rel(st.Root, s.Path)
+		if err != nil {
+			rel = s.Path
+		}
+		if paths {
+			fmt.Fprintln(w, rel)
+			continue
+		}
+		note := ""
+		if s.Archived {
+			note = " (archived)"
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s%s\t%s\t%s\n", s.ID(), s.Type(), s.Status(), note, s.Title(), rel)
+	}
+	return w.Flush()
 }
 
 func cmdEdit(out, errOut io.Writer, id string) error {

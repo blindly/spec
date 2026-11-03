@@ -23,6 +23,7 @@ Usage:
   spec bootstrap                     Bootstrap specs from existing project
   spec import <file>                 Import existing documentation
   spec analyze                       Analyze repository
+  spec ls [--all] [--paths]          List specs (id, type, status, title, path) — alias: list
   spec search <query>                Search specifications
   spec validate                      Validate specifications
   spec export [file.json]            Export metadata as JSON
@@ -68,6 +69,8 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 		return cmdConfig(o, e, a)
 	},
 	"status": func(a []string, o, e io.Writer) error { return cmdStatus(o, e) },
+	"ls":     func(a []string, o, e io.Writer) error { return cmdList(o, e, a) },
+	"list":   func(a []string, o, e io.Writer) error { return cmdList(o, e, a) },
 	"fact":   func(a []string, o, e io.Writer) error { return cmdFact(o, e, a) },
 	"check":  func(a []string, o, e io.Writer) error { return cmdCheck(o, e) },
 	"verify": func(a []string, o, e io.Writer) error { return cmdVerify(o, e) },

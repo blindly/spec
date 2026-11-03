@@ -5,6 +5,7 @@ id: FEAT-015
 status: implemented
 title: spec fact discover
 type: feature
+verified: d33abb029a0045278c35e44b2be31d705c95ee36
 ---
 
 # spec fact discover

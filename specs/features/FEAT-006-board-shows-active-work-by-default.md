@@ -5,7 +5,7 @@ id: FEAT-006
 status: implemented
 title: Board shows active work by default
 type: feature
-verified: 3309b8bba9d2844712d68ffbd7df96cae3fa5255
+verified: d33abb029a0045278c35e44b2be31d705c95ee36
 ---
 
 # Board shows active work by default

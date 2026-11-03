@@ -56,7 +56,7 @@ and implement specs. A local web UI provides browsing and editing.
   values from structured files or the configured agent for confirmation.
   Existing keys are preserved; `--yes` accepts all new candidates.
 - REQ-010: `spec trace` and `spec status` report REQ → feature coverage.
-- REQ-011: Default views (the web UI, `spec status`) show every spec that
+- REQ-011: Default views (the web UI, `spec status`, `spec ls`) show every spec that
   is still valid — including implemented specs, which are the living
   description of the system and have their own view, separate from work in
   progress. Only specs that are no longer valid (deprecated, rejected) are

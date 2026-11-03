@@ -164,6 +164,7 @@ title, else the git remote's repo name, else the folder name.
 
 ` + "```" + `
 spec status     # inbox + spec counts, REQ coverage
+spec ls         # list specs: id, type, status, title, path (--all: archived too; --paths: paths only)
 spec idea <title>                 # capture an idea (type decided later)
 spec promote <IDEA-id> [type]     # idea → project|feature|adr (default: suggested type)
 spec discard <IDEA-id>
