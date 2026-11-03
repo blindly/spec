@@ -6,7 +6,7 @@ id: FEAT-002
 status: implemented
 title: Report apply outcome accurately
 type: feature
-verified: ee060075886efc5b552895ccb323905a0ab3985f
+verified: 3309b8bba9d2844712d68ffbd7df96cae3fa5255
 ---
 
 # Report apply outcome accurately

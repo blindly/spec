@@ -5,7 +5,7 @@ id: FEAT-001
 status: implemented
 title: Confirm apply scope
 type: feature
-verified: 8bb4cbfd3650920472fae258012b1050c1712619
+verified: 3309b8bba9d2844712d68ffbd7df96cae3fa5255
 ---
 
 # Confirm apply scope

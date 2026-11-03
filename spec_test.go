@@ -235,6 +235,49 @@ func TestBootstrapAndRoadmapAndGraph(t *testing.T) {
 	}
 }
 
+func TestBootstrapSkipsGeneratedDirs(t *testing.T) {
+	st := setupRepo(t)
+	os.MkdirAll(filepath.Join(st.Root, "node_modules", "dep"), 0o755)
+	os.WriteFile(filepath.Join(st.Root, "node_modules", "dep", "package.json"), []byte("{}"), 0o644)
+	os.MkdirAll(filepath.Join(st.Root, "docs"), 0o755)
+	os.WriteFile(filepath.Join(st.Root, "docs", "guide.md"), []byte("# Guide\n"), 0o644)
+	os.WriteFile(filepath.Join(st.Root, "package.json"), []byte("{}"), 0o644)
+	if err := cmdBootstrap(io.Discard, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	s := st.Get("PROJ-001")
+	if s == nil {
+		t.Fatal("bootstrap created no project spec")
+	}
+	if strings.Contains(s.Body, "node_modules") {
+		t.Fatalf("dependency dir leaked into spec:\n%s", s.Body)
+	}
+	if !strings.Contains(s.Body, "`package.json`") || !strings.Contains(s.Body, "docs/guide.md") {
+		t.Fatalf("real files missing from spec:\n%s", s.Body)
+	}
+}
+
+func TestAgentOversizedPromptFallsBackToStdin(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fake agent")
+	}
+	dir := t.TempDir()
+	fake := filepath.Join(dir, "agent.sh")
+	os.WriteFile(fake, []byte("#!/bin/sh\ncat > /dev/null\nprintf 'ok\\n'\n"), 0o755)
+	ag := &agent{name: "fake", argv: []string{"sh", fake, "{prompt}"}}
+	// bigger than one argv entry may legally be (128 KiB) → prompt must go
+	// via stdin instead of failing with E2BIG
+	out, err := ag.run(strings.Repeat("x", 200*1024), dir, 30)
+	if err != nil || out != "ok\n" {
+		t.Fatalf("oversized prompt: out=%q err=%v", out, err)
+	}
+	// a small prompt still travels in argv; stdin is left empty for the script
+	out, err = ag.run("hello", dir, 30)
+	if err != nil || out != "ok\n" {
+		t.Fatalf("small prompt: out=%q err=%v", out, err)
+	}
+}
+
 func TestConfigParsing(t *testing.T) {
 	st := setupRepo(t)
 	cfg := loadConfig(st.Root)

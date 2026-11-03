@@ -5,7 +5,7 @@ id: ADR-001
 status: accepted
 title: Bypass codex sandbox in spec apply
 type: adr
-verified: ee060075886efc5b552895ccb323905a0ab3985f
+verified: 3309b8bba9d2844712d68ffbd7df96cae3fa5255
 ---
 
 # Bypass codex sandbox in spec apply

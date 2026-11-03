@@ -5,7 +5,7 @@ id: FEAT-004
 status: implemented
 title: Quote-aware agent_cmd parsing
 type: feature
-verified: ee060075886efc5b552895ccb323905a0ab3985f
+verified: 3309b8bba9d2844712d68ffbd7df96cae3fa5255
 ---
 
 # Quote-aware agent_cmd parsing
@@ -38,7 +38,9 @@ Addresses: REQ-004
 - Use it for `agent_cmd` (in `resolveAgent`), each `verify:` command, and
   external `spec view` commands (`viewer:` or `--cmd`). Viewer `{file}`
   placeholders are substituted after splitting, preserving paths with spaces.
-- `{prompt}` is still substituted inside any argument, quoted or not.
+- `{prompt}` is still substituted inside any argument, quoted or not —
+  unless the result would exceed the kernel's per-argument size limit, in
+  which case the prompt goes via stdin instead (FEAT-017).
 - An unterminated quote is a config error, reported when the agent is
   resolved, before verify runs, or when launching a viewer, naming the
   offending command.

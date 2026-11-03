@@ -88,6 +88,20 @@ func cmdNew(out, errOut io.Writer, specType, title string) error {
 	return nil
 }
 
+// generatedDirs are dependency caches and build-output directories that
+// bootstrap ignores — vendored manifests like node_modules/*/package.json
+// would otherwise flood both the agent prompt and the heuristic spec.
+var generatedDirs = map[string]bool{
+	"node_modules": true, "bower_components": true, "jspm_packages": true,
+	"vendor": true, "Pods": true, "target": true, "dist": true, "build": true,
+	"out": true, "coverage": true, "__pycache__": true, "venv": true,
+	"site-packages": true,
+}
+
+// maxDetectedFiles caps the manifest/doc lists so a monorepo can't produce
+// an unbounded "Detected project files" section or an oversized prompt.
+const maxDetectedFiles = 50
+
 func cmdBootstrap(out, errOut io.Writer) error {
 	st, err := mustStore()
 	if err != nil {
@@ -96,7 +110,8 @@ func cmdBootstrap(out, errOut io.Writer) error {
 	var features, docs []string
 	filepath.Walk(st.Root, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
-			if info != nil && info.IsDir() && strings.HasPrefix(info.Name(), ".") && path != st.Root {
+			if info != nil && info.IsDir() && path != st.Root &&
+				(strings.HasPrefix(info.Name(), ".") || generatedDirs[info.Name()]) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -106,11 +121,15 @@ func cmdBootstrap(out, errOut io.Writer) error {
 			return nil
 		}
 		if strings.HasSuffix(strings.ToLower(rel), ".md") {
-			docs = append(docs, rel)
+			if len(docs) < maxDetectedFiles {
+				docs = append(docs, rel)
+			}
 		}
 		switch info.Name() {
 		case "go.mod", "package.json", "Cargo.toml", "pyproject.toml", "pom.xml":
-			features = append(features, rel)
+			if len(features) < maxDetectedFiles {
+				features = append(features, rel)
+			}
 		}
 		return nil
 	})

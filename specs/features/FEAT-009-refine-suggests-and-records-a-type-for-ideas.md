@@ -6,7 +6,7 @@ id: FEAT-009
 status: implemented
 title: Refine suggests and records a type for ideas
 type: feature
-verified: 5b0875bb8b0357c589fcb24a23d5539ca323737f
+verified: 3309b8bba9d2844712d68ffbd7df96cae3fa5255
 ---
 
 # Refine suggests and records a type for ideas

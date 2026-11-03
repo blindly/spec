@@ -76,6 +76,12 @@ func (a *agent) run(prompt, dir string, timeoutSecs int) (string, error) {
 	return a.runLive(prompt, dir, timeoutSecs, nil)
 }
 
+// maxArgBytes guards against E2BIG ("argument list too long"): the kernel
+// caps a single argv entry (Linux MAX_ARG_STRLEN is 128 KiB), so an
+// oversized prompt must be delivered via stdin instead — same as an agent
+// argv with no {prompt}.
+const maxArgBytes = 120 * 1024
+
 // runLive is run plus optional live streaming: when live is non-nil the
 // agent's stdout is tee'd to it while also being captured for the caller.
 func (a *agent) runLive(prompt, dir string, timeoutSecs int, live io.Writer) (string, error) {
@@ -83,11 +89,16 @@ func (a *agent) runLive(prompt, dir string, timeoutSecs int, live io.Writer) (st
 	usesPlaceholder := false
 	for _, arg := range a.argv {
 		if strings.Contains(arg, "{prompt}") {
-			usesPlaceholder = true
-			argv = append(argv, strings.ReplaceAll(arg, "{prompt}", prompt))
+			if sub := strings.ReplaceAll(arg, "{prompt}", prompt); len(sub) <= maxArgBytes {
+				usesPlaceholder = true
+				argv = append(argv, sub)
+			}
 		} else {
 			argv = append(argv, arg)
 		}
+	}
+	if len(argv) == 0 {
+		return "", fmt.Errorf("agent %s has no executable in argv", a.name)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSecs)*time.Second)
 	defer cancel()
@@ -210,16 +221,27 @@ func findDoc(root string, names ...string) (string, string) {
 	return "", ""
 }
 
-// repoContext summarizes the repository for prompt grounding.
+// repoContext summarizes the repository for prompt grounding. At most
+// maxEntries specs are listed (<=0 means all); the rest collapse into a
+// count so huge repos can't build an unbounded prompt.
 func repoContext(st Store, maxEntries int) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Repository root: %s\n\nExisting specs (implemented = describes the current system):\n", st.Root)
-	for _, s := range st.Specs() {
+	specs := st.Specs()
+	more := 0
+	if maxEntries > 0 && len(specs) > maxEntries {
+		more = len(specs) - maxEntries
+		specs = specs[:maxEntries]
+	}
+	for _, s := range specs {
 		note := ""
 		if s.Archived {
 			note = ", archived — history, may be outdated"
 		}
 		fmt.Fprintf(&b, "- %s (%s, %s%s): %s\n", s.ID(), s.Type(), s.Status(), note, s.Title())
+	}
+	if more > 0 {
+		fmt.Fprintf(&b, "- … and %d more specs\n", more)
 	}
 	if facts := loadFacts(st.Root); len(facts) > 0 {
 		b.WriteString("\nProject facts (definite values — use these, do not invent):\n")

@@ -5,6 +5,7 @@ id: FEAT-016
 status: implemented
 title: spec view
 type: feature
+verified: 3309b8bba9d2844712d68ffbd7df96cae3fa5255
 ---
 
 # spec view
