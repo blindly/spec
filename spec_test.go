@@ -347,6 +347,10 @@ func TestBodyFromAgentOutput(t *testing.T) {
 	if got := bodyFromAgentOutput(prose); strings.HasPrefix(got, "I'll") || !strings.HasPrefix(got, "# Real Spec") {
 		t.Fatalf("preamble not stripped: %q", got)
 	}
+	glued := "I'll explore the repository first.# Real Spec\n\nbody\n"
+	if got := bodyFromAgentOutput(glued); !strings.HasPrefix(got, "# Real Spec") {
+		t.Fatalf("glued preamble not stripped: %q", got)
+	}
 }
 
 func TestAgentDraftAndRefine(t *testing.T) {

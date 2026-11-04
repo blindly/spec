@@ -163,10 +163,21 @@ func bodyFromAgentOutput(out string) string {
 			}
 		}
 	}
+	// some agents glue the narration straight onto the heading with no
+	// newline ("…context first.# Title"); cut at the heading anyway
+	if !strings.HasPrefix(s, "#") {
+		if m := gluedHeading.FindStringIndex(s); m != nil {
+			s = s[m[0]+1:]
+		}
+	}
 	return strings.TrimSpace(s) + "\n"
 }
 
 var typeSuggestionPattern = regexp.MustCompile(`(?m)^\s*SPEC-TYPE-SUGGESTION:\s*(\w+)\s*:?\s*(.*)$`)
+
+// gluedHeading matches a markdown heading fused onto narration-ending
+// punctuation without a newline, e.g. "…explore first.# Title".
+var gluedHeading = regexp.MustCompile(`[.!?]# `)
 
 // extractTypeSuggestion strips the refine agent's SPEC-TYPE-SUGGESTION line
 // from its output and returns the suggested type and reason. The suggestion
