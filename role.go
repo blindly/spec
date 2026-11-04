@@ -60,20 +60,30 @@ func cmdRole(args []string, out, errOut io.Writer) error {
 	if ag == nil {
 		return fmt.Errorf("role refine requires an LLM agent (none configured; set agent/agent_cmd in .spec/config.yml)")
 	}
-	prompt := "Improve the current development role below, or draft one from the repository when no role is set. Describe the persona and concrete development conventions the agent should adopt. Preserve project-specific intent and infer conventions from repository files without inventing constraints. Read files only; do not modify files. Return ONLY the free-form markdown role, without frontmatter or surrounding code fences.\n\nCurrent role:\n" + role + "\n\n" + repoContext(st, 50)
+	prompt := fmt.Sprintf(`You are writing the development role file %s/role.md for a spec-managed repository. The file's entire contents tell the agent who it is and how it develops in this repo.
+
+Improve the current role below, or draft one when no role is set. Describe the persona and concrete development conventions the agent should adopt. A role is often defined before development begins, so do not assume an established codebase — the repository context below is optional input, not a requirement. Preserve project-specific intent and avoid inventing constraints. Read files only; do not modify files.
+
+Your reply is written verbatim to the file, so output ONLY the file contents: a markdown document that starts with a single "# " heading — no commentary, no narration, no frontmatter, no surrounding code fences.
+
+Current role:
+%s
+
+%s`, configDir, role, repoContext(st, 50))
 	fmt.Fprintf(out, "Refining role via %s…\n", ag.name)
 	output, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
 	if err != nil {
 		return err
 	}
-	output = strings.TrimSpace(output)
-	if output == "" {
-		return fmt.Errorf("agent returned an empty role — role left unchanged")
+	body := strings.TrimSpace(bodyFromAgentOutput(output))
+	if !strings.HasPrefix(body, "#") {
+		dumpAgentOutput(errOut, output)
+		return fmt.Errorf("agent returned no markdown document — role left unchanged")
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	if err := writeFileAtomic(path, []byte(output+"\n"), 0o644); err != nil {
+	if err := writeFileAtomic(path, []byte(body+"\n"), 0o644); err != nil {
 		return err
 	}
 	fmt.Fprintln(out, "Refined", path, "via", ag.name)

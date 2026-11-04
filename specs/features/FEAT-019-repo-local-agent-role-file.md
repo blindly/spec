@@ -49,7 +49,14 @@ Addresses: REQ-004
 - `spec role refine` runs the configured agent: given the current role
   (possibly empty) plus `repoContext`, it returns an improved or
   newly-drafted role; the result is written atomically to `.spec/role.md`.
-  Without an agent it fails like `spec refine` does.
+  Without an agent it fails like `spec refine` does. A role is often
+  defined before development begins, so the prompt does not require an
+  established codebase — the repository context is optional input.
+- The refine prompt states the reply is written verbatim to the file and
+  must be only the file contents — a markdown document starting with a
+  `#` heading. The output is cleaned through `bodyFromAgentOutput`
+  (narration, frontmatter, and fences stripped); output that doesn't start
+  with a heading fails like `spec refine` and leaves the role unchanged.
 - `spec status` shows `Role: .spec/role.md` when set, so users can see the
   agent has a persona.
 

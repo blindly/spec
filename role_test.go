@@ -56,14 +56,15 @@ func TestRoleRefine(t *testing.T) {
 			if current != "" {
 				writeFile(t, st, ".spec/role.md", current)
 			}
-			fakeRefineAgent(t, st, "Senior Go engineer.\n\nUse stdlib only.\n")
+			fakeRefineAgent(t, st, "# Development role\n\nSenior Go engineer.\n\nUse stdlib only.\n")
 			// Capture the actual prompt sent to the configured agent.
 			writeFile(t, st, "fakeagent.sh", "#!/bin/sh\ncat > prompt.txt\ncat agent-out.txt\n")
 			var out, errs bytes.Buffer
 			if code := run([]string{"role", "refine"}, &out, &errs); code != 0 {
 				t.Fatal(errs.String())
 			}
-			if got := loadRole(st.Root); got != "Senior Go engineer.\n\nUse stdlib only." {
+			want := "# Development role\n\nSenior Go engineer.\n\nUse stdlib only."
+			if got := loadRole(st.Root); got != want {
 				t.Fatal(got)
 			}
 			prompt, err := os.ReadFile(filepath.Join(st.Root, "prompt.txt"))
@@ -73,18 +74,34 @@ func TestRoleRefine(t *testing.T) {
 			if !strings.Contains(string(prompt), "Repository root:") || !strings.Contains(string(prompt), "Current role:\n"+strings.TrimSpace(current)) {
 				t.Fatal(string(prompt))
 			}
+			// narration before the document is stripped
+			fakeRefineAgent(t, st, "I'll explore the repository first.\n\n# Development role\n\nSenior Go engineer.\n\nUse stdlib only.\n")
+			if err := cmdRole([]string{"refine"}, &out, &errs); err != nil {
+				t.Fatal(err)
+			}
+			if got := loadRole(st.Root); got != want {
+				t.Fatalf("narration kept: %q", got)
+			}
+			// output without a heading is rejected and leaves the role alone
+			fakeRefineAgent(t, st, "Just plain text, no heading.\n")
+			if err := cmdRole([]string{"refine"}, &out, &errs); err == nil {
+				t.Fatal("heading-less output accepted")
+			}
+			if loadRole(st.Root) != want {
+				t.Fatal("role lost on bad output")
+			}
 			fakeRefineAgent(t, st, " \n")
 			if err := cmdRole([]string{"refine"}, &out, &errs); err == nil {
 				t.Fatal("empty output accepted")
 			}
-			if loadRole(st.Root) != "Senior Go engineer.\n\nUse stdlib only." {
+			if loadRole(st.Root) != want {
 				t.Fatal("role lost on failure")
 			}
 			writeFile(t, st, ".spec/config.yml", "agent_cmd: sh -c 'exit 1'\n")
 			if err := cmdRole([]string{"refine"}, &out, &errs); err == nil {
 				t.Fatal("agent failure ignored")
 			}
-			if loadRole(st.Root) != "Senior Go engineer.\n\nUse stdlib only." {
+			if loadRole(st.Root) != want {
 				t.Fatal("role lost on agent failure")
 			}
 		})
