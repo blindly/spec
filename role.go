@@ -64,7 +64,7 @@ func cmdRole(args []string, out, errOut io.Writer) error {
 
 Improve the current role below, or draft one when no role is set. Describe the persona and concrete development conventions the agent should adopt. A role is often defined before development begins, so do not assume an established codebase — the repository context below is optional input, not a requirement. Preserve project-specific intent and avoid inventing constraints. Read files only; do not modify files.
 
-Your reply is written verbatim to the file, so output ONLY the file contents: a markdown document that starts with a single "# " heading — no commentary, no narration, no frontmatter, no surrounding code fences.
+Your reply is written verbatim to the file, so output ONLY the file contents: a markdown document that starts with a single "# " heading followed by a one-sentence persona statement ("You are a ..."). Keep the rest focused on concrete conventions — do not re-document tools or workflows the agent already knows. No commentary, no narration, no frontmatter, no surrounding code fences.
 
 Current role:
 %s
@@ -76,7 +76,7 @@ Current role:
 		return err
 	}
 	body := strings.TrimSpace(bodyFromAgentOutput(output))
-	if !strings.HasPrefix(body, "#") {
+	if !strings.HasPrefix(body, "# ") {
 		dumpAgentOutput(errOut, output)
 		return fmt.Errorf("agent returned no markdown document — role left unchanged")
 	}

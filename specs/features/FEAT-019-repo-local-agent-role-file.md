@@ -54,9 +54,11 @@ Addresses: REQ-004
   established codebase — the repository context is optional input.
 - The refine prompt states the reply is written verbatim to the file and
   must be only the file contents — a markdown document starting with a
-  `#` heading. The output is cleaned through `bodyFromAgentOutput`
-  (narration, frontmatter, and fences stripped); output that doesn't start
-  with a heading fails like `spec refine` and leaves the role unchanged.
+  `#` heading and a one-sentence "You are a …" persona statement, with no
+  re-documentation of tools the agent already knows. The output is
+  cleaned through `bodyFromAgentOutput` (narration, frontmatter, and
+  fences stripped); output that doesn't start with a `# ` heading fails
+  like `spec refine` and leaves the role unchanged.
 - `spec status` shows `Role: .spec/role.md` when set, so users can see the
   agent has a persona.
 
