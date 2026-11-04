@@ -21,6 +21,7 @@ type Config struct {
 	Viewer       string   // external renderer for spec view; empty uses built-in output
 	Editor       string   // editor command for `spec config edit`
 	Verify       []string // commands run by spec verify
+	Persona      string   // name of a ~/.config/spec/personas/<name>.md used as the role when .spec/role.md is unset
 }
 
 var (
@@ -133,6 +134,8 @@ func loadConfig(root string) Config {
 			cfg.Viewer = unquote(v)
 		case "editor":
 			cfg.Editor = strings.Trim(v, `"'`)
+		case "persona":
+			cfg.Persona = strings.Trim(v, `"'`)
 		case "web_host":
 			cfg.WebHost = strings.Trim(v, `"'`)
 		case "web_port":
@@ -166,8 +169,8 @@ func loadConfig(root string) Config {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nviewer: %s\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]",
-		c.Agent, c.AgentCmd, c.AgentTimeout, c.WebHost, c.WebPort, c.editor(), c.Viewer,
+	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nviewer: %s\npersona: %s\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]",
+		c.Agent, c.AgentCmd, c.AgentTimeout, c.WebHost, c.WebPort, c.editor(), c.Viewer, c.Persona,
 		strings.Join(c.Statuses, ", "), strings.Join(c.DoneStatuses, ", "),
 		strings.Join(c.IdeaStatuses, ", "), strings.Join(c.Verify, ", "))
 }
@@ -194,6 +197,10 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 
 # Editor for spec edit / spec config edit (falls back to $EDITOR, then vi)
 # editor: vim
+
+# Persona — a shared development role from ~/.config/spec/personas/<name>.md,
+# used in agent prompts when the repo has no .spec/role.md (which always wins)
+# persona: senior-go   # see: spec persona
 
 # Viewer for spec view (default: built-in plain output; no $PAGER)
 # viewer: "glow --style dark {file}"   # {file} = path; absent = appended
@@ -223,6 +230,10 @@ const repoConfigTemplate = `version: 1
 
 # Editor for spec edit / spec config edit (falls back to $EDITOR, then vi)
 # editor: vim
+
+# Persona — a shared development role from ~/.config/spec/personas/<name>.md,
+# used in agent prompts when the repo has no .spec/role.md (which always wins)
+# persona: senior-go   # see: spec persona
 
 # Viewer for spec view (default: built-in plain output; no $PAGER)
 # viewer: "glow --style dark {file}"   # {file} = path; absent = appended
@@ -255,6 +266,33 @@ func initRepoConfig(root string, force bool) (string, error) {
 		return "", err
 	}
 	return path, os.WriteFile(path, []byte(repoConfigTemplate), 0o644)
+}
+
+// setConfigKey writes key: value into the repo's .spec/config.yml,
+// replacing the existing uncommented line for that key or dropping it
+// when value is "". Commented-out lines mentioning the key are untouched.
+func setConfigKey(root, key, value string) error {
+	path := filepath.Join(root, configDir, "config.yml")
+	data, _ := os.ReadFile(path)
+	var lines []string
+	replaced := false
+	for _, line := range strings.Split(strings.TrimRight(string(data), "\n"), "\n") {
+		k, _, found := strings.Cut(line, ":")
+		if found && strings.TrimSpace(k) == key && !strings.HasPrefix(strings.TrimSpace(line), "#") {
+			if value != "" {
+				lines = append(lines, key+": "+value)
+			}
+			replaced = true
+			continue
+		}
+		if line != "" || len(lines) > 0 {
+			lines = append(lines, line)
+		}
+	}
+	if !replaced && value != "" {
+		lines = append(lines, key+": "+value)
+	}
+	return writeFileAtomic(path, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
 }
 
 // editor resolves the configured editor: config key, then $EDITOR, then vi.

@@ -5,7 +5,7 @@ id: FEAT-003
 status: implemented
 title: Lock spec type in web editor
 type: feature
-verified: 73d57e6eb9a7a2d02674c2b4f143c16859812d73
+verified: 425321963e1a1691e1d9a56b9eebe3c8e91bae46
 ---
 
 # Lock spec type in web editor

@@ -5,7 +5,7 @@ id: FEAT-014
 status: implemented
 title: Predictable project name in the web UI
 type: feature
-verified: d33abb029a0045278c35e44b2be31d705c95ee36
+verified: 425321963e1a1691e1d9a56b9eebe3c8e91bae46
 ---
 
 # Predictable project name in the web UI

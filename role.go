@@ -19,24 +19,44 @@ func loadRole(root string) string {
 }
 
 func cmdRole(args []string, out, errOut io.Writer) error {
-	if len(args) > 1 || (len(args) == 1 && args[0] != "edit" && args[0] != "refine") {
-		return fmt.Errorf("usage: spec role [edit|refine]")
+	if len(args) > 1 || (len(args) == 1 && args[0] != "edit" && args[0] != "refine" && args[0] != "adopt") {
+		return fmt.Errorf("usage: spec role [edit|refine|adopt]")
 	}
 	st, err := mustStore()
 	if err != nil {
 		return err
 	}
-	role := loadRole(st.Root)
+	cfg := loadConfig(st.Root)
+	role, source := roleFor(st, cfg)
 	if len(args) == 0 {
 		if role == "" {
-			fmt.Fprintln(errOut, "No role set; use spec role edit or spec role refine to create .spec/role.md.")
+			fmt.Fprintln(errOut, "No role set; use spec role edit, spec role refine, or spec persona use <name>.")
 		} else {
 			fmt.Fprintln(out, role)
+			if source != filepath.Join(configDir, "role.md") {
+				fmt.Fprintf(errOut, "(from %s)\n", source)
+			}
 		}
 		return nil
 	}
 	path := filepath.Join(st.Root, configDir, "role.md")
-	cfg := loadConfig(st.Root)
+	if args[0] == "adopt" {
+		if loadRole(st.Root) != "" {
+			return fmt.Errorf(".spec/role.md already set — edit it directly")
+		}
+		persona := loadPersona(cfg.Persona)
+		if persona == "" {
+			return fmt.Errorf("no persona in use (set one with spec persona use <name>)")
+		}
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return err
+		}
+		if err := writeFileAtomic(path, []byte(persona+"\n"), 0o644); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Adopted persona %q → %s\n", cfg.Persona, path)
+		return nil
+	}
 	if args[0] == "edit" {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			return err

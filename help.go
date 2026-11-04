@@ -160,11 +160,43 @@ The project name in the web UI's badge comes from the ` + "`project_name`" + ` f
 if set (` + "`spec fact set project_name \"My Project\"`" + `), else the project spec's
 title, else the git remote's repo name, else the folder name.
 
+## Roles and personas
+
+The **role** tells the configured agent who it is and how it develops in
+this repo — a persona and conventions injected into every agent prompt
+(` + "`apply`" + `, ` + "`draft`" + `, ` + "`refine`" + `, ` + "`bootstrap`" + `, ` + "`fact discover`" + `, drift review).
+
+The effective role resolves in order:
+
+1. ` + "`.spec/role.md`" + ` — the project role, always wins when present
+2. ` + "`persona: <name>`" + ` in ` + "`.spec/config.yml`" + ` — a shared persona from
+   ` + "`~/.config/spec/personas/<name>.md`" + ` (a live reference: edit it once,
+   every repo using it sees the change)
+3. nothing — no role, prompts are unchanged
+
+` + "```" + `
+spec role                    # show the effective role (and its source)
+spec role edit               # write the project role by hand
+spec role refine             # agent drafts/improves it (forks a persona into the repo)
+spec role adopt              # copy the active persona into .spec/role.md verbatim
+
+spec persona                 # list the shared library (* = active)
+spec persona new|edit <name> # manage personas in $EDITOR
+spec persona refine <name>   # agent improves it — repo-blind, stays generic
+spec persona use <name>      # set persona: in .spec/config.yml (use none to clear)
+` + "```" + `
+
+Refined roles and personas are markdown documents that open with a
+` + "`#`" + ` heading and a one-sentence "You are a …" persona statement; agent
+narration around the document is stripped before it's saved.
+
 ## CLI
 
 ` + "```" + `
 spec status     # inbox + spec counts, REQ coverage
 spec ls         # list specs: id, type, status, title, path (--all: archived too; --paths: paths only)
+spec role       # show the effective development role (edit|refine|adopt to change it)
+spec persona    # shared persona library (~/.config/spec/personas/): new|edit|refine <name>, use <name|none>
 spec idea <title>                 # capture an idea (type decided later)
 spec promote <IDEA-id> [type]     # idea → project|feature|adr (default: suggested type)
 spec discard <IDEA-id>

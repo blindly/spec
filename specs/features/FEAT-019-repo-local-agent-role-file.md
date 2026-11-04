@@ -5,7 +5,7 @@ id: FEAT-019
 status: implemented
 title: Repo-local agent role file
 type: feature
-verified: 70ccef5a8bf0436583d59a2cf4fa799a42e8e7c0
+verified: 425321963e1a1691e1d9a56b9eebe3c8e91bae46
 ---
 
 # Repo-local agent role file
@@ -36,8 +36,9 @@ Addresses: REQ-004
 
 - `.spec/role.md` is a free-form markdown file next to `facts.yml`. It is
   project context, not a spec: no id, status, lifecycle, or required
-  sections. It is **repo-local only** — the global config dir is never
-  consulted, and a missing or empty file is simply "no role".
+  sections. It is **repo-local** — nothing global supplies a role unless
+  the repo opts into a shared persona via `persona:` (FEAT-020); a missing
+  or empty file and no persona is simply "no role".
 - `loadRole(root)` reads and trims the file; "" means unset.
 - `repoContext` appends a `Development role (follow this persona and these
   conventions):` section when a role is set. Because every prompt builder
@@ -67,7 +68,8 @@ Addresses: REQ-004
 
 - [x] `.spec/role.md` content appears in every agent prompt; absent or
   empty file changes nothing
-- [x] The global config directory is never read for a role
+- [x] Nothing global supplies a role unless the repo opts into a shared
+  persona via `persona:` (FEAT-020)
 - [x] `spec role` prints the role or a "no role set" hint
 - [x] `spec role edit` opens the file in the editor, creating it first
 - [x] `spec role refine` drafts a role from the repo when the file is

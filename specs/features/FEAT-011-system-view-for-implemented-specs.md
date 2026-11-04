@@ -6,7 +6,7 @@ id: FEAT-011
 status: implemented
 title: System view for implemented specs
 type: feature
-verified: d33abb029a0045278c35e44b2be31d705c95ee36
+verified: 425321963e1a1691e1d9a56b9eebe3c8e91bae46
 ---
 
 # System view for implemented specs

@@ -38,7 +38,10 @@ Usage:
   spec apply [flags] [id...]         Run agent to implement specs (no ids: all accepted, after confirmation)
                                        --print outputs prompts · --yes skips confirmation
                                        --no-verify skips verify · --force allows any status
-  spec role [edit|refine]             Show, edit, or improve .spec/role.md
+  spec role [edit|refine|adopt]      Show/edit/refine the effective role (.spec/role.md or persona);
+                                       adopt copies the active persona into .spec/role.md
+  spec persona [new|edit|refine <name>|use <name|none>]   Manage the shared persona library
+                                       (~/.config/spec/personas/); use selects one for this repo
   spec status                        Summarize repository spec state
   spec fact [list|get <key>|set <key> <value>|unset <key>|discover [--yes]]     Manage .spec/facts.yml project facts
   spec check                         Audit {fact:key} references vs facts.yml; warn about drift
@@ -69,13 +72,14 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 	"config": func(a []string, o, e io.Writer) error {
 		return cmdConfig(o, e, a)
 	},
-	"status": func(a []string, o, e io.Writer) error { return cmdStatus(o, e) },
-	"ls":     func(a []string, o, e io.Writer) error { return cmdList(o, e, a) },
-	"list":   func(a []string, o, e io.Writer) error { return cmdList(o, e, a) },
-	"role":   cmdRole,
-	"fact":   func(a []string, o, e io.Writer) error { return cmdFact(o, e, a) },
-	"check":  func(a []string, o, e io.Writer) error { return cmdCheck(o, e) },
-	"verify": func(a []string, o, e io.Writer) error { return cmdVerify(o, e) },
+	"status":  func(a []string, o, e io.Writer) error { return cmdStatus(o, e) },
+	"ls":      func(a []string, o, e io.Writer) error { return cmdList(o, e, a) },
+	"list":    func(a []string, o, e io.Writer) error { return cmdList(o, e, a) },
+	"role":    cmdRole,
+	"persona": cmdPersona,
+	"fact":    func(a []string, o, e io.Writer) error { return cmdFact(o, e, a) },
+	"check":   func(a []string, o, e io.Writer) error { return cmdCheck(o, e) },
+	"verify":  func(a []string, o, e io.Writer) error { return cmdVerify(o, e) },
 	"update": func(a []string, o, e io.Writer) error {
 		tag := ""
 		if len(a) > 0 {

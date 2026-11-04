@@ -276,7 +276,7 @@ func repoContext(st Store, maxEntries int) string {
 			}
 		}
 	}
-	if role := loadRole(st.Root); role != "" {
+	if role, _ := roleFor(st, loadConfig(st.Root)); role != "" {
 		b.WriteString("\nDevelopment role (follow this persona and these conventions):\n")
 		b.WriteString(role)
 		b.WriteByte('\n')

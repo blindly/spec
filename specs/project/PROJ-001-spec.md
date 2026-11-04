@@ -43,10 +43,13 @@ and implement specs. A local web UI provides browsing and editing.
 - REQ-004: Agent commands (`draft`, `refine`, `apply`, `fact discover`, `role refine`) run the configured
   agent CLI with a timeout and report the actual outcome to the user.
   A non-empty repo-local `.spec/role.md` supplies the development persona
-  and conventions in every agent prompt; no global role is consulted.
-  `spec role` prints it, `spec role edit` opens it in the configured editor,
-  and `spec role refine` improves it or drafts it from repository context.
-  `spec status` reports the role path when set.
+  and conventions in every agent prompt; when it is absent, a repo may opt
+  in to a shared persona via `persona:` naming a file in
+  `~/.config/spec/personas/` (`spec persona` manages the library).
+  `spec role` prints the effective role and its source, `spec role edit`
+  opens it in the configured editor, `spec role refine` improves it or
+  drafts it, and `spec role adopt` forks the active persona into the repo.
+  `spec status` reports the role source when set.
 - REQ-005: `spec apply` runs agents only on a scope the user has explicitly
   approved; it never starts unexpected or unreviewed agent runs.
 - REQ-006: Rewriting an existing spec or project file never leaves it

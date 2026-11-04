@@ -5,7 +5,7 @@ id: FEAT-004
 status: implemented
 title: Quote-aware agent_cmd parsing
 type: feature
-verified: 70ccef5a8bf0436583d59a2cf4fa799a42e8e7c0
+verified: 425321963e1a1691e1d9a56b9eebe3c8e91bae46
 ---
 
 # Quote-aware agent_cmd parsing

@@ -198,7 +198,7 @@ func mdBlock(markdown string) string {
 func webHandler(st Store, cfg Config, token string) http.Handler {
 	statuses := cfg.Statuses
 	var writeMu sync.Mutex
-	var gits gitCache // git state reused across requests until the repo changes
+	var gits gitCache                 // git state reused across requests until the repo changes
 	remote := remoteRepoName(st.Root) // read once: remotes rarely change
 
 	// resolve branding per request so a new project_name fact or project

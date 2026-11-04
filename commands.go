@@ -585,8 +585,8 @@ func cmdStatus(out, errOut io.Writer) error {
 	}
 
 	fmt.Fprintf(out, "Repository: %s\n\n", st.Root)
-	if loadRole(st.Root) != "" {
-		fmt.Fprintln(out, "Role: .spec/role.md")
+	if _, source := roleFor(st, cfg); source != "" {
+		fmt.Fprintf(out, "Role: %s\n", source)
 	}
 	if ideas > 0 {
 		var parts []string
