@@ -107,7 +107,11 @@ func cmdRole(args []string, out, errOut io.Writer) error {
 		fmt.Fprintf(out, "Opening %s with %s\n", path, cfg.editor())
 		cmd := exec.Command(cfg.editor(), path)
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
-		return cmd.Run()
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+		// the user may have just written a role — make sure AGENTS.md knows
+		return ensureRolePointer(st.Root)
 	}
 	ag, err := resolveAgent(cfg)
 	if err != nil {

@@ -15,7 +15,7 @@ verified: a33dc388d4e1ed03f312baf415d45b586dafc305
 When a development role or persona is in effect, spec ensures AGENTS.md
 tells agents to adopt it — a marker-delimited
 `<!-- spec:role -->` block appended on role-granting operations
-(`role refine`, `role adopt`, `persona use`), plus a line in the
+(`role edit`, `role refine`, `role adopt`, `persona use`), plus a line in the
 `agentsTemplate` that `spec init` seeds. Agents run directly in the repo
 (outside `spec apply`) then pick up the same persona.
 
@@ -38,9 +38,10 @@ Addresses: REQ-004
   sources (`.spec/role.md`, `persona:` in `.spec/config.yml` with the
   `~/.config/spec/personas/` library) rather than copying role text, so it
   stays valid when the role changes.
-- Called after a role becomes available: `spec role refine` and
-  `spec role adopt` write `.spec/role.md`, `spec persona use <name>`
-  selects a persona. It is idempotent — the marker prevents duplicates.
+- Called after a role becomes available: `spec role edit` (after the
+  editor exits), `spec role refine` and `spec role adopt` write
+  `.spec/role.md`, `spec persona use <name>` selects a persona. It is
+  idempotent — the marker prevents duplicates.
 - `agentsTemplate` gains a bullet pointing at the role file and persona
   mechanism, so `spec init`-seeded repos document it from the start.
   (CLAUDE.md needs no change — it already `@AGENTS.md`-imports.)
@@ -50,7 +51,7 @@ Addresses: REQ-004
 
 ## Acceptance Criteria
 
-- [x] `role refine`, `role adopt`, and `persona use` leave a
+- [x] `role edit`, `role refine`, `role adopt`, and `persona use` leave a
   `<!-- spec:role -->` block in AGENTS.md; a second run adds nothing
 - [x] The pointer is created even when AGENTS.md doesn't exist
 - [x] `agentsTemplate` documents the role mechanism for `spec init`
