@@ -34,6 +34,7 @@ go build -o spec .
 | `spec draft feature <title>` | Generate a feature draft (LLM agent if configured, else heuristic) |
 | `spec refine <id> [--force]` | LLM agent rewrites an existing spec's body in place. For ideas: fleshes out the notes, records a `suggested_type` (new → refined), and offers to promote; without an agent, records a keyword-heuristic suggestion only. `--force` refines discarded ideas |
 | `spec apply [--print\|--yes\|--no-verify\|--force] [id…]` | Run the configured agent to implement specs. Named ids may be accepted or proposed; with no ids, all accepted specs after a confirmation (`--yes` skips it). Success means the spec reached `implemented` and `verify:` passed (`--no-verify` skips it). `--print` outputs the prompt(s) |
+| `spec role [edit\|refine]` | Print, edit, or improve the repo-local `.spec/role.md` development persona (refine requires an agent) |
 | `spec status` | Summarize repo spec state (counts, coverage, agent) |
 | `spec fact [list\|get\|set\|unset\|discover [--yes]]` | Manage `.spec/facts.yml` project facts |
 | `spec check` | Audit `{fact:key}` references against facts.yml; warn about possibly-stale specs |

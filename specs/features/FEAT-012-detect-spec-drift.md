@@ -81,7 +81,8 @@ Addresses: REQ-014
 - **`spec drift --review [id...] [--yes]`** sends each flagged spec, plus
   `git diff <checkpoint> -- <covered files>`, to the agent. The agent
   replies `VERDICT: accurate|stale`, a `REASON:` line, and, if stale, the
-  full updated body.
+  full updated body. When a development role is set, repository context
+  including `.spec/role.md` is appended to the review prompt.
   - **accurate:** stamp `verified:`.
   - **stale:** show the reason and a diff of the proposed body. Apply it on
     `y` (or with `--yes`); otherwise leave the spec unchanged. Applying also

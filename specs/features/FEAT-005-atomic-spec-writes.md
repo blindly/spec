@@ -36,6 +36,7 @@ Addresses: REQ-006
   temp file on any error.
 - Use it wherever an existing file is rewritten:
   - `spec refine` (commands.go)
+  - `spec role refine` (role.go), including newly drafted roles
   - `spec bootstrap` when it updates an existing spec (commands.go)
   - `setFact` and `unsetFact` (facts.go)
   - the web editor save (web.go), replacing its inline temp-file logic

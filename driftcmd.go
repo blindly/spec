@@ -162,6 +162,9 @@ func reviewDrift(in io.Reader, out, errOut io.Writer, st Store, cfg Config, g *g
 	for _, d := range stale {
 		s := d.Spec
 		prompt := fmt.Sprintf(driftReviewPromptFmt, s.ID(), s.Title(), s.Body, gitDiff(st.Root, d.Checkpoint, d.Files))
+		if loadRole(st.Root) != "" {
+			prompt += "\n" + repoContext(st, 50)
+		}
 		fmt.Fprintf(out, "Reviewing %s against %d change(s) via %s…\n", s.ID(), len(d.Commits)+len(d.Uncommitted), ag.name)
 		output, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
 		if err != nil {

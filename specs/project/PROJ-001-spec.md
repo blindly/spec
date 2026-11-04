@@ -40,8 +40,13 @@ and implement specs. A local web UI provides browsing and editing.
   references to defined `REQ-xxx` ids, and the absence of dependency cycles.
 - REQ-003: All operations other than agent commands work offline. Agents
   run only when configured.
-- REQ-004: Agent commands (`draft`, `refine`, `apply`, `fact discover`) run the configured
+- REQ-004: Agent commands (`draft`, `refine`, `apply`, `fact discover`, `role refine`) run the configured
   agent CLI with a timeout and report the actual outcome to the user.
+  A non-empty repo-local `.spec/role.md` supplies the development persona
+  and conventions in every agent prompt; no global role is consulted.
+  `spec role` prints it, `spec role edit` opens it in the configured editor,
+  and `spec role refine` improves it or drafts it from repository context.
+  `spec status` reports the role path when set.
 - REQ-005: `spec apply` runs agents only on a scope the user has explicitly
   approved; it never starts unexpected or unreviewed agent runs.
 - REQ-006: Rewriting an existing spec or project file never leaves it
