@@ -190,6 +190,10 @@ Refined roles and personas are markdown documents that open with a
 ` + "`#`" + ` heading and a one-sentence "You are a …" persona statement; agent
 narration around the document is stripped before it's saved.
 
+Setting a role also appends a ` + "`<!-- spec:role -->`" + ` block to AGENTS.md
+pointing agents at the role sources — so agent CLIs run directly in the
+repo (outside ` + "`spec apply`" + `) adopt the same persona.
+
 ## CLI
 
 ` + "```" + `

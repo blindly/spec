@@ -101,6 +101,9 @@ This repository uses spec for spec-driven development.
   another spec describes, update that spec in the same change.
 - Run spec drift to find specs whose covered code changed since they were
   last updated; fix them, or spec verified <id> if still accurate.
+- A development role may be defined in .spec/role.md or selected via
+  persona: in .spec/config.yml (shared library ~/.config/spec/personas/) —
+  when set, adopt that persona and its conventions for all work here.
 `
 
 const claudeTemplate = `@AGENTS.md

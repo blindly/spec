@@ -38,6 +38,7 @@ Addresses: REQ-004
 - **Selection:** a `persona:` config key, parsed like other flat keys and
   merged global→repo as usual. `spec persona use <name>` writes it into
   the repo's `.spec/config.yml`; `spec persona use none` removes it.
+  Selecting a persona also ensures the AGENTS.md role pointer (FEAT-021).
 - **Resolution** (`roleFor`): `.spec/role.md` non-empty → project role;
   else `persona:` names a library file → that content; else none. The
   effective role is injected into prompts via `repoContext` unchanged —

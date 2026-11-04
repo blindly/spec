@@ -105,6 +105,9 @@ func cmdPersona(args []string, out, errOut io.Writer) error {
 		if err := setConfigKey(st.Root, "persona", args[1]); err != nil {
 			return err
 		}
+		if err := ensureRolePointer(st.Root); err != nil {
+			return err
+		}
 		fmt.Fprintf(out, "Using persona %q\n", args[1])
 		if loadRole(st.Root) != "" {
 			fmt.Fprintln(errOut, "note: .spec/role.md is set and takes precedence")

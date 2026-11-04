@@ -141,6 +141,40 @@ func TestRoleEdit(t *testing.T) {
 	}
 }
 
+func TestRolePointer(t *testing.T) {
+	st := setupRepo(t)
+	// spec init seeds AGENTS.md with the role bullet already
+	seeded, err := os.ReadFile(filepath.Join(st.Root, "AGENTS.md"))
+	if err != nil || !strings.Contains(string(seeded), ".spec/role.md") {
+		t.Fatalf("agentsTemplate missing role docs: %v", err)
+	}
+	// a repo without AGENTS.md gets a minimal pointer file
+	if err := os.Remove(filepath.Join(st.Root, "AGENTS.md")); err != nil {
+		t.Fatal(err)
+	}
+	writePersona(t, st, "dpa", "# DPA\n\nYou are a DPA dev.\n")
+	var out, errs bytes.Buffer
+	if err := cmdPersona([]string{"use", "dpa"}, &out, &errs); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(st.Root, "AGENTS.md"))
+	if err != nil || !strings.Contains(string(data), rolePointerMarker) {
+		t.Fatalf("pointer not written: %v %q", err, data)
+	}
+	// idempotent across granting operations
+	before := string(data)
+	if err := cmdRole([]string{"adopt"}, &out, &errs); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(filepath.Join(st.Root, "AGENTS.md"))
+	if err != nil || string(after) != before {
+		t.Fatal("pointer duplicated or file rewritten")
+	}
+	if strings.Count(string(after), rolePointerMarker) != 1 {
+		t.Fatal("marker duplicated")
+	}
+}
+
 func TestRoleInDriftReviewPrompt(t *testing.T) {
 	st, _, _ := driftedSpec(t)
 	writeFile(t, st, ".spec/role.md", "Senior Go engineer; minimal diffs.")

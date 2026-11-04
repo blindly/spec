@@ -9,6 +9,39 @@ import (
 	"strings"
 )
 
+// rolePointerMarker delimits the AGENTS.md block that points agents at the
+// repo's role. Referencing the role sources (not the text) keeps the block
+// valid when the role changes.
+const rolePointerMarker = "<!-- spec:role -->"
+
+const rolePointerBlock = rolePointerMarker + `
+## Development role
+
+This repo defines a development persona for agents: ` + "`.spec/role.md`" + `, or a
+shared persona selected by ` + "`persona:`" + ` in ` + "`.spec/config.yml`" + ` (library:
+` + "`~/.config/spec/personas/`" + `). When one is set, adopt that persona and its
+conventions for all work here.
+<!-- /spec:role -->
+`
+
+// ensureRolePointer appends the marker-delimited role block to AGENTS.md
+// when absent (creating a minimal AGENTS.md when missing), so agents run
+// directly in the repo adopt the same role spec injects into prompts.
+// Idempotent; callers invoke it after a role becomes available.
+func ensureRolePointer(root string) error {
+	path := filepath.Join(root, "AGENTS.md")
+	data, _ := os.ReadFile(path)
+	s := string(data)
+	if strings.Contains(s, rolePointerMarker) {
+		return nil
+	}
+	s = strings.TrimRight(s, "\n")
+	if s != "" {
+		s += "\n\n"
+	}
+	return writeFileAtomic(path, []byte(s+rolePointerBlock), 0o644)
+}
+
 // loadRole deliberately reads only repository context, never global config.
 func loadRole(root string) string {
 	data, err := os.ReadFile(filepath.Join(root, configDir, "role.md"))
@@ -52,6 +85,9 @@ func cmdRole(args []string, out, errOut io.Writer) error {
 			return err
 		}
 		if err := writeFileAtomic(path, []byte(persona+"\n"), 0o644); err != nil {
+			return err
+		}
+		if err := ensureRolePointer(st.Root); err != nil {
 			return err
 		}
 		fmt.Fprintf(out, "Adopted persona %q → %s\n", cfg.Persona, path)
@@ -104,6 +140,9 @@ Current role:
 		return err
 	}
 	if err := writeFileAtomic(path, []byte(body+"\n"), 0o644); err != nil {
+		return err
+	}
+	if err := ensureRolePointer(st.Root); err != nil {
 		return err
 	}
 	fmt.Fprintln(out, "Refined", path, "via", ag.name)
