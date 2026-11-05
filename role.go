@@ -66,7 +66,7 @@ func cmdRole(args []string, out, errOut io.Writer) error {
 			fmt.Fprintln(errOut, "No role set; use spec role edit, spec role refine, or spec persona use <name>.")
 		} else {
 			fmt.Fprintln(out, role)
-			if source != filepath.Join(configDir, "role.md") {
+			if source != roleFileRel {
 				fmt.Fprintf(errOut, "(from %s)\n", source)
 			}
 		}

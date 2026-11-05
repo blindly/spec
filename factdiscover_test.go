@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -13,6 +14,9 @@ import (
 func TestDiscoverSeeding(t *testing.T) {
 	for _, agent := range []bool{false, true} {
 		t.Run(map[bool]string{false: "offline", true: "agent"}[agent], func(t *testing.T) {
+			if agent && runtime.GOOS == "windows" {
+				t.Skip("shell-script fake agent")
+			}
 			st := setupRepo(t)
 			cfg := "agent: none\n"
 			if agent {
@@ -98,6 +102,11 @@ func TestDiscoverStructuredConfirmationAndIdempotency(t *testing.T) {
 func TestDiscoverAgentConflictsAndFallback(t *testing.T) {
 	for _, mode := range []string{"success", "failure", "invalid", "resolve"} {
 		t.Run(mode, func(t *testing.T) {
+			// the failure modes exercise the fallback path, which a missing
+			// sh produces anyway; only success needs the script to run
+			if mode == "success" && runtime.GOOS == "windows" {
+				t.Skip("shell-script fake agent")
+			}
 			st := setupRepo(t)
 			setFact(st.Root, "domain", "existing.test")
 			os.WriteFile(filepath.Join(st.Root, "go.mod"), []byte("module fallback.test/tools\n"), 0644)

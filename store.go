@@ -14,6 +14,9 @@ import (
 const (
 	specDir   = "specs"
 	configDir = ".spec"
+	// roleFileRel is the repo-relative role path as shown to users; slash
+	// separators keep output identical on every platform.
+	roleFileRel = configDir + "/role.md"
 )
 
 var prefixes = map[string]string{

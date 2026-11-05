@@ -123,13 +123,13 @@ func cmdBootstrap(out, errOut io.Writer) error {
 		}
 		if strings.HasSuffix(strings.ToLower(rel), ".md") {
 			if len(docs) < maxDetectedFiles {
-				docs = append(docs, rel)
+				docs = append(docs, filepath.ToSlash(rel))
 			}
 		}
 		switch info.Name() {
 		case "go.mod", "package.json", "Cargo.toml", "pyproject.toml", "pom.xml":
 			if len(features) < maxDetectedFiles {
-				features = append(features, rel)
+				features = append(features, filepath.ToSlash(rel))
 			}
 		}
 		return nil
@@ -309,6 +309,7 @@ func cmdList(out, errOut io.Writer, args []string) error {
 		if err != nil {
 			rel = s.Path
 		}
+		rel = filepath.ToSlash(rel)
 		if paths {
 			fmt.Fprintln(w, rel)
 			continue
@@ -538,6 +539,7 @@ func cmdSearch(out, errOut io.Writer, query string) error {
 	for _, s := range st.Specs() {
 		data, _ := os.ReadFile(s.Path)
 		rel, _ := filepath.Rel(st.Root, s.Path)
+		rel = filepath.ToSlash(rel)
 		header := false
 		for i, line := range strings.Split(toUTF8(data), "\n") {
 			if !strings.Contains(strings.ToLower(line), q) {
@@ -762,6 +764,7 @@ func cmdValidate(out, errOut io.Writer) error {
 	ids := map[string]bool{}
 	for _, s := range specs {
 		rel, _ := filepath.Rel(st.Root, s.Path)
+		rel = filepath.ToSlash(rel)
 		if s.ID() == "" {
 			fail("%s: missing id", rel)
 		} else if ids[s.ID()] {
@@ -849,7 +852,7 @@ func cmdExport(out, errOut io.Writer, file string) error {
 	var list []entry
 	for _, s := range st.Specs() {
 		rel, _ := filepath.Rel(st.Root, s.Path)
-		list = append(list, entry{s.ID(), s.Title(), s.Type(), s.Status(), rel, s.Field("depends_on")})
+		list = append(list, entry{s.ID(), s.Title(), s.Type(), s.Status(), filepath.ToSlash(rel), s.Field("depends_on")})
 	}
 	data, err := json.MarshalIndent(list, "", "  ")
 	if err != nil {
@@ -896,7 +899,7 @@ func cmdRoadmap(out, errOut io.Writer, file string) error {
 		fmt.Fprintf(&b, "\n## %s%s\n\n", strings.ToUpper(status[:1]), status[1:])
 		for _, s := range items {
 			rel, _ := filepath.Rel(st.Root, s.Path)
-			fmt.Fprintf(&b, "- **%s** — [%s](%s) (%s)\n", s.ID(), s.Title(), rel, s.Type())
+			fmt.Fprintf(&b, "- **%s** — [%s](%s) (%s)\n", s.ID(), s.Title(), filepath.ToSlash(rel), s.Type())
 		}
 	}
 	if file == "" || file == "-" {

@@ -45,7 +45,7 @@ func loadPersona(name string) string {
 // a source label for display; ("", "") means no role.
 func roleFor(st Store, cfg Config) (string, string) {
 	if role := loadRole(st.Root); role != "" {
-		return role, filepath.Join(configDir, "role.md")
+		return role, roleFileRel
 	}
 	if cfg.Persona != "" && cfg.Persona != "none" {
 		if p := loadPersona(cfg.Persona); p != "" {

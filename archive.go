@@ -9,7 +9,7 @@ import (
 
 func relPath(st Store, path string) string {
 	if rel, err := filepath.Rel(st.Root, path); err == nil {
-		return rel
+		return filepath.ToSlash(rel)
 	}
 	return path
 }
