@@ -153,6 +153,9 @@ func cmdBootstrap(out, errOut io.Writer) error {
 	writeResult := func(body, via string) error {
 		if existing != nil {
 			meta := existing.Meta
+			// bootstrap output describes the current system — implemented,
+			// not draft (it is living documentation from the start)
+			meta["status"] = []string{"implemented"}
 			if err := writeFileAtomic(existing.Path, []byte(dumpFrontmatter(meta, body)), 0o644); err != nil {
 				return err
 			}
@@ -161,6 +164,9 @@ func cmdBootstrap(out, errOut io.Writer) error {
 		}
 		s, err := st.Create("project", title, body, nil)
 		if err != nil {
+			return err
+		}
+		if err := setSpecMeta(&s, map[string][]string{"status": {"implemented"}}); err != nil {
 			return err
 		}
 		fmt.Fprintf(out, "Created %s %s\n", s.Path, via)

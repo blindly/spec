@@ -5,7 +5,7 @@ id: FEAT-017
 status: implemented
 title: Bounded agent prompts and bootstrap repo scan
 type: feature
-verified: 425321963e1a1691e1d9a56b9eebe3c8e91bae46
+verified: 5864386bd8432060071cefcfa6e28f462f119dfd
 ---
 
 # Bounded agent prompts and bootstrap repo scan

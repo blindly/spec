@@ -249,6 +249,9 @@ func TestBootstrapSkipsGeneratedDirs(t *testing.T) {
 	if s == nil {
 		t.Fatal("bootstrap created no project spec")
 	}
+	if s.Status() != "implemented" {
+		t.Fatalf("bootstrapped spec should be implemented, got %q", s.Status())
+	}
 	if strings.Contains(s.Body, "node_modules") {
 		t.Fatalf("dependency dir leaked into spec:\n%s", s.Body)
 	}

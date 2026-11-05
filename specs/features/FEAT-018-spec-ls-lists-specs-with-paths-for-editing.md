@@ -5,7 +5,7 @@ id: FEAT-018
 status: implemented
 title: spec ls lists specs with paths for editing
 type: feature
-verified: a33dc388d4e1ed03f312baf415d45b586dafc305
+verified: 5864386bd8432060071cefcfa6e28f462f119dfd
 ---
 
 # spec ls lists specs with paths for editing
