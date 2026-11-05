@@ -5,7 +5,7 @@ id: FEAT-022
 status: implemented
 title: Bootstrap marks project spec implemented
 type: feature
-verified: 5864386bd8432060071cefcfa6e28f462f119dfd
+verified: b4e420a69259da3f82ca5556a41d034f7d8a8757
 ---
 
 # Bootstrap marks project spec implemented

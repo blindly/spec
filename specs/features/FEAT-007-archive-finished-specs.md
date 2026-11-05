@@ -6,7 +6,7 @@ id: FEAT-007
 status: implemented
 title: Archive finished specs
 type: feature
-verified: 5864386bd8432060071cefcfa6e28f462f119dfd
+verified: b4e420a69259da3f82ca5556a41d034f7d8a8757
 ---
 
 # Archive finished specs

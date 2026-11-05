@@ -5,7 +5,7 @@ id: FEAT-005
 status: implemented
 title: Atomic spec writes
 type: feature
-verified: 8bb4cbfd3650920472fae258012b1050c1712619
+verified: b4e420a69259da3f82ca5556a41d034f7d8a8757
 ---
 
 # Atomic spec writes
