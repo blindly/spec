@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // Facts live in .spec/facts.yml — flat "key: value" lines, "#" comments.
@@ -225,6 +226,19 @@ func cmdCheck(out, errOut io.Writer) error {
 		seen[f.Key] = true
 		if !referenced[f.Key] {
 			fmt.Fprintf(out, "WARN  fact %q is never referenced ({fact:%s})\n", f.Key, f.Key)
+		}
+	}
+	// reminders (FEAT-023): warn on due entries and misconfig, never fail
+	now := time.Now()
+	for _, r := range loadReminders(st.Root) {
+		if !validEvery(r.Every) {
+			fmt.Fprintf(out, "WARN  reminder %q has an invalid cadence %q\n", r.ID, r.Every)
+		}
+		if r.Spec != "" && st.Get(r.Spec) == nil {
+			fmt.Fprintf(out, "WARN  reminder %q references unknown spec %s\n", r.ID, r.Spec)
+		}
+		if r.Due(now) {
+			fmt.Fprintf(out, "WARN  reminder %q is due (%s)\n", r.ID, r.Title)
 		}
 	}
 	// drift (FEAT-012): warn, never fail

@@ -276,6 +276,16 @@ func repoContext(st Store, maxEntries int) string {
 			}
 		}
 	}
+	if due := dueReminders(st.Root); len(due) > 0 {
+		b.WriteString("\nRecurring tasks due:\n")
+		for _, r := range due {
+			fmt.Fprintf(&b, "- %s (%s", r.Title, r.ID)
+			if r.Spec != "" {
+				fmt.Fprintf(&b, ", see %s", r.Spec)
+			}
+			b.WriteString(")\n")
+		}
+	}
 	if role, _ := roleFor(st, loadConfig(st.Root)); role != "" {
 		b.WriteString("\nDevelopment role (follow this persona and these conventions):\n")
 		b.WriteString(role)

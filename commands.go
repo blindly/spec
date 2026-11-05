@@ -596,6 +596,18 @@ func cmdStatus(out, errOut io.Writer) error {
 	if _, source := roleFor(st, cfg); source != "" {
 		fmt.Fprintf(out, "Role: %s\n", source)
 	}
+	if rs := loadReminders(st.Root); len(rs) > 0 {
+		due := dueReminders(st.Root)
+		if len(due) > 0 {
+			var ids []string
+			for _, r := range due {
+				ids = append(ids, r.ID)
+			}
+			fmt.Fprintf(out, "Reminders: %d due (%s)\n", len(due), strings.Join(ids, ", "))
+		} else {
+			fmt.Fprintf(out, "Reminders: %d tracked, none due\n", len(rs))
+		}
+	}
 	if ideas > 0 {
 		var parts []string
 		for _, status := range cfg.IdeaStatuses {

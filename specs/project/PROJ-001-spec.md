@@ -77,6 +77,10 @@ and implement specs. A local web UI provides browsing and editing.
 - REQ-014: Implemented specs stay accurate. A change that alters behavior
   described by an existing spec updates that spec as part of the same
   change, so specs don't silently go stale after implementation.
+- REQ-015: Recurring obligations described by specs are tracked in
+  `.spec/reminders.yml` with a cadence and last-done date. `spec remind`
+  manages entries; `spec status` and `spec check` surface due items, and
+  agent prompts list them.
 
 ## Architecture
 

@@ -44,6 +44,8 @@ Usage:
                                        (~/.config/spec/personas/); use selects one for this repo
   spec status                        Summarize repository spec state
   spec fact [list|get <key>|set <key> <value>|unset <key>|discover [--yes]]     Manage .spec/facts.yml project facts
+  spec remind [list|add <title> --every <7d|30d|weekly|monthly|quarterly|yearly> [--spec <id>]|done <id>|remove <id>]
+                                       Manage recurring task reminders (.spec/reminders.yml)
   spec check                         Audit {fact:key} references vs facts.yml; warn about drift
   spec drift [--review [--yes]] [id...]   Specs whose covered code changed since they were last updated;
                                        --review asks the agent if each is stale and proposes an update
@@ -78,6 +80,7 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 	"role":    cmdRole,
 	"persona": cmdPersona,
 	"fact":    func(a []string, o, e io.Writer) error { return cmdFact(o, e, a) },
+	"remind":  func(a []string, o, e io.Writer) error { return cmdRemind(o, e, a) },
 	"check":   func(a []string, o, e io.Writer) error { return cmdCheck(o, e) },
 	"verify":  func(a []string, o, e io.Writer) error { return cmdVerify(o, e) },
 	"update": func(a []string, o, e io.Writer) error {

@@ -37,6 +37,7 @@ go build -o spec .
 | `spec role [edit\|refine]` | Print, edit, or improve the repo-local `.spec/role.md` development persona (refine requires an agent) |
 | `spec status` | Summarize repo spec state (counts, coverage, agent) |
 | `spec fact [list\|get\|set\|unset\|discover [--yes]]` | Manage `.spec/facts.yml` project facts |
+| `spec remind [list\|add <title> --every <period> [--spec <id>]\|done <id>\|remove <id>]` | Track recurring obligations in `.spec/reminders.yml` (`--every`: `7d`, `30d`, … or `weekly`/`monthly`/`quarterly`/`yearly`); `spec status`/`spec check` and agent prompts surface due items |
 | `spec check` | Audit `{fact:key}` references against facts.yml; warn about possibly-stale specs |
 | `spec drift [--review [--yes]] [id…]` | List system specs whose covered code (`covers:` frontmatter) changed since they were last updated or verified. `--review` asks the agent whether each is really stale: accurate → `verified:` stamp, stale → proposed update applied on confirmation. Needs git |
 | `spec covers [--infer] [id…]` | Show the files each spec covers; `--infer` fills empty `covers:` from the commits that touched each spec. `spec apply` records covers automatically |
