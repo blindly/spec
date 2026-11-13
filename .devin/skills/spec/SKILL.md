@@ -26,11 +26,15 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
   live specs and the code where they differ
 - `.spec/config.yml` — agent, statuses, `verify:` commands
 - `.spec/facts.yml` — definite project facts, referenced in specs as `{fact:key}`
+- `.spec/reminders.yml` — recurring obligations (cadence + `last_done`),
+  managed by `spec remind`; due items show in `spec status`, `spec check`,
+  and your prompt context
 
 ## Workflow
 
 1. **Orient first**: run `spec status` (spec counts, REQ→feature coverage,
-   configured agent) and read the project spec's Requirements section.
+   due reminders, configured agent) and read the project spec's
+   Requirements section.
 2. **Before changing behavior**, check for an existing feature spec:
    `spec search <topic>`.
 3. **New behavior** → `spec new feature <title>` (or `spec draft feature
@@ -71,6 +75,13 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
   `{fact:key}`; add missing facts with `spec fact set key value`.
 - `spec check` audits `{fact:key}` references; `spec trace` shows REQ→feature
   coverage.
+- Recurring obligations live in `.spec/reminders.yml`, not in spec
+  statuses (a recurring task never finishes — it resets). When a spec
+  mandates periodic work, register it:
+  `spec remind add <title> --every <7d|30d|weekly|monthly|quarterly|yearly>
+  [--spec <id>]`; mark it `spec remind done <id>` after doing it. Due
+  reminders in your context are real repo obligations — do the task or
+  flag it to the user, don't ignore it.
 - `spec apply <id>` runs the configured agent on an accepted/proposed spec.
   With no ids it targets all accepted specs and asks first (`--yes` to skip,
   required when non-interactive). `spec apply --print` outputs the prompts.

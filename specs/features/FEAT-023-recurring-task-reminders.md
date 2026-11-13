@@ -1,5 +1,5 @@
 ---
-covers: [reminders.go, reminders_test.go, commands.go, agent.go, facts.go, main.go]
+covers: [reminders.go, reminders_test.go, commands.go, agent.go, facts.go, main.go, skills/spec/SKILL.md, README.md]
 created: 2026-11-05
 id: FEAT-023
 status: implemented
