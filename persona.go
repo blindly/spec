@@ -113,6 +113,27 @@ func cmdPersona(args []string, out, errOut io.Writer) error {
 			fmt.Fprintln(errOut, "note: .spec/role.md is set and takes precedence")
 		}
 		return nil
+	case "view":
+		name := cfg.Persona
+		switch len(args) {
+		case 1:
+		case 2:
+			name = args[1]
+		default:
+			return fmt.Errorf("usage: spec persona view [name]")
+		}
+		if name == "" || name == "none" {
+			return fmt.Errorf("no persona in use (pass a name, or set one with spec persona use <name>)")
+		}
+		if !personaNamePattern.MatchString(name) {
+			return fmt.Errorf("invalid persona name %q", name)
+		}
+		data, err := os.ReadFile(personaPath(name))
+		if err != nil {
+			return fmt.Errorf("no persona %q (create it with spec persona new %s)", name, name)
+		}
+		_, err = out.Write(data)
+		return err
 	case "new", "edit":
 		if len(args) != 2 || !personaNamePattern.MatchString(args[1]) {
 			return fmt.Errorf("usage: spec persona %s <name>", sub)
@@ -183,5 +204,5 @@ Current persona:
 		fmt.Fprintln(out, "Refined", path, "via", ag.name)
 		return nil
 	}
-	return fmt.Errorf("usage: spec persona [new|edit|refine <name>|use <name|none>]")
+	return fmt.Errorf("usage: spec persona [new|edit|refine <name>|use <name|none>|view [name]]")
 }

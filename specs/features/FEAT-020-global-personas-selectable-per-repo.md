@@ -1,5 +1,5 @@
 ---
-covers: [persona.go, role.go, config.go, agent.go, commands.go, main.go, help.go, role_test.go]
+covers: [persona.go, role.go, config.go, agent.go, commands.go, main.go, help.go, role_test.go, persona_test.go]
 created: 2026-11-02
 id: FEAT-020
 status: implemented
@@ -50,10 +50,11 @@ Addresses: REQ-004
   persona into `.spec/role.md` verbatim (errors when a project role or no
   persona is in use).
 - **`spec persona`** lists personas (marking the active one);
-  `new`/`edit` manage files via the configured editor; `refine <name>`
-  improves a persona with the same verbatim/heading output contract —
-  but is deliberately repo-blind (no `repoContext`) so repo specifics
-  can't leak into a shared persona.
+  `new`/`edit` manage files via the configured editor; `view [name]`
+  cats a persona verbatim to stdout (default: the active persona);
+  `refine <name>` improves a persona with the same verbatim/heading
+  output contract — but is deliberately repo-blind (no `repoContext`)
+  so repo specifics can't leak into a shared persona.
 - **`spec status`** reports the effective role source.
 
 ## Acceptance Criteria
@@ -64,6 +65,8 @@ Addresses: REQ-004
 - [x] `spec persona` lists the library and marks the active persona
 - [x] `spec persona new|edit|refine <name>` manage library files; refine
   is repo-blind and enforces the `# ` heading contract
+- [x] `spec persona view [name]` cats the file verbatim to stdout
+  (default: the active persona; errors when none is in use)
 - [x] `spec persona use <name>` writes `persona:` to `.spec/config.yml`;
   `use none` removes it
 - [x] `spec role` shows the effective role and its source; `spec role

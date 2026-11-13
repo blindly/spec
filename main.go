@@ -40,8 +40,9 @@ Usage:
                                        --no-verify skips verify · --force allows any status
   spec role [edit|refine|adopt]      Show/edit/refine the effective role (.spec/role.md or persona);
                                        adopt copies the active persona into .spec/role.md
-  spec persona [new|edit|refine <name>|use <name|none>]   Manage the shared persona library
-                                       (~/.config/spec/personas/); use selects one for this repo
+  spec persona [new|edit|refine <name>|use <name|none>|view [name]]   Manage the shared
+                                       persona library (~/.config/spec/personas/); use selects
+                                       one for this repo; view cats one (default: active) to stdout
   spec status                        Summarize repository spec state
   spec fact [list|get <key>|set <key> <value>|unset <key>|discover [--yes]]     Manage .spec/facts.yml project facts
   spec remind [list|add <title> --every <7d|30d|weekly|monthly|quarterly|yearly> [--spec <id>]|done <id>|remove <id>]

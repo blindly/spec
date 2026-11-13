@@ -92,6 +92,43 @@ func TestPersonaResolutionAndUse(t *testing.T) {
 	}
 }
 
+func TestPersonaView(t *testing.T) {
+	st := setupRepo(t)
+	writePersona(t, st, "dpa", "# DPA\n\nYou are a DPA dev.\n")
+	writePersona(t, st, "go", "# Go\n\nYou are a Go dev.\n")
+
+	var out, errs bytes.Buffer
+	// verbatim file contents to stdout
+	if err := cmdPersona([]string{"view", "go"}, &out, &errs); err != nil {
+		t.Fatal(err)
+	}
+	if out.String() != "# Go\n\nYou are a Go dev.\n" {
+		t.Fatalf("view output: %q", out.String())
+	}
+	// no name and no active persona errors
+	if err := cmdPersona([]string{"view"}, &out, &errs); err == nil {
+		t.Fatal("view without name or active persona accepted")
+	}
+	// no name cats the active persona
+	if err := cmdPersona([]string{"use", "dpa"}, &out, &errs); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if err := cmdPersona([]string{"view"}, &out, &errs); err != nil {
+		t.Fatal(err)
+	}
+	if out.String() != "# DPA\n\nYou are a DPA dev.\n" {
+		t.Fatalf("view output: %q", out.String())
+	}
+	// missing and invalid names are rejected
+	if err := cmdPersona([]string{"view", "missing"}, &out, &errs); err == nil {
+		t.Fatal("view of missing persona accepted")
+	}
+	if err := cmdPersona([]string{"view", "../role"}, &out, &errs); err == nil {
+		t.Fatal("traversal name accepted")
+	}
+}
+
 func TestRoleAdopt(t *testing.T) {
 	st := setupRepo(t)
 	writePersona(t, st, "dpa", "# DPA\n\nYou are a DPA dev.\n")

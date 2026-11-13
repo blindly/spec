@@ -181,6 +181,7 @@ spec role refine             # agent drafts/improves it (forks a persona into th
 spec role adopt              # copy the active persona into .spec/role.md verbatim
 
 spec persona                 # list the shared library (* = active)
+spec persona view [name]     # cat a persona to stdout (default: the active one)
 spec persona new|edit <name> # manage personas in $EDITOR
 spec persona refine <name>   # agent improves it — repo-blind, stays generic
 spec persona use <name>      # set persona: in .spec/config.yml (use none to clear)
@@ -200,7 +201,7 @@ repo (outside ` + "`spec apply`" + `) adopt the same persona.
 spec status     # inbox + spec counts, REQ coverage
 spec ls         # list specs: id, type, status, title, path (--all: archived too; --paths: paths only)
 spec role       # show the effective development role (edit|refine|adopt to change it)
-spec persona    # shared persona library (~/.config/spec/personas/): new|edit|refine <name>, use <name|none>
+spec persona    # shared persona library (~/.config/spec/personas/): new|edit|refine <name>, use <name|none>, view [name]
 spec idea <title>                 # capture an idea (type decided later)
 spec promote <IDEA-id> [type]     # idea → project|feature|adr (default: suggested type)
 spec discard <IDEA-id>
