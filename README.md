@@ -16,6 +16,7 @@ go build -o spec .
 | --- | --- |
 | `spec init` | Initialize spec management in a repository (seeds `AGENTS.md`, `CLAUDE.md`, and a `spec` skill under `.devin/skills/` + `.claude/skills/`) |
 | `spec idea <title>` | Capture an untyped idea in the inbox (`specs/inbox/`) — decide the type later |
+| `spec inbox [--all] [--paths]` | List inbox ideas (id, status, suggested type, title, path); `--all` includes discarded and archived |
 | `spec promote <IDEA-id> [project\|feature\|adr] [--force]` | Turn an idea into a spec (defaults to its suggested type); the idea's notes go into the first section, `depends_on` references are updated, and the idea file is deleted |
 | `spec discard <IDEA-id>…` | Mark ideas discarded (kept, hidden in the inbox) |
 | `spec archive <id>… [--force]` | Move specs that are no longer valid (`done_statuses`: deprecated, rejected) and discarded ideas to `specs/archive/<type dir>/`, stamped `archived:`. Implemented specs are living documentation and need `--force`. Archived specs keep their ids and stay searchable and traceable, but leave the board, inbox, `status` counts, `roadmap`, and `apply` |

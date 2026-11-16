@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
+	"text/tabwriter"
 )
 
 // Ideas are untyped inbox entries (type idea, specs/inbox/, IDEA-xxx) with
@@ -265,6 +267,57 @@ func previousSuggestion(s *Spec) string {
 func reportPromote(out io.Writer, ideaID string, ns Spec) {
 	fmt.Fprintf(out, "Promoted %s → %s (%s)\nCreated %s — fill in its sections: spec edit %s\n",
 		ideaID, ns.ID(), ns.Type(), ns.Path, ns.ID())
+}
+
+// cmdInbox lists ideas like spec ls lists specs: discarded and archived
+// ideas are hidden unless --all (the web inbox's "?all=1" toggle matches).
+// A "→ <type>" column appears when refine recorded a suggested_type.
+func cmdInbox(out, errOut io.Writer, args []string) error {
+	var all, paths bool
+	for _, a := range args {
+		switch a {
+		case "--all", "-a":
+			all = true
+		case "--paths":
+			paths = true
+		default:
+			return fmt.Errorf("unknown flag %s", a)
+		}
+	}
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
+	w := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
+	shown := 0
+	for _, s := range st.Specs() {
+		if !s.IsIdea() || (!all && (s.Archived || s.Status() == ideaDiscarded)) {
+			continue
+		}
+		shown++
+		rel, err := filepath.Rel(st.Root, s.Path)
+		if err != nil {
+			rel = s.Path
+		}
+		rel = filepath.ToSlash(rel)
+		if paths {
+			fmt.Fprintln(w, rel)
+			continue
+		}
+		note, suggested := "", ""
+		if s.Archived {
+			note = " (archived)"
+		}
+		if t := metaGet(s.Meta, "suggested_type", ""); t != "" {
+			suggested = "→ " + t
+		}
+		fmt.Fprintf(w, "%s\t%s%s\t%s\t%s\t%s\n", s.ID(), s.Status(), note, suggested, s.Title(), rel)
+	}
+	if shown == 0 {
+		fmt.Fprintln(errOut, "Inbox empty — capture an idea with spec idea <title>.")
+		return nil
+	}
+	return w.Flush()
 }
 
 func cmdDiscard(out io.Writer, ids []string) error {

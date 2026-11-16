@@ -31,7 +31,8 @@ Addresses: REQ-011
 
 - `cmdList` iterates `Store.Specs()` (id-sorted) and writes tab-aligned
   columns via `text/tabwriter`: ID, TYPE, STATUS, TITLE, PATH (relative to
-  the repo root). Ideas appear with type `idea`.
+  the repo root). Ideas are skipped — they have their own `spec inbox`
+  listing (FEAT-024).
 - Consistent with REQ-011, archived specs are hidden by default; `--all`
   includes them, marked `(archived)` after the status.
 - `--paths` suppresses the columns and prints one path per line for
@@ -41,8 +42,9 @@ Addresses: REQ-011
 ## Acceptance Criteria
 
 - [x] `spec ls` lists every non-archived spec with id, type, status, title,
-  and repo-relative path
-- [x] `spec ls --all` also lists archived specs, marked `(archived)`
+  and repo-relative path; ideas are excluded (see `spec inbox`, FEAT-024)
+- [x] `spec ls --all` also lists archived specs, marked `(archived)` —
+  still no ideas
 - [x] `spec ls --paths` prints only paths, one per line
 - [x] `spec list` is an alias
 - [x] Unit test covers listing, `--all`, and `--paths`

@@ -32,6 +32,7 @@ know what it is, promote it:
 
 ` + "```" + `
 spec idea "better search"          # capture
+spec inbox                         # list ideas (--all: discarded+archived too; --paths: paths only)
 spec refine IDEA-003               # agent fleshes out the notes and suggests a type → refined
 spec promote IDEA-003 feature      # becomes FEAT-xxx; the idea's notes go into its first section
 spec discard IDEA-004              # decided against (kept, hidden in the inbox)

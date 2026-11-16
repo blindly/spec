@@ -302,7 +302,7 @@ func cmdList(out, errOut io.Writer, args []string) error {
 	}
 	w := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
 	for _, s := range st.Specs() {
-		if s.Archived && !all {
+		if s.IsIdea() || (s.Archived && !all) {
 			continue
 		}
 		rel, err := filepath.Rel(st.Root, s.Path)
@@ -615,7 +615,7 @@ func cmdStatus(out, errOut io.Writer) error {
 				parts = append(parts, fmt.Sprintf("%d %s", ideaStatus[status], status))
 			}
 		}
-		fmt.Fprintf(out, "Inbox: %d idea(s) (%s)\n\n", ideas, strings.Join(parts, ", "))
+		fmt.Fprintf(out, "Inbox: %d idea(s) (%s) — spec inbox\n\n", ideas, strings.Join(parts, ", "))
 	}
 	fmt.Fprintf(out, "Specs: %d\n", len(specs)-ideas-archived)
 	for _, t := range []string{"project", "feature", "adr", "imported"} {

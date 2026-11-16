@@ -318,6 +318,7 @@ func TestList(t *testing.T) {
 	if _, err := st.Archive(arch); err != nil {
 		t.Fatal(err)
 	}
+	newIdea(t, st, "loose thought", nil)
 	var buf bytes.Buffer
 	if err := cmdList(&buf, io.Discard, nil); err != nil {
 		t.Fatal(err)
@@ -326,6 +327,9 @@ func TestList(t *testing.T) {
 	if !strings.Contains(out, "FEAT-001") || !strings.Contains(out, "Alpha") ||
 		!strings.Contains(out, "specs/features/FEAT-001-alpha.md") {
 		t.Fatalf("listing missing spec or path:\n%s", out)
+	}
+	if strings.Contains(out, "IDEA-") {
+		t.Fatalf("ideas listed by spec ls (they belong to spec inbox):\n%s", out)
 	}
 	if strings.Contains(out, "ADR-001") {
 		t.Fatalf("archived spec listed by default:\n%s", out)
@@ -336,6 +340,9 @@ func TestList(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "ADR-001") || !strings.Contains(buf.String(), "(archived)") {
 		t.Fatalf("--all did not list archived spec:\n%s", buf.String())
+	}
+	if strings.Contains(buf.String(), "IDEA-") {
+		t.Fatalf("ideas listed by spec ls --all:\n%s", buf.String())
 	}
 	buf.Reset()
 	if err := cmdList(&buf, io.Discard, []string{"--paths"}); err != nil {

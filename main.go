@@ -24,6 +24,7 @@ Usage:
   spec import <file>                 Import existing documentation
   spec analyze                       Analyze repository
   spec ls [--all] [--paths]          List specs (id, type, status, title, path) — alias: list
+  spec inbox [--all] [--paths]       List inbox ideas (id, status, suggested type, title, path)
   spec search <query>                Search specifications
   spec validate                      Validate specifications
   spec export [file.json]            Export metadata as JSON
@@ -79,6 +80,7 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 	"status":  func(a []string, o, e io.Writer) error { return cmdStatus(o, e) },
 	"ls":      func(a []string, o, e io.Writer) error { return cmdList(o, e, a) },
 	"list":    func(a []string, o, e io.Writer) error { return cmdList(o, e, a) },
+	"inbox":   func(a []string, o, e io.Writer) error { return cmdInbox(o, e, a) },
 	"role":    cmdRole,
 	"persona": cmdPersona,
 	"fact":    func(a []string, o, e io.Writer) error { return cmdFact(o, e, a) },

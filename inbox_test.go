@@ -39,6 +39,74 @@ func TestIdeaCreate(t *testing.T) {
 	}
 }
 
+func TestInbox(t *testing.T) {
+	st := setupRepo(t)
+	newIdea(t, st, "raw idea", nil)
+	newIdea(t, st, "refined idea", map[string][]string{
+		"status":         {"refined"},
+		"suggested_type": {"feature"},
+	})
+	newIdea(t, st, "dead idea", map[string][]string{"status": {"discarded"}})
+	old := newIdea(t, st, "archived idea", nil)
+	if _, err := st.Archive(old); err != nil {
+		t.Fatal(err)
+	}
+
+	var out, errs bytes.Buffer
+	if err := cmdInbox(&out, &errs, nil); err != nil {
+		t.Fatal(err)
+	}
+	s := out.String()
+	if !strings.Contains(s, "IDEA-001") || !strings.Contains(s, "IDEA-002") {
+		t.Fatalf("inbox missing live ideas:\n%s", s)
+	}
+	if !strings.Contains(s, "→ feature") {
+		t.Fatalf("inbox missing suggested type:\n%s", s)
+	}
+	if strings.Contains(s, "IDEA-003") || strings.Contains(s, "IDEA-004") {
+		t.Fatalf("discarded/archived ideas listed by default:\n%s", s)
+	}
+	// typed specs never appear in the inbox
+	if strings.Contains(s, "FEAT-") {
+		t.Fatalf("spec leaked into inbox:\n%s", s)
+	}
+
+	out.Reset()
+	if err := cmdInbox(&out, &errs, []string{"--all"}); err != nil {
+		t.Fatal(err)
+	}
+	s = out.String()
+	for _, id := range []string{"IDEA-001", "IDEA-002", "IDEA-003", "IDEA-004"} {
+		if !strings.Contains(s, id) {
+			t.Fatalf("--all missing %s:\n%s", id, s)
+		}
+	}
+	if !strings.Contains(s, "IDEA-004") || !strings.Contains(s, "(archived)") {
+		t.Fatalf("archived idea not marked:\n%s", s)
+	}
+
+	out.Reset()
+	if err := cmdInbox(&out, &errs, []string{"--paths"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(strings.TrimSpace(out.String()), "\n") {
+		if !strings.HasPrefix(line, "specs/inbox/") {
+			t.Fatalf("--paths printed a non-path: %q", line)
+		}
+	}
+
+	// empty inbox hints at spec idea
+	setupRepo(t)
+	out.Reset()
+	errs.Reset()
+	if err := cmdInbox(&out, &errs, nil); err != nil {
+		t.Fatal(err)
+	}
+	if out.Len() != 0 || !strings.Contains(errs.String(), "spec idea") {
+		t.Fatalf("empty inbox: out=%q err=%q", out.String(), errs.String())
+	}
+}
+
 func TestIdeaStatusesValidated(t *testing.T) {
 	st := setupRepo(t)
 	cfg := loadConfig(st.Root)

@@ -68,7 +68,8 @@ and implement specs. A local web UI provides browsing and editing.
   is still valid — including implemented specs, which are the living
   description of the system and have their own view, separate from work in
   progress. Only specs that are no longer valid (deprecated, rejected) are
-  kept out of the way.
+  kept out of the way. Untyped ideas are not specs yet: `spec ls` excludes
+  them and `spec inbox` is their view.
 - REQ-012: Specs that are no longer valid can be archived out of all active
   views while remaining in the repo, searchable, and referenceable. Valid
   (implemented) specs are not archived.
