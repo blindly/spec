@@ -11,7 +11,7 @@ import (
 // Config is loaded from .spec/config.yml (flat "key: value" lines, "#" comments).
 type Config struct {
 	Agent        string   // none | adapter name
-	AgentCmd     string   // custom command; {prompt} is replaced by the prompt, else prompt goes to stdin
+	AgentCmd     string   // custom command; {prompt} is replaced by the prompt, {prompt-file} by a temp file holding it, else prompt goes to stdin
 	AgentTimeout int      // seconds
 	WebPort      int      // default port for `spec web`
 	WebHost      string   // bind address for `spec web` (127.0.0.1 or 0.0.0.0)
@@ -180,7 +180,7 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 
 # Agent (opt-in; none = no subprocess ever runs)
 # agent: claude        # claude | devin | gemini | codex | aider | opencode | amp | cline | vibe
-# agent_cmd: mycli --flag {prompt}   # {prompt} = prompt arg; absent = stdin
+# agent_cmd: mycli --flag {prompt}   # {prompt} = prompt arg; {prompt-file} = temp file; absent = stdin
 # agent_timeout: 3600   # seconds
 
 # Web
@@ -213,7 +213,7 @@ const repoConfigTemplate = `version: 1
 
 # Agent (opt-in; none = no subprocess ever runs)
 # agent: claude        # claude | devin | gemini | codex | aider | opencode | amp | cline | vibe
-# agent_cmd: mycli --flag {prompt}   # {prompt} = prompt arg; absent = stdin
+# agent_cmd: mycli --flag {prompt}   # {prompt} = prompt arg; {prompt-file} = temp file; absent = stdin
 # agent_timeout: 3600   # seconds
 
 # Web

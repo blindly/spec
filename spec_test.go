@@ -279,6 +279,30 @@ func TestAgentOversizedPromptFallsBackToStdin(t *testing.T) {
 	if err != nil || out != "ok\n" {
 		t.Fatalf("small prompt: out=%q err=%v", out, err)
 	}
+
+	// the same stdin fallback applies under a smaller limit (e.g. Windows'
+	// 32767-char command-line cap): shrink maxArgBytes and confirm delivery
+	// flips to stdin, then back to argv when the prompt fits again
+	probe := filepath.Join(dir, "probe.sh")
+	os.WriteFile(probe, []byte("#!/bin/sh\ncat > /dev/null\nif [ -z \"$1\" ]; then printf 'stdin\\n'; else printf 'argv\\n'; fi\n"), 0o755)
+	ag = &agent{name: "probe", argv: []string{"sh", probe, "{prompt}"}}
+	old := maxArgBytes
+	t.Cleanup(func() { maxArgBytes = old })
+	maxArgBytes = 4
+	if out, err = ag.run("hello", dir, 30); err != nil || out != "stdin\n" {
+		t.Fatalf("over-limit prompt: out=%q err=%v", out, err)
+	}
+	maxArgBytes = 1024
+	if out, err = ag.run("hello", dir, 30); err != nil || out != "argv\n" {
+		t.Fatalf("under-limit prompt: out=%q err=%v", out, err)
+	}
+
+	// {prompt-file} delivers via a temp file — the channel used by CLIs
+	// that can't read a prompt from stdin (e.g. devin --print)
+	ag = &agent{name: "cat", argv: []string{"cat", "{prompt-file}"}}
+	if out, err = ag.run("file-prompt", dir, 30); err != nil || out != "file-prompt" {
+		t.Fatalf("prompt-file delivery: out=%q err=%v", out, err)
+	}
 }
 
 func TestList(t *testing.T) {

@@ -9,21 +9,25 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 )
 
-// agent is a resolved LLM CLI invocation: argv may contain {prompt} (replaced by the
-// prompt); otherwise the prompt is written to stdin.
+// agent is a resolved LLM CLI invocation: argv may contain {prompt} (replaced
+// by the prompt) or {prompt-file} (replaced by the path of a temp file
+// holding the prompt); otherwise the prompt is written to stdin.
 type agent struct {
 	name string
 	argv []string
 }
 
-// knownAdapters maps a name to argv; {prompt} is the prompt placeholder.
+// knownAdapters maps a name to argv; {prompt} and {prompt-file} are the
+// prompt placeholders. devin uses {prompt-file} because its print mode
+// cannot read the prompt from stdin.
 var knownAdapters = map[string][]string{
 	"claude":   {"claude", "-p", "{prompt}"},
-	"devin":    {"devin", "--print", "--permission-mode", "smart", "--", "{prompt}"},
+	"devin":    {"devin", "--print", "--permission-mode", "smart", "--prompt-file", "{prompt-file}"},
 	"gemini":   {"gemini", "-p", "{prompt}"},
 	"codex":    {"codex", "exec", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"},
 	"aider":    {"aider", "--message", "{prompt}"},
@@ -76,24 +80,58 @@ func (a *agent) run(prompt, dir string, timeoutSecs int) (string, error) {
 	return a.runLive(prompt, dir, timeoutSecs, nil)
 }
 
-// maxArgBytes guards against E2BIG ("argument list too long"): the kernel
-// caps a single argv entry (Linux MAX_ARG_STRLEN is 128 KiB), so an
-// oversized prompt must be delivered via stdin instead — same as an agent
-// argv with no {prompt}.
-const maxArgBytes = 120 * 1024
+// maxArgBytes is the largest prompt passed as one argv entry; a bigger
+// prompt drops the {prompt} placeholder and is written to the agent's
+// stdin — the same delivery used when {prompt} is absent. Linux caps a
+// single argv entry at MAX_ARG_STRLEN (128 KiB → E2BIG); Windows
+// CreateProcess caps the entire command line at 32767 UTF-16 chars ("The
+// filename or extension is too long"), so the limit is lower there. len
+// in bytes is a conservative proxy for the char count — every UTF-8 char
+// takes ≥1 byte.
+var maxArgBytes = 120 * 1024
+
+func init() {
+	if runtime.GOOS == "windows" {
+		maxArgBytes = 30 * 1024
+	}
+}
 
 // runLive is run plus optional live streaming: when live is non-nil the
 // agent's stdout is tee'd to it while also being captured for the caller.
 func (a *agent) runLive(prompt, dir string, timeoutSecs int, live io.Writer) (string, error) {
 	var argv []string
 	usesPlaceholder := false
+	var promptFile string
+	defer func() {
+		if promptFile != "" {
+			os.Remove(promptFile)
+		}
+	}()
 	for _, arg := range a.argv {
-		if strings.Contains(arg, "{prompt}") {
+		switch {
+		case strings.Contains(arg, "{prompt}"):
 			if sub := strings.ReplaceAll(arg, "{prompt}", prompt); len(sub) <= maxArgBytes {
 				usesPlaceholder = true
 				argv = append(argv, sub)
 			}
-		} else {
+		case strings.Contains(arg, "{prompt-file}"):
+			if promptFile == "" {
+				f, err := os.CreateTemp("", "spec-prompt-*")
+				if err != nil {
+					return "", fmt.Errorf("prompt file: %w", err)
+				}
+				if _, err := f.WriteString(prompt); err != nil {
+					f.Close()
+					return "", fmt.Errorf("prompt file: %w", err)
+				}
+				if err := f.Close(); err != nil {
+					return "", fmt.Errorf("prompt file: %w", err)
+				}
+				promptFile = f.Name()
+			}
+			usesPlaceholder = true
+			argv = append(argv, strings.ReplaceAll(arg, "{prompt-file}", promptFile))
+		default:
 			argv = append(argv, arg)
 		}
 	}

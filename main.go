@@ -62,7 +62,8 @@ Usage:
 
 Agent configuration lives in .spec/config.yml:
   agent: none|claude|devin|gemini|codex|aider|opencode|amp|cline|vibe   (default: none)
-  agent_cmd: "mycli --flag {prompt}" # {prompt} = prompt arg; absent = prompt via stdin
+  agent_cmd: "mycli --flag {prompt}" # {prompt} = prompt arg · {prompt-file} = temp file
+                                       holding the prompt · absent = prompt via stdin
   agent_timeout: 3600                 # seconds
 `
 

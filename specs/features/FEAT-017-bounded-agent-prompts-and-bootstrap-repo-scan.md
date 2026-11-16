@@ -33,9 +33,15 @@ Addresses: REQ-004
 ## Design
 
 - `agent.runLive` substitutes `{prompt}` into argv only when the resulting
-  argument fits within `maxArgBytes` (120 KiB, below the kernel limit). An
-  oversized prompt drops its argv placeholder and is written to the agent's
-  stdin — the same delivery used when `{prompt}` is absent.
+  argument fits within `maxArgBytes` (120 KiB, below the kernel limit; on
+  Windows 30 KiB, since CreateProcess caps the whole command line at 32767
+  chars). An oversized prompt drops its argv placeholder and is written to
+  the agent's stdin — the same delivery used when `{prompt}` is absent.
+- A `{prompt-file}` argv placeholder expands to the path of a temp file
+  holding the prompt (removed after the run), for agents whose
+  non-interactive mode cannot read a prompt from stdin — the `devin`
+  adapter uses it (`devin --print` errors when no prompt arrives, so the
+  stdin fallback would reach it empty). `agent_cmd` may use it too.
 - `cmdBootstrap`'s repo walk skips `generatedDirs` (node_modules, vendor,
   target, dist, build, coverage, __pycache__, venv, Pods, …) alongside the
   existing dot-dir skip, and caps the manifest/doc lists at
@@ -46,9 +52,13 @@ Addresses: REQ-004
 ## Acceptance Criteria
 
 - [x] A prompt larger than one argv entry reaches the agent via stdin
-  instead of failing with E2BIG
+  instead of failing with E2BIG (or, on Windows, the CreateProcess
+  command-line cap)
 - [x] Bootstrap skips `node_modules` and other generated dirs; vendored
   `package.json` files never appear in the spec or the prompt
 - [x] Real top-level manifests and docs are still detected and listed
 - [x] Small prompts still travel in argv as before
-- [x] Unit tests cover the stdin fallback and the generated-dir skip
+- [x] `devin` gets its prompt via `--prompt-file <temp>` at any size —
+  its print mode cannot read a prompt from stdin
+- [x] Unit tests cover the stdin fallback, the `{prompt-file}` channel,
+  and the generated-dir skip
