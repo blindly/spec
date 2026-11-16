@@ -38,8 +38,9 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
 2. **Before changing behavior**, check for an existing feature spec:
    `spec search <topic>`.
 3. **New behavior** → `spec new feature <title>` (or `spec draft feature
-   <title>` for an LLM/heuristic draft). Set status `proposed`/`accepted` per
-   repo convention. There is NO bug spec type:
+   <title>` for an LLM/heuristic draft) — specs are mandatory: no behavior
+   change ships without a spec describing it. Set status
+   `proposed`/`accepted` per repo convention. There is NO bug spec type:
    - code violates spec → just fix the code (no spec needed)
    - spec is wrong/ambiguous → edit the spec, or `spec new adr` if it's a real
      decision
@@ -67,6 +68,10 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
 
 ## Rules
 
+- **Specs are mandatory.** Every change that adds or alters behavior must
+  be described by a spec in the same change — a new feature spec, or an
+  update to the existing spec that covers it. The only exception is a fix
+  that restores behavior a spec already documents.
 - Statuses come from `.spec/config.yml` (`statuses:`); default lifecycle is
   draft → proposed → accepted → implemented (plus deprecated/rejected).
 - Declare inter-spec dependencies with `depends_on:` frontmatter; `spec graph`
@@ -98,5 +103,8 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
   (`sh -c 'a b'`).
 - All commands must run inside a spec-managed tree (`.spec/` is found by
   walking up from cwd — `spec init` creates it).
+- Installed copies of this skill are snapshots from `spec init` — they go
+  stale when the binary's embedded version changes. `spec skill` checks;
+  `spec skill update` refreshes them.
 - `.spec/config.yml` documents every key; regenerate it with
   `spec config init repo --force`.

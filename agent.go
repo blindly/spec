@@ -23,18 +23,20 @@ type agent struct {
 }
 
 // knownAdapters maps a name to argv; {prompt} and {prompt-file} are the
-// prompt placeholders. devin uses {prompt-file} because its print mode
-// cannot read the prompt from stdin.
+// prompt placeholders. Adapters whose non-interactive mode can't read the
+// prompt from stdin use {prompt-file} (devin, aider, vibe); gemini keeps
+// the flag fused to {prompt} so an oversized prompt drops the whole
+// argument and stdin becomes the prompt — bare `gemini` reads stdin.
 var knownAdapters = map[string][]string{
 	"claude":   {"claude", "-p", "{prompt}"},
 	"devin":    {"devin", "--print", "--permission-mode", "smart", "--prompt-file", "{prompt-file}"},
-	"gemini":   {"gemini", "-p", "{prompt}"},
+	"gemini":   {"gemini", "--prompt={prompt}"},
 	"codex":    {"codex", "exec", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox", "{prompt}"},
-	"aider":    {"aider", "--message", "{prompt}"},
+	"aider":    {"aider", "--message-file", "{prompt-file}"},
 	"opencode": {"opencode", "run", "{prompt}"},
 	"amp":      {"amp", "-x", "{prompt}"},
 	"cline":    {"cline", "{prompt}"},
-	"vibe":     {"vibe", "--auto-approve", "-p", "{prompt}"},
+	"vibe":     {"vibe", "--auto-approve", "--prompt-file", "{prompt-file}"},
 }
 
 // resolveAgent picks an agent per config. Returns (nil, nil) when no agent is

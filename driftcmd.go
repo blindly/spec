@@ -159,6 +159,7 @@ func reviewDrift(in io.Reader, out, errOut io.Writer, st Store, cfg Config, g *g
 		return fmt.Errorf("spec drift --review needs an LLM agent (set agent/agent_cmd in .spec/config.yml)")
 	}
 	reader := bufio.NewReader(in)
+	var failed []string
 	for _, d := range stale {
 		s := d.Spec
 		prompt := fmt.Sprintf(driftReviewPromptFmt, s.ID(), s.Title(), s.Body, gitDiff(st.Root, d.Checkpoint, d.Files))
@@ -168,7 +169,9 @@ func reviewDrift(in io.Reader, out, errOut io.Writer, st Store, cfg Config, g *g
 		fmt.Fprintf(out, "Reviewing %s against %d change(s) via %s…\n", s.ID(), len(d.Commits)+len(d.Uncommitted), ag.name)
 		output, err := ag.run(prompt, st.Root, cfg.AgentTimeout)
 		if err != nil {
-			return err
+			fmt.Fprintf(errOut, "%s: review failed: %v\n", s.ID(), err)
+			failed = append(failed, s.ID())
+			continue
 		}
 		m := verdictPattern.FindStringSubmatch(output)
 		reason := ""
@@ -182,7 +185,9 @@ func reviewDrift(in io.Reader, out, errOut io.Writer, st Store, cfg Config, g *g
 		}
 		if strings.EqualFold(m[1], "accurate") {
 			if err := setSpecMeta(&s, map[string][]string{"verified": {g.head}}); err != nil {
-				return err
+				fmt.Fprintf(errOut, "%s: %v\n", s.ID(), err)
+				failed = append(failed, s.ID())
+				continue
 			}
 			fmt.Fprintf(out, "%s: ACCURATE — %s\n  stamped verified: %s\n", s.ID(), reason, short(g.head))
 			continue
@@ -215,9 +220,14 @@ func reviewDrift(in io.Reader, out, errOut io.Writer, st Store, cfg Config, g *g
 		}
 		s.Body = body
 		if err := setSpecMeta(&s, map[string][]string{"verified": {g.head}}); err != nil {
-			return err
+			fmt.Fprintf(errOut, "%s: %v\n", s.ID(), err)
+			failed = append(failed, s.ID())
+			continue
 		}
 		fmt.Fprintf(out, "  updated %s\n", relPath(st, s.Path))
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("%d spec(s) could not be reviewed: %s", len(failed), strings.Join(failed, ", "))
 	}
 	return nil
 }
@@ -245,7 +255,7 @@ func trackCoverage(out io.Writer, st Store, cfg Config, id string, changed []str
 		covers := s.Field("covers")
 		added := false
 		for _, f := range code {
-			if !coveredBy(covers, f) {
+			if !coveredBy(covers, f) && countCoverers(st, f) < sharedFileCoverers {
 				covers = append(covers, f)
 				added = true
 			}

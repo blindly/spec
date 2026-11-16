@@ -1,5 +1,5 @@
 ---
-covers: [commands.go, drift.go, driftcmd.go, facts.go, help.go, main.go, system.go, templates.go, web.go]
+covers: [commands.go, drift.go, driftcmd.go, drift_test.go, facts.go, help.go, main.go, system.go, templates.go, web.go]
 created: 2026-11-02
 depends_on: [FEAT-010, FEAT-011]
 id: FEAT-012
@@ -78,11 +78,19 @@ Addresses: REQ-014
 
 - **`spec drift [id...]`** lists possibly-stale specs with the changed files
   and the commits involved, newest first. It never fails the build.
+- **Shared plumbing isn't a signal.** A file covered by `sharedFileCoverers`
+  (5) or more specs — main.go, help.go, the usual suspects — flags all of
+  them on every commit, so it never counts as a drift trigger (a spec
+  covered only by such files simply can't drift this way). `covers --infer`
+  and post-apply coverage tracking also refuse to list a shared file:
+  specs are expected to cover the files specific to them.
 - **`spec drift --review [id...] [--yes]`** sends each flagged spec, plus
   `git diff <checkpoint> -- <covered files>`, to the agent. The agent
   replies `VERDICT: accurate|stale`, a `REASON:` line, and, if stale, the
   full updated body. When a development role is set, repository context
-  including `.spec/role.md` is appended to the review prompt.
+  including `.spec/role.md` is appended to the review prompt. A spec whose
+  review fails (agent error or a failed write) is reported to stderr and
+  skipped — the batch continues and exits non-zero, naming the failures.
   - **accurate:** stamp `verified:`.
   - **stale:** show the reason and a diff of the proposed body. Apply it on
     `y` (or with `--yes`); otherwise leave the spec unchanged. Applying also
@@ -115,6 +123,8 @@ Addresses: REQ-014
 - [x] `spec verified` clears the flag until covered files change again
 - [x] Only system specs are checked; specs without `covers` are reported as having no coverage
 - [x] `spec drift --review`: an accurate verdict stamps `verified`; a stale verdict shows a diff and applies it with confirmation or `--yes`
+- [x] `spec drift --review` continues past a spec whose agent call fails and exits non-zero naming the failures
+- [x] A file covered by ≥5 specs never triggers drift and isn't added by `covers --infer` or apply coverage tracking
 - [x] `spec check` warns about possibly-stale specs without failing
 - [x] The apply prompt lists possibly-stale specs, and after applying, spec warns about other specs covering files the run changed
 - [x] `/system` shows a "may be stale" badge; the spec page lists changed files and commits

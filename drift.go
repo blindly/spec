@@ -37,6 +37,49 @@ type gitRepo struct {
 	// for uncommitted edits.
 	specChange      map[string]bool
 	dirtySpecChange map[string]bool
+	// coverLists and covererMemo back isSharedFile, loaded on first use.
+	coverLists  [][]string
+	covererMemo map[string]int
+}
+
+// sharedFileCoverers is the coverer count at which a file counts as shared
+// plumbing: a file that many specs cover (main.go, help.go, …) flags every
+// one of them on any change, so drift ignores it as a staleness signal and
+// covers --infer/trackCoverage refuse to list it. Specs are expected to
+// cover the files specific to them.
+const sharedFileCoverers = 5
+
+// countCoverers reports how many specs' covers entries match file.
+func countCoverers(st Store, file string) int {
+	n := 0
+	for _, s := range st.Specs() {
+		if coveredBy(s.Field("covers"), file) {
+			n++
+		}
+	}
+	return n
+}
+
+// isSharedFile reports whether file is covered by sharedFileCoverers or
+// more specs — churn on shared plumbing says nothing about any one spec.
+func (g *gitRepo) isSharedFile(file string) bool {
+	if g.coverLists == nil {
+		g.covererMemo = map[string]int{}
+		g.coverLists = [][]string{}
+		for _, s := range (Store{Root: g.root}).Specs() {
+			g.coverLists = append(g.coverLists, s.Field("covers"))
+		}
+	}
+	n, ok := g.covererMemo[file]
+	if !ok {
+		for _, covers := range g.coverLists {
+			if coveredBy(covers, file) {
+				n++
+			}
+		}
+		g.covererMemo[file] = n
+	}
+	return n >= sharedFileCoverers
 }
 
 // runGit runs git in root. With SPEC_TRACE set, each call's duration is
@@ -301,7 +344,7 @@ func (g *gitRepo) drift(s Spec) *driftInfo {
 	for _, c := range g.commits[:cp] {
 		hit := false
 		for _, f := range c.Files {
-			if coveredBy(covers, f) {
+			if coveredBy(covers, f) && !g.isSharedFile(f) {
 				hit = true
 				if !seen[f] {
 					seen[f] = true
@@ -314,7 +357,7 @@ func (g *gitRepo) drift(s Spec) *driftInfo {
 		}
 	}
 	for f := range g.dirty {
-		if coveredBy(covers, f) {
+		if coveredBy(covers, f) && !g.isSharedFile(f) {
 			d.Uncommitted = append(d.Uncommitted, f)
 			if !seen[f] {
 				seen[f] = true
@@ -367,7 +410,7 @@ func (g *gitRepo) inferCovers(s Spec) []string {
 			continue
 		}
 		for _, f := range c.Files {
-			if seen[f] || !isCodeFile(f) {
+			if seen[f] || !isCodeFile(f) || g.isSharedFile(f) {
 				continue
 			}
 			seen[f] = true

@@ -53,6 +53,9 @@ Usage:
                                        --review asks the agent if each is stale and proposes an update
   spec covers [--infer] [id...]      Show (or infer from git history) the files each spec covers
   spec verified <id>...              Mark specs as checked and accurate (clears drift until code changes)
+  spec skill [check|update] [--global]   Check the installed spec skill copies against the one
+                                       embedded in this binary; update rewrites stale/missing
+                                       (--global: user-level ~/.config/devin + ~/.claude skills)
   spec verify                        Run configured verification commands
   spec config                        Show effective configuration
   spec config init [global|repo] [--force]   Write config template (--force regenerates)
@@ -107,6 +110,7 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 	"drift":     func(a []string, o, e io.Writer) error { return cmdDrift(os.Stdin, o, e, a) },
 	"covers":    func(a []string, o, e io.Writer) error { return cmdCovers(o, a) },
 	"verified":  func(a []string, o, e io.Writer) error { return cmdVerified(o, a) },
+	"skill":     func(a []string, o, e io.Writer) error { return cmdSkill(o, e, a) },
 	"new": func(a []string, o, e io.Writer) error {
 		if len(a) < 2 {
 			return fmt.Errorf("usage: spec new <project|feature|adr|idea> <title>")

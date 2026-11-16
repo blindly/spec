@@ -40,8 +40,15 @@ Addresses: REQ-004
 - A `{prompt-file}` argv placeholder expands to the path of a temp file
   holding the prompt (removed after the run), for agents whose
   non-interactive mode cannot read a prompt from stdin — the `devin`
-  adapter uses it (`devin --print` errors when no prompt arrives, so the
-  stdin fallback would reach it empty). `agent_cmd` may use it too.
+  (`--prompt-file`), `aider` (`--message-file`), and `vibe`
+  (`--prompt-file`) adapters use it (`devin --print` errors when no
+  prompt arrives, so the stdin fallback would reach it empty).
+  `agent_cmd` may use it too.
+- Adapters whose prompt is a positional argument or a boolean flag
+  (claude, codex, opencode, cline, amp) fall back to stdin cleanly on
+  overflow — those CLIs all read a piped prompt. `gemini` fuses the flag
+  to the placeholder (`--prompt={prompt}`): an oversized prompt drops the
+  whole argument, and bare `gemini` reads stdin as the prompt.
 - `cmdBootstrap`'s repo walk skips `generatedDirs` (node_modules, vendor,
   target, dist, build, coverage, __pycache__, venv, Pods, …) alongside the
   existing dot-dir skip, and caps the manifest/doc lists at
@@ -58,7 +65,11 @@ Addresses: REQ-004
   `package.json` files never appear in the spec or the prompt
 - [x] Real top-level manifests and docs are still detected and listed
 - [x] Small prompts still travel in argv as before
-- [x] `devin` gets its prompt via `--prompt-file <temp>` at any size —
-  its print mode cannot read a prompt from stdin
+- [x] `devin`, `aider`, and `vibe` get the prompt via a file flag
+  (`--prompt-file`/`--message-file`) at any size — stdin isn't a reliable
+  prompt channel for them
+- [x] Positional/bool-flag adapters (claude, codex, opencode, cline, amp)
+  overflow to stdin; `gemini`'s `--prompt={prompt}` drops the whole arg on
+  overflow so stdin becomes the prompt
 - [x] Unit tests cover the stdin fallback, the `{prompt-file}` channel,
   and the generated-dir skip

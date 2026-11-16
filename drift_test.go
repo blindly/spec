@@ -72,6 +72,53 @@ func driftOf(t *testing.T, st Store, id string) *driftInfo {
 	return g.drift(*st.Get(id))
 }
 
+func TestDriftIgnoresSharedPlumbingFiles(t *testing.T) {
+	st := setupRepo(t)
+	commit := gitInit(t, st)
+	// hub.go is covered by 5 specs — shared plumbing, not a staleness signal
+	a := liveFeature(t, st, "A", "hub.go", "a.go")
+	for _, title := range []string{"B", "C", "D", "E"} {
+		liveFeature(t, st, title, "hub.go")
+	}
+	writeFile(t, st, "hub.go", "v1\n")
+	writeFile(t, st, "a.go", "v1\n")
+	commit("specs and code")
+	writeFile(t, st, "hub.go", "v2\n")
+	commit("change shared file")
+	if d := driftOf(t, st, a.ID()); d != nil {
+		t.Fatalf("shared-file change flagged %s: %v", a.ID(), d.Files)
+	}
+	// a change to a spec-specific file still flags — and the shared file
+	// isn't listed among the changes
+	writeFile(t, st, "a.go", "v2\n")
+	commit("change specific file")
+	d := driftOf(t, st, a.ID())
+	if d == nil || !containsStr(d.Files, "a.go") {
+		t.Fatalf("specific change not flagged: %+v", d)
+	}
+	if containsStr(d.Files, "hub.go") {
+		t.Fatalf("shared file reported as changed: %v", d.Files)
+	}
+
+	// inferCovers won't add a shared file to a new spec's covers
+	f := liveFeature(t, st, "fresh")
+	writeFile(t, st, "hub.go", "v3\n")
+	writeFile(t, st, "other.go", "v1\n")
+	commit("fresh spec + shared churn")
+	got := loadGitFull(st.Root).inferCovers(*st.Get(f.ID()))
+	if containsStr(got, "hub.go") || !containsStr(got, "other.go") {
+		t.Fatalf("inferCovers: %v", got)
+	}
+
+	// post-apply coverage tracking skips shared files too
+	var buf bytes.Buffer
+	trackCoverage(&buf, st, loadConfig(st.Root), f.ID(), []string{"hub.go", "z.go"}, true)
+	got = st.Get(f.ID()).Field("covers")
+	if containsStr(got, "hub.go") || !containsStr(got, "z.go") {
+		t.Fatalf("trackCoverage: %v", got)
+	}
+}
+
 func TestCoverMatches(t *testing.T) {
 	cases := []struct {
 		pattern, file string
@@ -329,6 +376,45 @@ func TestDriftReviewAccurate(t *testing.T) {
 	prompt, _ := os.ReadFile(promptFile)
 	if !strings.Contains(string(prompt), "NEW behavior") || !strings.Contains(string(prompt), "VERDICT: accurate|stale") {
 		t.Fatalf("review prompt should include the diff and format:\n%s", prompt)
+	}
+}
+
+func TestDriftReviewContinuesPastFailure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fake agent")
+	}
+	st := setupRepo(t)
+	commit := gitInit(t, st)
+	good := liveFeature(t, st, "good", "good.go")
+	bad := liveFeature(t, st, "bad", "bad.go")
+	writeFile(t, st, "good.go", "v1\n")
+	writeFile(t, st, "bad.go", "v1\n")
+	commit("init")
+	writeFile(t, st, "good.go", "v2\n")
+	writeFile(t, st, "bad.go", "v2\n")
+	commit("change both")
+
+	// the fake agent fails on the spec whose id appears in the prompt
+	dir := t.TempDir()
+	outFile, promptFile := filepath.Join(dir, "out.txt"), filepath.Join(dir, "prompt.txt")
+	os.WriteFile(outFile, []byte("VERDICT: accurate\nREASON: fine\n"), 0o644)
+	fake := filepath.Join(dir, "agent.sh")
+	os.WriteFile(fake, []byte("#!/bin/sh\ncat > '"+promptFile+"'\ngrep -q '"+bad.ID()+"' '"+promptFile+"' && exit 1\ncat '"+outFile+"'\n"), 0o755)
+	writeFile(t, st, ".spec/config.yml", "agent_cmd: sh "+fake+"\n")
+
+	var out, errs bytes.Buffer
+	err := cmdDrift(strings.NewReader(""), &out, &errs, []string{"--review"})
+	if err == nil || !strings.Contains(err.Error(), bad.ID()) {
+		t.Fatalf("expected failure naming %s: %v", bad.ID(), err)
+	}
+	if !strings.Contains(errs.String(), bad.ID()+": review failed") {
+		t.Fatalf("failure not reported:\n%s", errs.String())
+	}
+	if !strings.Contains(out.String(), good.ID()+": ACCURATE") {
+		t.Fatalf("good spec not reviewed:\n%s", out.String())
+	}
+	if metaGet(st.Get(good.ID()).Meta, "verified", "") == "" {
+		t.Fatal("good spec should be stamped verified despite the failure")
 	}
 }
 

@@ -116,6 +116,49 @@ func TestInitAndNew(t *testing.T) {
 	}
 }
 
+func TestSkill(t *testing.T) {
+	st := setupRepo(t)
+	devinSkill := filepath.Join(st.Root, ".devin", "skills", "spec", "SKILL.md")
+	claudeSkill := filepath.Join(st.Root, ".claude", "skills", "spec", "SKILL.md")
+
+	var out bytes.Buffer
+	if err := cmdSkill(&out, io.Discard, nil); err != nil {
+		t.Fatalf("fresh init should be current: %v", err)
+	}
+	if strings.Count(out.String(), "current") != 2 {
+		t.Fatalf("want 2 current copies, got:\n%s", out.String())
+	}
+
+	// one stale, one missing
+	os.WriteFile(devinSkill, []byte("old version"), 0o644)
+	os.Remove(claudeSkill)
+	out.Reset()
+	err := cmdSkill(&out, io.Discard, nil)
+	if err == nil || !strings.Contains(err.Error(), "not current") {
+		t.Fatalf("expected non-zero check, got %v", err)
+	}
+	if !strings.Contains(out.String(), "stale") || !strings.Contains(out.String(), "missing") {
+		t.Fatalf("want stale+missing, got:\n%s", out.String())
+	}
+
+	out.Reset()
+	if err := cmdSkill(&out, io.Discard, []string{"update"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(out.String(), "updated") != 2 {
+		t.Fatalf("want 2 updates, got:\n%s", out.String())
+	}
+	for _, p := range []string{devinSkill, claudeSkill} {
+		data, _ := os.ReadFile(p)
+		if string(data) != specSkill {
+			t.Fatalf("%s not refreshed", p)
+		}
+	}
+	if err := cmdSkill(io.Discard, io.Discard, nil); err != nil {
+		t.Fatalf("post-update check should pass: %v", err)
+	}
+}
+
 func TestValidateCatchesMissingSection(t *testing.T) {
 	setupRepo(t)
 	if err := cmdNew(io.Discard, io.Discard, "feature", "broken"); err != nil {
@@ -302,6 +345,24 @@ func TestAgentOversizedPromptFallsBackToStdin(t *testing.T) {
 	ag = &agent{name: "cat", argv: []string{"cat", "{prompt-file}"}}
 	if out, err = ag.run("file-prompt", dir, 30); err != nil || out != "file-prompt" {
 		t.Fatalf("prompt-file delivery: out=%q err=%v", out, err)
+	}
+}
+
+// stdin can't carry the prompt for devin/aider/vibe — their adapters must
+// keep a {prompt-file} channel; gemini must keep the flag fused to {prompt}
+// so an oversized prompt degrades to stdin instead of a dangling -p.
+func TestAdapterPromptChannels(t *testing.T) {
+	for _, name := range []string{"devin", "aider", "vibe"} {
+		found := false
+		for _, arg := range knownAdapters[name] {
+			found = found || strings.Contains(arg, "{prompt-file}")
+		}
+		if !found {
+			t.Fatalf("adapter %s lost its {prompt-file} channel", name)
+		}
+	}
+	if got := knownAdapters["gemini"]; len(got) != 2 || !strings.Contains(got[1], "={prompt}") {
+		t.Fatalf("gemini prompt must stay fused to its flag: %v", got)
 	}
 }
 

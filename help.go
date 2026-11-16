@@ -215,6 +215,8 @@ spec check      # audit {fact:key} references; warn about drift
 spec drift [--review]             # specs whose covered code changed since they were updated
 spec covers [--infer]             # files each spec covers (infer from git history)
 spec verified <id>                # mark a spec checked and accurate
+spec skill [check|update]         # are the installed skill copies current? update refreshes them
+                                  # (--global: ~/.config/devin + ~/.claude skill dirs)
 spec apply <id> # run the configured agent to implement a spec
 spec apply      # all accepted specs, after confirmation (--yes to skip)
                 # succeeds only if status reaches implemented and verify: passes

@@ -82,6 +82,10 @@ and implement specs. A local web UI provides browsing and editing.
   `.spec/reminders.yml` with a cadence and last-done date. `spec remind`
   manages entries; `spec status` and `spec check` surface due items, and
   agent prompts list them.
+- REQ-016: The agent-facing spec skill stays current in repos where it was
+  installed. `spec skill` reports whether the skill copies seeded by
+  `spec init` match the version embedded in the running binary, and
+  `spec skill update` refreshes stale or missing copies.
 
 ## Architecture
 
