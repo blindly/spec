@@ -545,3 +545,27 @@ func TestSkillImportAllDivergingSkipped(t *testing.T) {
 		t.Fatalf("divergence should be reported:\n%s", errOut.String())
 	}
 }
+
+func TestSkillImportLibraryOutsideRepo(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".xdg"))
+	t.Setenv("HOME", dir)
+	old, _ := os.Getwd()
+	os.Chdir(dir)
+	t.Cleanup(func() { os.Chdir(old) })
+	// no .spec here — mustStore would fail; --library must still work
+	src := filepath.Join(dir, ".claude", "skills", "loose")
+	os.MkdirAll(src, 0o755)
+	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("loose body"), 0o644)
+
+	var out bytes.Buffer
+	if err := cmdSkill(&out, io.Discard, []string{"import", "loose", "--library"}); err != nil {
+		t.Fatal(err)
+	}
+	if !isDir(librarySkillDir("loose")) {
+		t.Fatal("not imported to the library")
+	}
+	if !isDir(src) {
+		t.Fatal("home source must not be removed")
+	}
+}

@@ -146,7 +146,8 @@ Addresses: REQ-017
     skill dir found in the agent dirs (names already resolved are
     skipped as generated copies); same-named dirs that differ are
     reported and skipped for explicit import. `--library` imports into
-    the library.
+    the library — and, like `new --library`, needs no spec-managed repo
+    (the library is a plain directory).
   - `check` — print per-skill status; exit non-zero when any resolved
     skill is missing or stale, so it can gate `verify:` (same contract
     as FEAT-025's `check`).

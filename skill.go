@@ -434,7 +434,12 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 
 	st, err := mustStore()
 	if err != nil {
-		return err
+		// --library commands only touch the shared library — they can run
+		// outside a spec-managed repo
+		if !library || (sub != "import" && sub != "new") {
+			return err
+		}
+		st = Store{Root: "."}
 	}
 	cfg := loadConfig(st.Root)
 	targets := skillTargets(cfg)
