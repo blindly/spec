@@ -569,3 +569,64 @@ func TestSkillImportLibraryOutsideRepo(t *testing.T) {
 		t.Fatal("home source must not be removed")
 	}
 }
+
+func TestSkillRm(t *testing.T) {
+	st := setupRepo(t)
+	writeRepoSkill(t, st, "dead", simpleSkill("dead", "gone"))
+	if err := cmdSkill(io.Discard, io.Discard, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdSkill(io.Discard, io.Discard, []string{"rm", "dead"}); err != nil {
+		t.Fatal(err)
+	}
+	if isDir(repoSkillDir(st.Root, "dead")) {
+		t.Fatal(".spec/skills/dead still exists")
+	}
+	for _, target := range []string{".devin/skills", ".claude/skills"} {
+		if isDir(filepath.Join(st.Root, target, "dead")) {
+			t.Fatalf("installed copy left at %s", target)
+		}
+	}
+}
+
+func TestSkillRmDifferingNeedsForce(t *testing.T) {
+	st := setupRepo(t)
+	writeRepoSkill(t, st, "dead", simpleSkill("dead", "v1"))
+	if err := cmdSkill(io.Discard, io.Discard, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	installed := filepath.Join(st.Root, ".devin", "skills", "dead", "SKILL.md")
+	os.WriteFile(installed, []byte("hand edit"), 0o644)
+	if err := cmdSkill(io.Discard, io.Discard, []string{"rm", "dead"}); err == nil || !strings.Contains(err.Error(), "--force") {
+		t.Fatalf("differing copy should need --force, got %v", err)
+	}
+	if err := cmdSkill(io.Discard, io.Discard, []string{"rm", "dead", "--force"}); err != nil {
+		t.Fatal(err)
+	}
+	if isDir(repoSkillDir(st.Root, "dead")) {
+		t.Fatal("rm --force did not remove the repo skill")
+	}
+}
+
+func TestSkillRmManagedRefuses(t *testing.T) {
+	setupRepo(t)
+	writeLibrarySkill(t, "lib", simpleSkill("lib", "x"))
+	if err := cmdSkill(io.Discard, io.Discard, []string{"use", "lib"}); err != nil {
+		t.Fatal(err)
+	}
+	err := cmdSkill(io.Discard, io.Discard, []string{"rm", "lib"})
+	if err == nil || !strings.Contains(err.Error(), "unuse") {
+		t.Fatalf("rm on a managed skill should point at unuse, got %v", err)
+	}
+}
+
+func TestSkillRmLibrary(t *testing.T) {
+	setupRepo(t)
+	writeLibrarySkill(t, "lib", simpleSkill("lib", "x"))
+	if err := cmdSkill(io.Discard, io.Discard, []string{"rm", "lib", "--library"}); err != nil {
+		t.Fatal(err)
+	}
+	if isDir(librarySkillDir("lib")) {
+		t.Fatal("library entry still exists")
+	}
+}

@@ -453,7 +453,10 @@ func cmdConfig(out, errOut io.Writer, args []string) error {
 	}
 	st, err := mustStore()
 	if err != nil {
-		return err
+		// outside a repo, show just the global config
+		fmt.Fprintf(out, "global config: %s\n", globalConfigPath())
+		fmt.Fprintln(out, loadConfig("").String())
+		return nil
 	}
 	cfg := loadConfig(st.Root)
 	fmt.Fprintf(out, "global config: %s\n", globalConfigPath())

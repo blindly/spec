@@ -135,6 +135,11 @@ Addresses: REQ-017
     it was hand-edited, preserving the edits) into `.spec/skills/<name>/`
     and drop the `skills:` entry — a managed skill becomes a repo-owned
     fork.
+  - `rm <name>` — delete a repo-owned skill and its generated installs
+    (removed only while they still match the source; a differing copy
+    needs `--force`). On a managed skill it points at `unuse` — "not
+    enabled here" is `unuse`, "gone" is `rm`. `--library` deletes the
+    library entry; enabled repos then report it `orphaned`.
   - `push <name>` — copy `.spec/skills/<name>/` to the library. Creates
     the entry when absent; no-op when identical; when the library entry
     exists and differs, requires `--force` (the shared copy may serve
@@ -186,7 +191,9 @@ Addresses: REQ-017
   dirs); `unuse` never deletes a differing copy
 - [x] `spec skill adopt` copies the resolved source into `.spec/skills/`
   and drops the config entry; `push` publishes a repo skill to the
-  library with the `--force` overwrite contract
+  library with the `--force` overwrite contract; `rm` deletes a repo
+  skill and its installs (clobber-guarded, `--library` for library
+  entries) while `unuse` stays the "not enabled here" path
 - [x] `spec skill import` copies a skill dir from a known location or
   explicit path into `.spec/skills/` (or library with `--library`);
   in-repo sources are moved (`git rm`/`rm`), `~/` sources copied; bare

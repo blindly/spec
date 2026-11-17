@@ -425,7 +425,7 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 		operand = positional[1]
 	}
 	if len(positional) > 2 {
-		return fmt.Errorf("usage: spec skill [check|sync|update|view|new|edit|refine|use|unuse|adopt|push|import <name>] [--global|--force|--library|--local]")
+		return fmt.Errorf("usage: spec skill [check|sync|update|view|new|edit|refine|use|unuse|adopt|push|import|rm <name>] [--global|--force|--library|--local]")
 	}
 
 	if global {
@@ -530,12 +530,14 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 		return cmdSkillUnuse(st, cfg, targets, name, force, out, errOut)
 	case "adopt":
 		return cmdSkillAdopt(st, cfg, targets, name, out, errOut)
+	case "rm":
+		return cmdSkillRm(st, cfg, targets, name, library, force, out, errOut)
 	case "push":
 		return cmdSkillPush(st, name, force, out, errOut)
 	case "import":
 		return cmdSkillImport(st, cfg, targets, name, library, out, errOut)
 	}
-	return fmt.Errorf("usage: spec skill [check|sync|update|view|new|edit|refine|use|unuse|adopt|push|import <name>] [--global|--force|--library|--local]")
+	return fmt.Errorf("usage: spec skill [check|sync|update|view|new|edit|refine|use|unuse|adopt|push|import|rm <name>] [--global|--force|--library|--local]")
 }
 
 // cmdSkillLibraryList is the repo-free view of the shared library:
@@ -790,6 +792,55 @@ func cmdSkillUnuse(st Store, cfg Config, targets []string, name string, force bo
 		return err
 	}
 	fmt.Fprintf(out, "Skill %q no longer managed\n", name)
+	return nil
+}
+
+// cmdSkillRm removes a repo-owned skill and its generated installs.
+// Installed copies are only removed while they still match the source —
+// a differing copy is a fork and needs --force. --library removes the
+// library entry instead (enabled repos then report it orphaned).
+func cmdSkillRm(st Store, cfg Config, targets []string, name string, library, force bool, out, errOut io.Writer) error {
+	if library {
+		lib := librarySkillDir(name)
+		if !isDir(lib) {
+			return fmt.Errorf("no library skill %q", name)
+		}
+		if contains(cfg.Skills, name) {
+			fmt.Fprintf(errOut, "note: %s is enabled — repos will report it orphaned\n", name)
+		}
+		if err := os.RemoveAll(lib); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Removed library skill %q\n", name)
+		return nil
+	}
+	dir := repoSkillDir(st.Root, name)
+	if !isDir(dir) {
+		if contains(cfg.Skills, name) {
+			return fmt.Errorf("skill %q is managed — use spec skill unuse %s", name, name)
+		}
+		return fmt.Errorf("no repo skill %q (see: spec skill)", name)
+	}
+	srcFiles, _ := skillFiles(dir)
+	for _, t := range targets {
+		dst := filepath.Join(st.Root, t, name)
+		installed, _ := skillFiles(dst)
+		if installed != nil && !force && !skillFilesEqual(installed, srcFiles) {
+			return fmt.Errorf("installed copy at %s differs — --force to remove it anyway", dst)
+		}
+	}
+	for _, t := range targets {
+		if err := os.RemoveAll(filepath.Join(st.Root, t, name)); err != nil {
+			return err
+		}
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		return err
+	}
+	if name == "spec" {
+		fmt.Fprintln(errOut, "note: spec reverts to the built-in skill")
+	}
+	fmt.Fprintf(out, "Removed skill %q\n", name)
 	return nil
 }
 

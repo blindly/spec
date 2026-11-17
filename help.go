@@ -220,6 +220,7 @@ spec skill      # skills with source + status: repo (.spec/skills/), library(rep
                 # built-in, available (~/.config/spec/skills/); installs land in agent skill dirs
 spec skill use|unuse <name>       # enable/disable a library skill here (--global: global baseline)
 spec skill adopt|push <name>      # managed → repo-owned fork · repo skill → library
+spec skill rm <name>              # delete a repo skill + its installs (--library: library entry)
 spec skill new|edit|view|refine <name>   # manage skills (--library: library file, --local: repo copy)
 spec skill import [<name|path>]   # pull a skill into .spec/skills/ (bare: all foreign dirs;
                                 # --library: into the library; in-repo sources are moved)
