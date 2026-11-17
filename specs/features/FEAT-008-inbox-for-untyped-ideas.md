@@ -101,6 +101,18 @@ Addresses: REQ-013, REQ-001
 - Output: the new spec's path, plus a reminder to fill in its sections. The
   web promote redirects to the new spec's edit page.
 
+### Cleanup
+
+Promotion is `spec promote`, never a hand-set `status:`/`promoted_to:` —
+but tools that bypass the command leave debris: idea files with
+`promoted_to:` set or a status outside `idea_statuses` (validate flags
+them). `spec inbox cleanup` removes the debris: when `promoted_to` names
+an existing spec it backfills `promoted_from:` when missing and deletes
+the idea — what promote would have done. A `promoted_to` pointing at
+nothing, or an invalid status with no `promoted_to`, is reported and
+left for the user to decide. `spec inbox` prints a cleanup hint when it
+lists debris.
+
 ### Docs
 
 - Help page "Choosing a type": add "not sure yet? → `spec idea`".
@@ -119,6 +131,7 @@ Addresses: REQ-013, REQ-001
 - [x] `spec promote IDEA-001` with no type uses `suggested_type`, or errors if there isn't one
 - [x] Promoting a discarded idea fails without `--force`
 - [x] `depends_on` references to the idea are rewritten to the new id
+- [x] `spec inbox cleanup` deletes `promoted_to:` debris (backfilling `promoted_from` on the target) and reports anything ambiguous; `spec inbox` hints when debris is listed
 - [x] `spec apply` refuses ideas, even with `--force`
 - [x] Web promote and discard reject a bad token
 - [x] Tests cover capture, statuses, discard, promote with and without a type, deletion, reference rewriting, and the inbox page

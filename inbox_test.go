@@ -393,3 +393,58 @@ func TestWebEditIdeaStatusDropdown(t *testing.T) {
 		t.Fatal("spec status accepted on an idea")
 	}
 }
+
+func TestInboxCleanup(t *testing.T) {
+	st := setupRepo(t)
+	feat, err := st.Create("feature", "done thing", "# x\n", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	debris := newIdea(t, st, "already done", map[string][]string{
+		"status":      {"promoted"},
+		"promoted_to": {feat.ID()},
+	})
+	dangling := newIdea(t, st, "claims promotion", map[string][]string{
+		"status":      {"promoted"},
+		"promoted_to": {"FEAT-999"},
+	})
+	bad := newIdea(t, st, "mystery", map[string][]string{"status": {"promoted"}})
+	live := newIdea(t, st, "real idea", nil)
+
+	var out, errOut bytes.Buffer
+	if err := cmdInbox(&out, &errOut, []string{"cleanup"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(debris.Path); !os.IsNotExist(err) {
+		t.Fatal("promoted debris not deleted")
+	}
+	if got := metaGet(st.Get(feat.ID()).Meta, "promoted_from", ""); got != debris.ID() {
+		t.Fatalf("target missing promoted_from backfill, got %q", got)
+	}
+	for _, s := range []Spec{dangling, bad, live} {
+		if _, err := os.Stat(s.Path); err != nil {
+			t.Fatalf("%s should be left in place", s.ID())
+		}
+	}
+	if !strings.Contains(errOut.String(), "FEAT-999") || !strings.Contains(errOut.String(), "no promoted_to") {
+		t.Fatalf("skips should be reported:\n%s", errOut.String())
+	}
+	if st.Get(live.ID()).Status() != "new" {
+		t.Fatal("live idea was modified")
+	}
+}
+
+func TestInboxHintsCleanup(t *testing.T) {
+	st := setupRepo(t)
+	newIdea(t, st, "debris", map[string][]string{
+		"status":      {"promoted"},
+		"promoted_to": {"FEAT-001"},
+	})
+	var out, errOut bytes.Buffer
+	if err := cmdInbox(&out, &errOut, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(errOut.String(), "inbox cleanup") {
+		t.Fatalf("inbox should hint at cleanup when debris is present:\n%s", errOut.String())
+	}
+}

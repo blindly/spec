@@ -276,6 +276,8 @@ func cmdInbox(out, errOut io.Writer, args []string) error {
 	var all, paths bool
 	for _, a := range args {
 		switch a {
+		case "cleanup":
+			return cmdInboxCleanup(out, errOut)
 		case "--all", "-a":
 			all = true
 		case "--paths":
@@ -288,11 +290,16 @@ func cmdInbox(out, errOut io.Writer, args []string) error {
 	if err != nil {
 		return err
 	}
+	cfg := loadConfig(st.Root)
+	valid := stringSet(cfg.IdeaStatuses)
 	w := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
-	shown := 0
+	shown, debris := 0, 0
 	for _, s := range st.Specs() {
 		if !s.IsIdea() || (!all && (s.Archived || s.Status() == ideaDiscarded)) {
 			continue
+		}
+		if metaGet(s.Meta, "promoted_to", "") != "" || !valid[s.Status()] {
+			debris++
 		}
 		shown++
 		rel, err := filepath.Rel(st.Root, s.Path)
@@ -317,7 +324,67 @@ func cmdInbox(out, errOut io.Writer, args []string) error {
 		fmt.Fprintln(errOut, "Inbox empty — capture an idea with spec idea <title>.")
 		return nil
 	}
-	return w.Flush()
+	if err := w.Flush(); err != nil {
+		return err
+	}
+	if debris > 0 {
+		fmt.Fprintf(errOut, "%d idea(s) are promotion debris — run spec inbox cleanup\n", debris)
+	}
+	return nil
+}
+
+// cmdInboxCleanup removes promotion debris: idea files that were hand-marked
+// (promoted_to: set, or a status outside idea_statuses) instead of going
+// through spec promote — validate flags them. When promoted_to names a spec
+// that exists, the target gets promoted_from backfilled when missing and the
+// idea is deleted — what promote would have done. A promoted_to pointing at
+// nothing, or an invalid status with no promoted_to, is reported and left
+// for the user to decide.
+func cmdInboxCleanup(out, errOut io.Writer) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
+	cfg := loadConfig(st.Root)
+	valid := stringSet(cfg.IdeaStatuses)
+	cleaned, skipped := 0, 0
+	for _, s := range st.Specs() {
+		if !s.IsIdea() || s.Archived {
+			continue
+		}
+		to := metaGet(s.Meta, "promoted_to", "")
+		if to == "" {
+			if valid[s.Status()] {
+				continue // a live idea
+			}
+			fmt.Fprintf(errOut, "%s: status %q is not a valid idea status and no promoted_to: is set — decide: spec discard %s, or fix by hand\n", s.ID(), s.Status(), s.ID())
+			skipped++
+			continue
+		}
+		target := st.Get(to)
+		if target == nil {
+			fmt.Fprintf(errOut, "%s: promoted_to %s but no such spec — left in place\n", s.ID(), to)
+			skipped++
+			continue
+		}
+		if metaGet(target.Meta, "promoted_from", "") == "" {
+			if err := setSpecMeta(target, map[string][]string{"promoted_from": {s.ID()}}); err != nil {
+				return err
+			}
+		}
+		if deps := s.Field("depends_on"); len(deps) > 0 {
+			fmt.Fprintf(errOut, "note: %s had depends_on %v — merge into %s manually if needed\n", s.ID(), deps, to)
+		}
+		if err := os.Remove(s.Path); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Cleaned %s (promoted_to %s)\n", s.ID(), to)
+		cleaned++
+	}
+	if cleaned+skipped == 0 {
+		fmt.Fprintln(out, "Inbox clean — no promotion debris.")
+	}
+	return nil
 }
 
 func cmdDiscard(out io.Writer, ids []string) error {
