@@ -215,8 +215,13 @@ spec check      # audit {fact:key} references; warn about drift
 spec drift [--review]             # specs whose covered code changed since they were updated
 spec covers [--infer]             # files each spec covers (infer from git history)
 spec verified <id>                # mark a spec checked and accurate
-spec skill [check|update]         # are the installed skill copies current? update refreshes them
-                                  # (--global: ~/.config/devin + ~/.claude skill dirs)
+spec skill      # skills with source + status: repo (.spec/skills/), managed (skills:),
+                # available (~/.config/spec/skills/); installs land in the agent skill dirs
+spec skill use|unuse <name>       # enable/disable a library skill in this repo
+spec skill adopt|push <name>      # managed → repo-owned fork · repo skill → library
+spec skill new|edit|view|refine <name>   # manage skills (--library: library file, --local: repo copy)
+spec skill import <name|path>     # pull a skill dir into .spec/skills/ (--library: into the library)
+spec skill check|sync [--force]   # verify / regenerate installed copies (--global: user-level dirs)
 spec apply <id> # run the configured agent to implement a spec
 spec apply      # all accepted specs, after confirmation (--yes to skip)
                 # succeeds only if status reaches implemented and verify: passes

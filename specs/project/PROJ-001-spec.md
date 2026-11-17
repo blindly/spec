@@ -86,6 +86,16 @@ and implement specs. A local web UI provides browsing and editing.
   installed. `spec skill` reports whether the skill copies seeded by
   `spec init` match the version embedded in the running binary, and
   `spec skill update` refreshes stale or missing copies.
+- REQ-017: Agent skills are managed from a shared library at
+  `~/.config/spec/skills/<name>/` (a plain directory the user may version
+  with git) plus repo-owned skills under `.spec/skills/`. A `skills:`
+  config list opts a repo into library skills; installed copies are
+  generated into the agent skill dirs implied by the configured agent
+  (or an explicit `skill_targets:` override) and checked for staleness.
+  `spec skill` manages all layers: it lists skills
+  with source and status, enables or detaches library skills, pushes repo
+  skills to the library, imports external skill dirs, and refuses to
+  clobber locally modified copies.
 
 ## Architecture
 

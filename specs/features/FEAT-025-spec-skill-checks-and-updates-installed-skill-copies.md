@@ -5,6 +5,7 @@ id: FEAT-025
 status: implemented
 title: spec skill checks and updates installed skill copies
 type: feature
+verified: 408e4f5288d51229a1b17ea7d32684784ec15061
 ---
 
 # spec skill checks and updates installed skill copies
@@ -48,6 +49,12 @@ Addresses: REQ-016
 - Like `spec init`, update writes files verbatim — it does not merge
   local edits; a customized copy is "stale" and gets overwritten, which
   the command reports.
+
+FEAT-026 generalizes this: `check`/`sync` cover the whole resolved skill
+set (repo `.spec/skills/`, library `skills:` entries, built-in `spec`),
+installed copies are generated into the resolved `skill_targets:` dirs,
+`update` remains as a `sync --force` alias, and `--global` covers the
+user-level dirs as before.
 
 ## Acceptance Criteria
 

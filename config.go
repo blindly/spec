@@ -22,6 +22,8 @@ type Config struct {
 	Editor       string   // editor command for `spec config edit`
 	Verify       []string // commands run by spec verify
 	Persona      string   // name of a ~/.config/spec/personas/<name>.md used as the role when .spec/role.md is unset
+	Skills       []string // library skills (~/.config/spec/skills/<name>/) enabled for this repo
+	SkillTargets []string // agent skill dirs installed copies are generated into
 }
 
 var (
@@ -112,6 +114,20 @@ func unquote(v string) string {
 	return v
 }
 
+// parseList parses a "[a, b, c]" config list value; nil when not a list.
+func parseList(v string) []string {
+	if !strings.HasPrefix(v, "[") || !strings.HasSuffix(v, "]") {
+		return nil
+	}
+	var list []string
+	for _, item := range strings.Split(v[1:len(v)-1], ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			list = append(list, item)
+		}
+	}
+	return list
+}
+
 // loadConfig merges the global config (~/.config/spec/config.yml) with the
 // repo's .spec/config.yml; repo keys win.
 func loadConfig(root string) Config {
@@ -142,25 +158,21 @@ func loadConfig(root string) Config {
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				cfg.WebPort = n
 			}
-		case "statuses", "verify", "done_statuses", "idea_statuses":
-			if strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]") {
-				var list []string
-				for _, item := range strings.Split(v[1:len(v)-1], ",") {
-					if item = strings.TrimSpace(item); item != "" {
-						list = append(list, item)
-					}
-				}
-				if len(list) > 0 {
-					switch k {
-					case "statuses":
-						cfg.Statuses = list
-					case "done_statuses":
-						cfg.DoneStatuses = list
-					case "idea_statuses":
-						cfg.IdeaStatuses = list
-					default:
-						cfg.Verify = list
-					}
+		case "statuses", "verify", "done_statuses", "idea_statuses", "skills", "skill_targets":
+			if list := parseList(v); len(list) > 0 {
+				switch k {
+				case "statuses":
+					cfg.Statuses = list
+				case "done_statuses":
+					cfg.DoneStatuses = list
+				case "idea_statuses":
+					cfg.IdeaStatuses = list
+				case "skills":
+					cfg.Skills = list
+				case "skill_targets":
+					cfg.SkillTargets = list
+				default:
+					cfg.Verify = list
 				}
 			}
 		}
@@ -169,8 +181,9 @@ func loadConfig(root string) Config {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nviewer: %s\npersona: %s\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]",
+	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nviewer: %s\npersona: %s\nskills: [%s]\nskill_targets: [%s]\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]",
 		c.Agent, c.AgentCmd, c.AgentTimeout, c.WebHost, c.WebPort, c.editor(), c.Viewer, c.Persona,
+		strings.Join(c.Skills, ", "), strings.Join(c.SkillTargets, ", "),
 		strings.Join(c.Statuses, ", "), strings.Join(c.DoneStatuses, ", "),
 		strings.Join(c.IdeaStatuses, ", "), strings.Join(c.Verify, ", "))
 }
@@ -201,6 +214,12 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 # Persona — a shared development role from ~/.config/spec/personas/<name>.md,
 # used in agent prompts when the repo has no .spec/role.md (which always wins)
 # persona: senior-go   # see: spec persona
+
+# Skills — a global baseline of library skills (~/.config/spec/skills/<name>/)
+# enabled for every repo; repos can replace the list or add repo-owned
+# skills under .spec/skills/
+# skills: [token-efficiency]   # see: spec skill
+# skill_targets: [.devin/skills, .claude/skills]   # install dirs (default: the configured agent's dir, else both)
 
 # Viewer for spec view (default: built-in plain output; no $PAGER)
 # viewer: "glow --style dark {file}"   # {file} = path; absent = appended
@@ -234,6 +253,11 @@ const repoConfigTemplate = `version: 1
 # Persona — a shared development role from ~/.config/spec/personas/<name>.md,
 # used in agent prompts when the repo has no .spec/role.md (which always wins)
 # persona: senior-go   # see: spec persona
+
+# Skills — library skills (~/.config/spec/skills/<name>/) enabled for this
+# repo; repo-owned skills under .spec/skills/ need no entry here
+# skills: [review]             # see: spec skill
+# skill_targets: [.devin/skills, .claude/skills]   # install dirs (default: the configured agent's dir, else both)
 
 # Viewer for spec view (default: built-in plain output; no $PAGER)
 # viewer: "glow --style dark {file}"   # {file} = path; absent = appended

@@ -131,9 +131,9 @@ func TestSkill(t *testing.T) {
 
 	// one stale, one missing
 	os.WriteFile(devinSkill, []byte("old version"), 0o644)
-	os.Remove(claudeSkill)
+	os.RemoveAll(filepath.Dir(claudeSkill))
 	out.Reset()
-	err := cmdSkill(&out, io.Discard, nil)
+	err := cmdSkill(&out, io.Discard, []string{"check"})
 	if err == nil || !strings.Contains(err.Error(), "not current") {
 		t.Fatalf("expected non-zero check, got %v", err)
 	}
@@ -142,11 +142,11 @@ func TestSkill(t *testing.T) {
 	}
 
 	out.Reset()
-	if err := cmdSkill(&out, io.Discard, []string{"update"}); err != nil {
+	if err := cmdSkill(&out, io.Discard, []string{"sync", "--force"}); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Count(out.String(), "updated") != 2 {
-		t.Fatalf("want 2 updates, got:\n%s", out.String())
+	if !strings.Contains(out.String(), "updated") || !strings.Contains(out.String(), "installed") {
+		t.Fatalf("want updated+installed, got:\n%s", out.String())
 	}
 	for _, p := range []string{devinSkill, claudeSkill} {
 		data, _ := os.ReadFile(p)
@@ -154,8 +154,8 @@ func TestSkill(t *testing.T) {
 			t.Fatalf("%s not refreshed", p)
 		}
 	}
-	if err := cmdSkill(io.Discard, io.Discard, nil); err != nil {
-		t.Fatalf("post-update check should pass: %v", err)
+	if err := cmdSkill(io.Discard, io.Discard, []string{"check"}); err != nil {
+		t.Fatalf("post-sync check should pass: %v", err)
 	}
 }
 

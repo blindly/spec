@@ -57,8 +57,6 @@ func cmdInit(out, errOut io.Writer) error {
 	for path, content := range map[string]string{
 		"AGENTS.md": agentsTemplate,
 		"CLAUDE.md": claudeTemplate,
-		filepath.Join(".devin", "skills", "spec", "SKILL.md"):  specSkill,
-		filepath.Join(".claude", "skills", "spec", "SKILL.md"): specSkill,
 	} {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -68,6 +66,13 @@ func cmdInit(out, errOut io.Writer) error {
 				return err
 			}
 		}
+	}
+	// install the resolved skill set (built-in spec + any global skills:
+	// baseline) into the agent skill dirs
+	st := Store{Root: "."}
+	cfg := loadConfig(".")
+	if _, err := syncSkills(st, cfg, skillTargets(cfg), false, out); err != nil {
+		return err
 	}
 	fmt.Fprintln(out, "Initialized spec repository.")
 	return nil
@@ -595,6 +600,31 @@ func cmdStatus(out, errOut io.Writer) error {
 	fmt.Fprintf(out, "Repository: %s\n\n", st.Root)
 	if _, source := roleFor(st, cfg); source != "" {
 		fmt.Fprintf(out, "Role: %s\n", source)
+	}
+	{
+		local, managed, stale := 0, 0, 0
+		targets := skillTargets(cfg)
+		for _, name := range skillNames(st, cfg) {
+			src := resolveSkill(st, cfg, name)
+			switch src.kind {
+			case "repo":
+				local++
+			case "library", "built-in":
+				managed++
+			}
+			for _, t := range targets {
+				installed, _ := skillFiles(filepath.Join(st.Root, t, name))
+				srcFiles, _ := skillFiles(src.dir)
+				if installed == nil || (src.kind != "" && !skillFilesEqual(installed, srcFiles)) {
+					stale++
+				}
+			}
+		}
+		fmt.Fprintf(out, "Skills: %d managed, %d local", managed, local)
+		if stale > 0 {
+			fmt.Fprintf(out, ", %d stale/missing — spec skill sync", stale)
+		}
+		fmt.Fprintln(out)
 	}
 	if rs := loadReminders(st.Root); len(rs) > 0 {
 		due := dueReminders(st.Root)
