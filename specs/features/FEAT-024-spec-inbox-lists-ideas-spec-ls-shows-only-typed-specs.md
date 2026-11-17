@@ -5,6 +5,7 @@ id: FEAT-024
 status: implemented
 title: spec inbox lists ideas; spec ls shows only typed specs
 type: feature
+verified: 9b9fd8602ea058213c1a7c43e488902638685610
 ---
 
 # spec inbox lists ideas; spec ls shows only typed specs

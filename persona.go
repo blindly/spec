@@ -62,7 +62,11 @@ func cmdPersona(args []string, out, errOut io.Writer) error {
 	}
 	st, err := mustStore()
 	if err != nil {
-		return err
+		// personas are user-level; only "use" writes repo config
+		if sub == "use" {
+			return err
+		}
+		st = Store{Root: "."}
 	}
 	cfg := loadConfig(st.Root)
 	dir := personaDir()

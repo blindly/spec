@@ -104,7 +104,10 @@ Addresses: REQ-017
   - `available` — in the library, not enabled in this repo
 - **Commands** (`spec skill`):
   - *(no args)* — list every skill known to the repo with source and
-    status.
+    status. Outside a spec-managed repo it lists the library instead
+    (built-in, `library(global)`, `available`); `view`, `new --library`,
+    `import --library`, `edit`, and `refine` also run repo-free since
+    they only touch user-level state.
   - `view <name>` — print the effective `SKILL.md` plus a stderr note
     naming its source (like `spec role`).
   - `new <name>` — scaffold `.spec/skills/<name>/SKILL.md` with

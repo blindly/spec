@@ -5,7 +5,7 @@ id: FEAT-020
 status: implemented
 title: Global personas selectable per repo
 type: feature
-verified: b4e420a69259da3f82ca5556a41d034f7d8a8757
+verified: 9b9fd8602ea058213c1a7c43e488902638685610
 ---
 
 # Global personas selectable per repo
@@ -49,7 +49,10 @@ Addresses: REQ-004
   forks it into the project. **`spec role adopt`** copies the active
   persona into `.spec/role.md` verbatim (errors when a project role or no
   persona is in use).
-- **`spec persona`** lists personas (marking the active one);
+- **`spec persona`** lists personas (marking the active one) — personas
+  are user-level, so list/view/new/edit/refine also run outside a
+  spec-managed repo; only `use` (which writes `.spec/config.yml`) needs
+  one;
   `new`/`edit` manage files via the configured editor; `view [name]`
   cats a persona verbatim to stdout (default: the active persona);
   `refine <name>` improves a persona with the same verbatim/heading

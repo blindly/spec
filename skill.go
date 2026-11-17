@@ -434,9 +434,15 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 
 	st, err := mustStore()
 	if err != nil {
-		// --library commands only touch the shared library — they can run
+		// library-level commands never touch repo state — run them
 		// outside a spec-managed repo
-		if !library || (sub != "import" && sub != "new") {
+		if sub == "" {
+			return cmdSkillLibraryList(out)
+		}
+		repoFree := library && (sub == "import" || sub == "new") ||
+			(sub == "edit" || sub == "refine") && !local ||
+			sub == "view"
+		if !repoFree {
 			return err
 		}
 		st = Store{Root: "."}
@@ -530,6 +536,21 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 		return cmdSkillImport(st, cfg, targets, name, library, out, errOut)
 	}
 	return fmt.Errorf("usage: spec skill [check|sync|update|view|new|edit|refine|use|unuse|adopt|push|import <name>] [--global|--force|--library|--local]")
+}
+
+// cmdSkillLibraryList is the repo-free view of the shared library:
+// built-in, globally enabled, and available entries.
+func cmdSkillLibraryList(out io.Writer) error {
+	enabled := stringSet(configFileSkills(globalConfigPath()))
+	fmt.Fprintf(out, "%-16s %-16s\n", "spec", "built-in")
+	for _, n := range skillDirNames(librarySkillDir("")) {
+		label := "available"
+		if enabled[n] {
+			label = "library(global)"
+		}
+		fmt.Fprintf(out, "%-16s %-16s\n", n, label)
+	}
+	return nil
 }
 
 // availableSkills lists library skills not enabled or present in the repo.
