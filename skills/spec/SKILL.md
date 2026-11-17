@@ -48,7 +48,9 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    - not sure what it is yet → `spec idea <title>`; `spec refine <IDEA-id>`
      suggests a type; then `spec promote <IDEA-id> [project|feature|adr]`
      (defaults to the suggestion; deletes the idea; the new spec gets
-     `promoted_from`)
+     `promoted_from`). Promotion is ALWAYS `spec promote` — never hand-set
+     `status:`/`promoted_to:` on the idea file; `spec validate` rejects
+     statuses outside `idea_statuses:`
 4. **Feature specs** must reference existing `REQ-xxx` ids on the
    "Addresses:" line — features citing undefined REQs fail `spec validate`.
 5. **After implementing**: set frontmatter `status: implemented`, then run

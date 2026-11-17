@@ -240,14 +240,22 @@ func bestSkillFiles(st Store, cfg Config, name string) (map[string][]byte, error
 	return srcFiles, nil
 }
 
-// writeSkillsConfig replaces the skills: list in .spec/config.yml; an empty
-// list drops the key.
-func writeSkillsConfig(root string, skills []string) error {
+// writeSkillsConfig replaces the skills: list in the config file at path;
+// an empty list drops the key.
+func writeSkillsConfig(path string, skills []string) error {
 	v := ""
 	if len(skills) > 0 {
 		v = "[" + strings.Join(skills, ", ") + "]"
 	}
-	return setConfigKey(root, "skills", v)
+	return setConfigKeyIn(path, "skills", v)
+}
+
+func stringSet(list []string) map[string]bool {
+	set := make(map[string]bool, len(list))
+	for _, s := range list {
+		set[s] = true
+	}
+	return set
 }
 
 func withoutSkill(skills []string, name string) []string {
@@ -275,8 +283,9 @@ func ensureRepoSkill(st Store, cfg Config, name string) (string, error) {
 	if err := writeSkillFiles(dst, files); err != nil {
 		return "", err
 	}
-	if contains(cfg.Skills, name) {
-		if err := writeSkillsConfig(st.Root, withoutSkill(cfg.Skills, name)); err != nil {
+	repoSkills := configFileSkills(repoConfigPath(st.Root))
+	if contains(repoSkills, name) {
+		if err := writeSkillsConfig(repoConfigPath(st.Root), withoutSkill(repoSkills, name)); err != nil {
 			return "", err
 		}
 	}
@@ -284,11 +293,15 @@ func ensureRepoSkill(st Store, cfg Config, name string) (string, error) {
 }
 
 // skillStatusLine describes one resolved skill across the target dirs.
-func skillStatusLine(st Store, cfg Config, targets []string, name string) (string, bool) {
+// scope is "repo" or "global" for skills: entries — which level enabled them.
+func skillStatusLine(st Store, cfg Config, targets []string, name, scope string) (string, bool) {
 	src := resolveSkill(st, cfg, name)
 	label := src.kind
 	if src.kind == "repo" && contains(cfg.Skills, name) {
 		label = "repo (shadowed)"
+	}
+	if src.kind == "library" && scope != "" {
+		label = "library(" + scope + ")"
 	}
 	if src.kind == "" {
 		label = "orphaned"
@@ -416,7 +429,7 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 	}
 
 	if global {
-		return cmdSkillGlobal(out, errOut, sub, force)
+		return cmdSkillGlobal(out, errOut, sub, operand, force)
 	}
 
 	st, err := mustStore()
@@ -429,8 +442,17 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 	switch sub {
 	case "", "check":
 		bad := 0
+		repoSet := stringSet(configFileSkills(repoConfigPath(st.Root)))
+		globalSet := stringSet(configFileSkills(globalConfigPath()))
 		for _, name := range skillNames(st, cfg) {
-			line, ok := skillStatusLine(st, cfg, targets, name)
+			scope := ""
+			switch {
+			case repoSet[name]:
+				scope = "repo"
+			case globalSet[name]:
+				scope = "global"
+			}
+			line, ok := skillStatusLine(st, cfg, targets, name, scope)
 			fmt.Fprintln(out, line)
 			if !ok {
 				bad++
@@ -457,7 +479,13 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 		return nil
 	}
 
-	if operand == "" || (sub != "import" && !personaNamePattern.MatchString(operand)) {
+	if operand == "" {
+		if sub == "import" && !library {
+			return cmdSkillImportAll(st, cfg, targets, out, errOut)
+		}
+		return fmt.Errorf("usage: spec skill %s <name>", sub)
+	}
+	if sub != "import" && !personaNamePattern.MatchString(operand) {
 		return fmt.Errorf("usage: spec skill %s <name>", sub)
 	}
 	name := operand
@@ -667,22 +695,27 @@ func cmdSkillUse(st Store, cfg Config, targets []string, name string, out, errOu
 	if name == "spec" {
 		return fmt.Errorf("the spec skill is built in and always enabled")
 	}
-	if contains(cfg.Skills, name) {
+	repoSkills := configFileSkills(repoConfigPath(st.Root))
+	if contains(repoSkills, name) {
 		fmt.Fprintf(out, "Skill %q already enabled\n", name)
+		return nil
+	}
+	if contains(configFileSkills(globalConfigPath()), name) {
+		fmt.Fprintf(out, "Skill %q already enabled via global skills:\n", name)
 		return nil
 	}
 	if !isDir(librarySkillDir(name)) {
 		return fmt.Errorf("no library skill %q (see: spec skill)", name)
 	}
-	skills := append(cfg.Skills, name)
-	if err := writeSkillsConfig(st.Root, skills); err != nil {
+	repoSkills = append(repoSkills, name)
+	if err := writeSkillsConfig(repoConfigPath(st.Root), repoSkills); err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "Using library skill %q\n", name)
 	if isDir(repoSkillDir(st.Root, name)) {
 		fmt.Fprintln(errOut, "note: .spec/skills/"+name+" exists and takes precedence")
 	}
-	cfg.Skills = skills
+	cfg.Skills = unionStrings(cfg.Skills, []string{name})
 	_, err := syncSkills(st, cfg, targets, false, errOut)
 	return err
 }
@@ -691,8 +724,20 @@ func cmdSkillUnuse(st Store, cfg Config, targets []string, name string, force bo
 	if name == "spec" {
 		return fmt.Errorf("the spec skill is built in and always enabled")
 	}
-	if !contains(cfg.Skills, name) {
+	repoSkills := configFileSkills(repoConfigPath(st.Root))
+	if !contains(repoSkills, name) {
+		if contains(configFileSkills(globalConfigPath()), name) {
+			return fmt.Errorf("skill %q is enabled via global skills: — use spec skill unuse %s --global", name, name)
+		}
 		return fmt.Errorf("skill %q is not in skills:", name)
+	}
+	if contains(configFileSkills(globalConfigPath()), name) {
+		// still enabled globally — the repo entry is redundant; drop it
+		if err := writeSkillsConfig(repoConfigPath(st.Root), withoutSkill(repoSkills, name)); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Skill %q removed from repo skills: — still enabled via global skills:\n", name)
+		return nil
 	}
 	// installed copies may only be removed when they still match the
 	// source; a differing copy is a fork the user must keep or discard
@@ -715,7 +760,7 @@ func cmdSkillUnuse(st Store, cfg Config, targets []string, name string, force bo
 			return err
 		}
 	}
-	if err := writeSkillsConfig(st.Root, withoutSkill(cfg.Skills, name)); err != nil {
+	if err := writeSkillsConfig(repoConfigPath(st.Root), withoutSkill(repoSkills, name)); err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "Skill %q no longer managed\n", name)
@@ -736,10 +781,14 @@ func cmdSkillAdopt(st Store, cfg Config, targets []string, name string, out, err
 	if err := writeSkillFiles(repoSkillDir(st.Root, name), files); err != nil {
 		return err
 	}
-	if contains(cfg.Skills, name) {
-		if err := writeSkillsConfig(st.Root, withoutSkill(cfg.Skills, name)); err != nil {
+	repoSkills := configFileSkills(repoConfigPath(st.Root))
+	if contains(repoSkills, name) {
+		if err := writeSkillsConfig(repoConfigPath(st.Root), withoutSkill(repoSkills, name)); err != nil {
 			return err
 		}
+	}
+	if contains(configFileSkills(globalConfigPath()), name) {
+		fmt.Fprintln(errOut, "note: still in global skills: — the repo copy shadows the library one")
 	}
 	fmt.Fprintf(out, "Adopted skill %q → %s\n", name, repoSkillDir(st.Root, name))
 	_, err = syncSkills(st, cfg, targets, false, errOut)
@@ -793,15 +842,20 @@ func skillImportSources(st Store, name string) []string {
 
 func cmdSkillImport(st Store, cfg Config, targets []string, name string, library bool, out, errOut io.Writer) error {
 	var srcDir, skillName string
+	var extraInRepo []string // other repo dirs holding the same skill
 	if isDir(name) { // a path, not a name
 		srcDir = name
 		skillName = filepath.Base(filepath.Clean(name))
 	} else {
 		skillName = name
 		for _, cand := range skillImportSources(st, name) {
-			if isDir(cand) {
+			if !isDir(cand) {
+				continue
+			}
+			if srcDir == "" {
 				srcDir = cand
-				break
+			} else if withinRoot(st.Root, cand) {
+				extraInRepo = append(extraInRepo, cand)
 			}
 		}
 		if srcDir == "" {
@@ -832,22 +886,121 @@ func cmdSkillImport(st Store, cfg Config, targets []string, name string, library
 	if library {
 		return nil
 	}
+	// a source inside the repo is a migration: remove it (git rm when
+	// tracked) and let sync regenerate the installed copy from .spec/skills
+	for _, d := range append([]string{srcDir}, extraInRepo...) {
+		if !withinRoot(st.Root, d) {
+			continue // ~/ copies stay put
+		}
+		if d != srcDir {
+			if other, _ := skillFiles(d); !skillFilesEqual(files, other) {
+				fmt.Fprintf(errOut, "note: %s differs — left in place\n", d)
+				continue
+			}
+		}
+		if err := removeSkillSource(st.Root, d); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Removed source %s\n", d)
+	}
 	_, err = syncSkills(st, cfg, targets, false, errOut)
 	return err
 }
 
+// cmdSkillImportAll imports every foreign skill dir in the repo's target
+// dirs into .spec/skills/ — the migration path for hand-authored agent
+// skills that predate the .spec/skills layer.
+func cmdSkillImportAll(st Store, cfg Config, targets []string, out, errOut io.Writer) error {
+	resolved := stringSet(skillNames(st, cfg))
+	byName := map[string][]string{}
+	for _, t := range unionStrings(targets, []string{".devin/skills", ".claude/skills"}) {
+		for _, name := range skillDirNames(filepath.Join(st.Root, t)) {
+			if !resolved[name] {
+				byName[name] = append(byName[name], filepath.Join(st.Root, t, name))
+			}
+		}
+	}
+	if len(byName) == 0 {
+		fmt.Fprintln(out, "No foreign skills to import.")
+		return nil
+	}
+	var names []string
+	for n := range byName {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		dirs := byName[name]
+		files, err := skillFiles(dirs[0])
+		if err != nil {
+			return err
+		}
+		differ := false
+		for _, other := range dirs[1:] {
+			if of, _ := skillFiles(other); !skillFilesEqual(files, of) {
+				fmt.Fprintf(errOut, "skipped %s: %s and %s differ — import one explicitly\n", name, dirs[0], other)
+				differ = true
+			}
+		}
+		if differ {
+			continue
+		}
+		if err := writeSkillFiles(repoSkillDir(st.Root, name), files); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Imported %s → %s\n", dirs[0], repoSkillDir(st.Root, name))
+		for _, d := range dirs {
+			if err := removeSkillSource(st.Root, d); err != nil {
+				return err
+			}
+		}
+	}
+	_, err := syncSkills(st, cfg, targets, false, errOut)
+	return err
+}
+
+// withinRoot reports whether dir is inside the repo.
+func withinRoot(root, dir string) bool {
+	absRoot, _ := filepath.Abs(root)
+	absDir, _ := filepath.Abs(dir)
+	rel, err := filepath.Rel(absRoot, absDir)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// removeSkillSource deletes an imported skill's old location: git rm when
+// it's tracked, plain removal otherwise.
+func removeSkillSource(root, dir string) error {
+	absRoot, _ := filepath.Abs(root)
+	absDir, _ := filepath.Abs(dir)
+	rel, err := filepath.Rel(absRoot, absDir)
+	if err != nil {
+		rel = dir
+	}
+	if exec.Command("git", "-C", root, "rm", "-rqf", "--", rel).Run() == nil {
+		return nil
+	}
+	return os.RemoveAll(dir)
+}
+
 // cmdSkillGlobal applies check/sync to the user-level agent dirs, resolving
 // the globally enabled set (global skills: plus the built-in spec).
-func cmdSkillGlobal(out, errOut io.Writer, sub string, force bool) error {
-	if sub != "" && sub != "check" && sub != "sync" && sub != "update" {
-		return fmt.Errorf("usage: spec skill [check|sync] --global")
+// use/unuse --global edit the global skills: list itself.
+func cmdSkillGlobal(out, errOut io.Writer, sub, name string, force bool) error {
+	switch sub {
+	case "", "check", "sync", "update", "use", "unuse":
+	default:
+		return fmt.Errorf("usage: spec skill [check|sync|use|unuse <name>] --global")
+	}
+	if (sub == "use" || sub == "unuse") && (name == "" || !personaNamePattern.MatchString(name)) {
+		return fmt.Errorf("usage: spec skill %s <name> --global", sub)
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
 	}
-	raw := parseConfigFile(globalConfigPath())
-	skills := parseList(raw["skills"])
+	globalPath := globalConfigPath()
+	skills := configFileSkills(globalPath)
+	raw := parseConfigFile(globalPath)
 	agent := strings.Trim(raw["agent"], `"'`)
 	var targets []string
 	if d, ok := agentGlobalSkillDirs[agent]; ok {
@@ -856,6 +1009,52 @@ func cmdSkillGlobal(out, errOut io.Writer, sub string, force bool) error {
 		for _, d := range agentGlobalSkillDirs {
 			targets = append(targets, filepath.Join(home, d))
 		}
+	}
+
+	if sub == "use" {
+		if name == "spec" {
+			return fmt.Errorf("the spec skill is built in and always enabled")
+		}
+		if contains(skills, name) {
+			fmt.Fprintf(out, "Skill %q already enabled globally\n", name)
+			return nil
+		}
+		if !isDir(librarySkillDir(name)) {
+			return fmt.Errorf("no library skill %q (see: spec skill)", name)
+		}
+		if err := writeSkillsConfig(globalPath, append(skills, name)); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Using library skill %q globally\n", name)
+		sub = "sync"
+		skills = append(skills, name)
+	}
+	if sub == "unuse" {
+		if name == "spec" {
+			return fmt.Errorf("the spec skill is built in and always enabled")
+		}
+		if !contains(skills, name) {
+			return fmt.Errorf("skill %q is not in global skills:", name)
+		}
+		libFiles, _ := skillFiles(librarySkillDir(name))
+		for _, t := range targets {
+			dst := filepath.Join(t, name)
+			installed, _ := skillFiles(dst)
+			if installed == nil {
+				continue
+			}
+			if !force && (libFiles == nil || !skillFilesEqual(installed, libFiles)) {
+				return fmt.Errorf("installed copy at %s differs — --force to discard it", dst)
+			}
+			if err := os.RemoveAll(dst); err != nil {
+				return err
+			}
+		}
+		if err := writeSkillsConfig(globalPath, withoutSkill(skills, name)); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Skill %q no longer managed globally\n", name)
+		return nil
 	}
 	names := append([]string{"spec"}, skills...)
 	bad := 0

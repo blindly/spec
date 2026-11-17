@@ -32,10 +32,11 @@ per-agent copies. FEAT-020 gave personas a shared library with per-repo
 opt-in; this applies the same model to skills, adjusted for the fact that
 skills are consumed as files on disk, so the mechanism is install +
 freshness-check — the machinery FEAT-025 already built for the single
-embedded skill. The payoff: one known spot per scope, everything in git
-by default, repo-owned skills distinguishable from managed copies by
-path, and spec handles the correspondence bookkeeping instead of the
-user copying directories around.
+embedded skill. The payoff: one known spot per scope, repo-owned skills
+committed to git while generated installs stay untracked, repo-owned
+skills distinguishable from managed copies by path, and spec handles
+the correspondence bookkeeping instead of the user copying directories
+around.
 
 ## Requirements
 
@@ -49,8 +50,11 @@ Addresses: REQ-017
   - Repo: `.spec/skills/<name>/` — repo-owned skills, committed to the
     repo's git. Local skills live here; so do forks adopted from the
     library. Agent-agnostic by construction.
-  - Installed: the resolved target dirs — generated output only. spec
-    creates, refreshes, and removes dirs there to match resolution; it
+  - Installed: the resolved target dirs — generated output only,
+    gitignored (`spec init` appends the resolved targets to
+    `.gitignore`; a stale committed copy would differ from some other
+    machine's resolved source and block `sync` without `--force`).
+    spec creates, refreshes, and removes dirs there to match resolution; it
     never treats them as source.
 - **Built-in entry.** The embedded `specSkill` (FEAT-025) is the built-in
   library entry for the name `spec`, used when no `.spec/skills/` or
@@ -62,9 +66,14 @@ Addresses: REQ-017
   tailoring. `spec init` runs `sync`: seeding the spec skill is just the
   resolved set (built-in `spec` plus any global `skills:` baseline)
   materialized into the target dirs.
-- **Selection.** `skills: [a, b]` opts the repo into library skills —
-  parsed like `statuses`/`verify`, merged global→repo (repo value
-  replaces; a global list gives every repo a baseline).
+- **Selection.** `skills: [a, b]` opts the repo into library skills.
+  Unlike every other key, `skills:` **unions** across levels — a repo's
+  list extends the global baseline rather than replacing it (global
+  entries still reach repos that set their own list). `use`/`unuse`
+  write only the repo-level list; `use --global`/`unuse --global` write
+  the global list and sync the user-level dirs. The list output labels
+  each managed skill `library(repo)` or `library(global)` by which
+  level enabled it (repo wins when both list it).
   Install targets resolve as: `skill_targets: [dirs]` config when set
   (explicit override — for multi-agent repos, since `agent:` is
   single-valued); else the skill dir of the configured `agent:` from a
@@ -112,10 +121,13 @@ Addresses: REQ-017
     `adopt` when managed (copies the source into `.spec/skills/`, drops
     the `skills:` entry), an implicit copy when library-only. Mirrors
     how `spec role refine` forks the persona into `.spec/role.md`.
-  - `use <name>` / `unuse <name>` — add/remove the name in `skills:` and
-    sync. `unuse` removes installed copies only when byte-equal to the
+  - `use <name>` / `unuse <name>` — add/remove the name in the repo's
+    `skills:` and sync. `use` on a globally enabled name reports it
+    (no redundant repo entry); `unuse` on one points at `--global`.
+    `unuse` removes installed copies only when byte-equal to the
     source; a differing copy errors and suggests `adopt` (keep bytes)
-    or `--force` (discard).
+    or `--force` (discard). `--global` variants edit the global
+    `skills:` list and the user-level agent dirs instead.
   - `adopt <name>` — copy the resolved source (or the installed copy if
     it was hand-edited, preserving the edits) into `.spec/skills/<name>/`
     and drop the `skills:` entry — a managed skill becomes a repo-owned
@@ -127,7 +139,14 @@ Addresses: REQ-017
   - `import <name|path>` — copy a skill directory into `.spec/skills/`.
     A bare name searches the known skill dirs (`.devin/skills/`,
     `.claude/skills/`, `~/.claude/skills/`, `~/.config/devin/skills/`);
-    a path is copied verbatim. `--library` imports into the library.
+    a path is copied verbatim. A source inside the repo is a migration:
+    it is removed after copying (`git rm` when tracked, plain `rm`
+    otherwise) and sync regenerates the installed copy; `~/` sources
+    are copied, never removed. With no operand, imports every foreign
+    skill dir found in the agent dirs (names already resolved are
+    skipped as generated copies); same-named dirs that differ are
+    reported and skipped for explicit import. `--library` imports into
+    the library.
   - `check` — print per-skill status; exit non-zero when any resolved
     skill is missing or stale, so it can gate `verify:` (same contract
     as FEAT-025's `check`).
@@ -149,26 +168,34 @@ Addresses: REQ-017
   works as a plain git repo without spec involvement
 - [x] Repo-owned skills live in `.spec/skills/<name>/` and shadow the
   library by path — no config needed, never pushed unless asked
-- [x] `skills:` config opts a repo into library skills; install targets
+- [x] `skills:` config opts a repo into library skills — unions
+  global∪repo so a repo list extends the baseline; install targets
   come from `skill_targets:` when set, else the configured `agent:`'s
   skill dir, else `.devin/skills` + `.claude/skills` — nothing installs
   for agents the repo doesn't use
 - [x] `spec skill` lists every skill with source and status; all states
   (local/managed/stale/shadowed/missing/orphaned/available) are derived
-  from path membership and byte-compare alone
-- [x] `spec skill use/unuse` manage the config entry and installed
-  copies; `unuse` never deletes a differing copy
+  from path membership and byte-compare alone; managed skills are
+  labeled `library(repo)`/`library(global)` by enabling level
+- [x] `spec skill use/unuse` manage the repo config entry and installed
+  copies (`--global` variants manage the global entry and user-level
+  dirs); `unuse` never deletes a differing copy
 - [x] `spec skill adopt` copies the resolved source into `.spec/skills/`
   and drops the config entry; `push` publishes a repo skill to the
   library with the `--force` overwrite contract
 - [x] `spec skill import` copies a skill dir from a known location or
-  explicit path into `.spec/skills/` (or library with `--library`)
+  explicit path into `.spec/skills/` (or library with `--library`);
+  in-repo sources are moved (`git rm`/`rm`), `~/` sources copied; bare
+  `import` migrates every foreign dir in the agent dirs and skips
+  resolved names and diverging duplicates
 - [x] `spec skill check` exits non-zero on missing/stale skills; `sync`
   regenerates installs in every `skill_targets` dir and refuses to
   clobber differing copies without `--force`; `--global` covers the
   user-level dirs
 - [x] The embedded spec skill works as a built-in library entry; `spec
-  init` and FEAT-025's freshness check keep working
+  init` runs `sync` and seeds `.gitignore` with the resolved target
+  dirs (generated installs stay untracked); FEAT-025's freshness check
+  keeps working
 - [x] `refine` is repo-blind for library skills and repo-aware for repo
   skills; `--local` on `edit`/`refine` ensures a `.spec/skills/` copy
   (implicit `adopt` when managed, implicit copy when library-only) and

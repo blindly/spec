@@ -129,11 +129,17 @@ func parseList(v string) []string {
 }
 
 // loadConfig merges the global config (~/.config/spec/config.yml) with the
-// repo's .spec/config.yml; repo keys win.
+// repo's .spec/config.yml; repo keys win — except skills:, which unions
+// (a repo's entries extend the global baseline rather than replacing it).
 func loadConfig(root string) Config {
 	cfg := defaultConfig()
-	raw := parseConfigFile(globalConfigPath())
-	for k, v := range parseConfigFile(filepath.Join(root, configDir, "config.yml")) {
+	globalRaw := parseConfigFile(globalConfigPath())
+	repoRaw := parseConfigFile(repoConfigPath(root))
+	raw := map[string]string{}
+	for k, v := range globalRaw {
+		raw[k] = v
+	}
+	for k, v := range repoRaw {
 		raw[k] = v
 	}
 	for k, v := range raw {
@@ -158,7 +164,7 @@ func loadConfig(root string) Config {
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				cfg.WebPort = n
 			}
-		case "statuses", "verify", "done_statuses", "idea_statuses", "skills", "skill_targets":
+		case "statuses", "verify", "done_statuses", "idea_statuses", "skill_targets":
 			if list := parseList(v); len(list) > 0 {
 				switch k {
 				case "statuses":
@@ -167,8 +173,6 @@ func loadConfig(root string) Config {
 					cfg.DoneStatuses = list
 				case "idea_statuses":
 					cfg.IdeaStatuses = list
-				case "skills":
-					cfg.Skills = list
 				case "skill_targets":
 					cfg.SkillTargets = list
 				default:
@@ -177,7 +181,28 @@ func loadConfig(root string) Config {
 			}
 		}
 	}
+	cfg.Skills = unionStrings(parseList(globalRaw["skills"]), parseList(repoRaw["skills"]))
 	return cfg
+}
+
+// repoConfigPath is the repo's .spec/config.yml.
+func repoConfigPath(root string) string {
+	return filepath.Join(root, configDir, "config.yml")
+}
+
+// configFileSkills returns the skills: list of one config file.
+func configFileSkills(path string) []string {
+	return parseList(parseConfigFile(path)["skills"])
+}
+
+func unionStrings(a, b []string) []string {
+	out := append([]string{}, a...)
+	for _, s := range b {
+		if !contains(out, s) {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func (c Config) String() string {
@@ -292,11 +317,15 @@ func initRepoConfig(root string, force bool) (string, error) {
 	return path, os.WriteFile(path, []byte(repoConfigTemplate), 0o644)
 }
 
-// setConfigKey writes key: value into the repo's .spec/config.yml,
-// replacing the existing uncommented line for that key or dropping it
-// when value is "". Commented-out lines mentioning the key are untouched.
+// setConfigKey writes key: value into the repo's .spec/config.yml.
 func setConfigKey(root, key, value string) error {
-	path := filepath.Join(root, configDir, "config.yml")
+	return setConfigKeyIn(repoConfigPath(root), key, value)
+}
+
+// setConfigKeyIn writes key: value into the config file at path, replacing
+// the existing uncommented line for that key or dropping it when value is
+// "". Commented-out lines mentioning the key are untouched.
+func setConfigKeyIn(path, key, value string) error {
 	data, _ := os.ReadFile(path)
 	var lines []string
 	replaced := false
