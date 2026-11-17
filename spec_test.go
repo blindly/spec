@@ -448,6 +448,22 @@ func TestBodyFromAgentOutput(t *testing.T) {
 	}
 }
 
+func TestSkillDocFromAgentOutput(t *testing.T) {
+	doc := "---\nname: tidy\ndescription: tidies\n---\n\n# Tidy\n\nbody\n"
+	if got := skillDocFromAgentOutput(doc); got != strings.TrimSpace(doc) {
+		t.Fatalf("clean doc changed: %q", got)
+	}
+	wrapped := "Here's the improved skill:\n```markdown\n" + doc + "```\n"
+	if got := skillDocFromAgentOutput(wrapped); got != strings.TrimSpace(doc) {
+		t.Fatalf("narration/fence not stripped: %q", got)
+	}
+	// a doc ending in its own fenced block keeps it — the fences balance
+	endsFenced := "---\nname: x\ndescription: d\n---\n\n# X\n\n```sh\nspec check\n```\n"
+	if got := skillDocFromAgentOutput(endsFenced); got != strings.TrimSpace(endsFenced) {
+		t.Fatalf("trailing code block eaten: %q", got)
+	}
+}
+
 func TestAgentDraftAndRefine(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell-script fake agent")

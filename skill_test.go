@@ -630,3 +630,27 @@ func TestSkillRmLibrary(t *testing.T) {
 		t.Fatal("library entry still exists")
 	}
 }
+
+func TestSkillRefineKeepsFrontmatter(t *testing.T) {
+	st := setupRepo(t)
+	writeRepoSkill(t, st, "tidy", simpleSkill("tidy", "Old body."))
+	fakeRefineAgent(t, st, "---\nname: tidy\ndescription: tidies things\n---\n\n# Tidy\n\nNew body.\n")
+	var out, errs bytes.Buffer
+	if err := cmdSkill(&out, &errs, []string{"refine", "tidy"}); err != nil {
+		t.Fatalf("%v\n%s", err, errs.String())
+	}
+	want := "---\nname: tidy\ndescription: tidies things\n---\n\n# Tidy\n\nNew body.\n"
+	data, err := os.ReadFile(filepath.Join(repoSkillDir(st.Root, "tidy"), "SKILL.md"))
+	if err != nil || string(data) != want {
+		t.Fatalf("refined skill (%v):\n%s", err, data)
+	}
+	// garbage output leaves the skill alone
+	fakeRefineAgent(t, st, "I couldn't improve it.\n")
+	if err := cmdSkill(&out, &errs, []string{"refine", "tidy"}); err == nil {
+		t.Fatal("garbage output accepted")
+	}
+	data, _ = os.ReadFile(filepath.Join(repoSkillDir(st.Root, "tidy"), "SKILL.md"))
+	if string(data) != want {
+		t.Fatal("skill lost on bad output")
+	}
+}

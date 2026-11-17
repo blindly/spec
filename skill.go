@@ -694,8 +694,8 @@ Current skill:
 	if err != nil {
 		return err
 	}
-	body := strings.TrimSpace(bodyFromAgentOutput(output))
-	if !strings.HasPrefix(body, "---") || !strings.Contains(body, "description:") {
+	body := skillDocFromAgentOutput(output)
+	if meta, _ := parseFrontmatter(body); metaGet(meta, "name", "") == "" || metaGet(meta, "description", "") == "" {
 		dumpAgentOutput(errOut, output)
 		return fmt.Errorf("agent returned no valid SKILL.md — skill left unchanged")
 	}

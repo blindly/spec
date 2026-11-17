@@ -213,6 +213,34 @@ func bodyFromAgentOutput(out string) string {
 	return strings.TrimSpace(s) + "\n"
 }
 
+// skillDocFromAgentOutput extracts a SKILL.md document — frontmatter block
+// included — from agent output: drops narration before the opening --- and
+// unwraps an outer code fence. Unlike bodyFromAgentOutput the frontmatter
+// stays: a SKILL.md is the whole file, not just a body.
+func skillDocFromAgentOutput(out string) string {
+	s := strings.TrimSpace(out)
+	// cut prose (and an opening ``` fence) before the frontmatter block
+	if !strings.HasPrefix(s, "---") {
+		if i := strings.Index(s, "\n---"); i >= 0 {
+			s = strings.TrimSpace(s[i+1:])
+		}
+	}
+	// an odd ``` count means a fence wrapped the reply — drop the last one;
+	// even counts are the document's own fenced blocks and stay
+	fences := 0
+	for _, l := range strings.Split(s, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(l), "```") {
+			fences++
+		}
+	}
+	if fences%2 == 1 {
+		if i := strings.LastIndex(s, "```"); i >= 0 {
+			s = strings.TrimSpace(s[:i])
+		}
+	}
+	return s
+}
+
 var typeSuggestionPattern = regexp.MustCompile(`(?m)^\s*SPEC-TYPE-SUGGESTION:\s*(\w+)\s*:?\s*(.*)$`)
 
 // gluedHeading matches a markdown heading fused onto narration-ending
