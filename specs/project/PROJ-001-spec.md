@@ -42,6 +42,9 @@ and implement specs. A local web UI provides browsing and editing.
   run only when configured.
 - REQ-004: Agent commands (`draft`, `refine`, `apply`, `fact discover`, `role refine`) run the configured
   agent CLI with a timeout and report the actual outcome to the user.
+  An optional nonempty `agent_env:` list grants specific inherited
+  variables or injects secret facts via `NAME=key`, alongside essential
+  variables. An unset or empty list preserves full inheritance.
   A non-empty repo-local `.spec/role.md` supplies the development persona
   and conventions in every agent prompt; when it is absent, a repo may opt
   in to a shared persona via `persona:` naming a file in
@@ -62,7 +65,11 @@ and implement specs. A local web UI provides browsing and editing.
   reference them with fact placeholders; `spec check` audits the references.
   `spec fact discover` seeds missing placeholders offline and proposes
   values from structured files or the configured agent for confirmation.
-  Existing keys are preserved; `--yes` accepts all new candidates.
+  Existing keys are preserved. `--yes` accepts all new candidates and
+  stores token-shaped values in the secret tier.
+  Credentials live in gitignored `.spec/secrets.yml` and are referenced
+  with literal secret placeholders. Agent context names secret keys and
+  credentials are retrieved at the point of use.
 - REQ-010: `spec trace` and `spec status` report REQ → feature coverage.
 - REQ-011: Default views (the web UI, `spec status`, `spec ls`) show every spec that
   is still valid — including implemented specs, which are the living

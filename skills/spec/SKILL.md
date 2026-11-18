@@ -25,7 +25,8 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
   context, but they may be outdated; never implement them, and trust
   live specs and the code where they differ
 - `.spec/config.yml` — agent, statuses, `verify:` commands
-- `.spec/facts.yml` — definite project facts, referenced in specs as `{fact:key}`
+- `.spec/facts.yml` — public project facts, referenced in specs as `{fact:key}`
+- `.spec/secrets.yml` — gitignored credential values, referenced as `{secret:key}`
 - `.spec/reminders.yml` — recurring obligations (cadence + `last_done`),
   managed by `spec remind`; due items show in `spec status`, `spec check`,
   and your prompt context
@@ -80,8 +81,7 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
   shows them and `spec validate` fails on unknown ids and cycles.
 - Never invent definite values (domain, phone, company name) — use
   `{fact:key}`; add missing facts with `spec fact set key value`.
-- `spec check` audits `{fact:key}` references; `spec trace` shows REQ→feature
-  coverage.
+- `spec trace` shows REQ→feature coverage.
 - Recurring obligations live in `.spec/reminders.yml`, not in spec
   statuses (a recurring task never finishes — it resets). When a spec
   mandates periodic work, register it:
@@ -97,6 +97,21 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
   `implemented` only once the work is really done.
 - A spec's type is fixed at creation (it sets id prefix and directory);
   `spec validate` fails on mismatches. To change type, create a new spec.
+
+## Facts and credentials
+
+Use `spec fact set --secret <key> <value>` to store a credential in
+`.spec/secrets.yml`. In a spec, `{secret:key}` stays literal. Agent context
+lists secret key names, and `spec fact list` masks secret values. Retrieve
+the credential where it is needed using `spec fact get <key>` or an
+environment variable granted to the agent. `spec check` audits both types of
+reference and warns about possible credential leaks.
+
+A nonempty `agent_env:` list grants variables to agents launched by spec
+alongside essentials such as `PATH`. List `NAME` to pass through an exported
+variable or `NAME=key` to inject a secret fact. An unset or empty list allows
+full inheritance. Skills installed into other tools receive those tools'
+environments.
 
 ## Gotchas
 

@@ -6,13 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
-
-// Facts live in .spec/facts.yml — flat "key: value" lines, "#" comments.
-// They hold definite project facts (domain, phone, legal name, …) that
-// specs and agents may reference via {fact:key} placeholders.
 
 type Fact struct {
 	Key   string
@@ -23,9 +20,35 @@ func factsPath(root string) string {
 	return filepath.Join(root, configDir, "facts.yml")
 }
 
-// loadFacts parses .spec/facts.yml preserving declaration order.
+const secretsFile = ".spec/secrets.yml"
+
+func secretsPath(root string) string {
+	return filepath.Join(root, secretsFile)
+}
+
+func loadSecretFacts(root string) []Fact {
+	return readFacts(secretsPath(root))
+}
+
+// loadFacts returns only public facts that are not shadowed by a secret.
 func loadFacts(root string) []Fact {
-	data, err := os.ReadFile(factsPath(root))
+	return publicFacts(readFacts(factsPath(root)), factsMap(loadSecretFacts(root)))
+}
+
+func publicFacts(facts []Fact, secrets map[string]string) []Fact {
+	var public []Fact
+	for _, f := range facts {
+		if _, secret := secrets[f.Key]; !secret {
+			public = append(public, f)
+		}
+	}
+	return public
+}
+
+var quotedFactValue = regexp.MustCompile(`^("(?:[^"\\]|\\.)*")(?:[ \t]+#.*)?$`)
+
+func readFacts(path string) []Fact {
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil
 	}
@@ -41,16 +64,23 @@ func loadFacts(root string) []Fact {
 		}
 		k = strings.TrimSpace(k)
 		v = strings.TrimSpace(v)
-		if i := strings.Index(v, " #"); i >= 0 {
-			v = strings.TrimSpace(v[:i])
+		if k != "" {
+			facts = append(facts, Fact{Key: k, Value: parseFactValue(v)})
 		}
-		v = strings.Trim(v, `"'`)
-		if k == "" {
-			continue
-		}
-		facts = append(facts, Fact{Key: k, Value: v})
 	}
 	return facts
+}
+
+func parseFactValue(value string) string {
+	if quoted := quotedFactValue.FindStringSubmatch(value); quoted != nil {
+		if decoded, err := strconv.Unquote(quoted[1]); err == nil {
+			return decoded
+		}
+	}
+	if i := strings.Index(value, " #"); i >= 0 {
+		value = strings.TrimSpace(value[:i])
+	}
+	return strings.Trim(value, `"'`)
 }
 
 func factsMap(facts []Fact) map[string]string {
@@ -61,10 +91,19 @@ func factsMap(facts []Fact) map[string]string {
 	return m
 }
 
-// setFact adds or updates a key, preserving existing lines and comments.
 func setFact(root, key, value string) error {
-	path := factsPath(root)
-	data, _ := os.ReadFile(path)
+	return setFactIn(factsPath(root), 0o644, key, value)
+}
+
+// setFactIn adds or updates a key, preserving unrelated lines and comments.
+func setFactIn(path string, perm os.FileMode, key, value string) error {
+	data, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if perm == 0o600 {
+		value = encodeSecret(value)
+	}
 	lines := strings.Split(string(data), "\n")
 	replaced := false
 	for i, line := range lines {
@@ -86,13 +125,15 @@ func setFact(root, key, value string) error {
 			lines = append(lines, fmt.Sprintf("%s: %s", key, value), "")
 		}
 	}
-	return writeFileAtomic(path, []byte(strings.Join(lines, "\n")), 0o644)
+	return writeFileAtomic(path, []byte(strings.Join(lines, "\n")), perm)
 }
 
-// unsetFact removes a key line; reports whether anything changed.
-func unsetFact(root, key string) (bool, error) {
-	path := factsPath(root)
+// unsetFactIn removes a key line and reports whether anything changed.
+func unsetFactIn(path string, perm os.FileMode, key string) (bool, error) {
 	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
 	if err != nil {
 		return false, err
 	}
@@ -112,7 +153,7 @@ func unsetFact(root, key string) (bool, error) {
 	if !removed {
 		return false, nil
 	}
-	return true, writeFileAtomic(path, []byte(strings.Join(out, "\n")), 0o644)
+	return true, writeFileAtomic(path, []byte(strings.Join(out, "\n")), perm)
 }
 
 var factRefPattern = regexp.MustCompile(`\{fact:([a-zA-Z0-9_.-]+)\}`)
@@ -133,19 +174,38 @@ func substituteFacts(text, root string) string {
 	})
 }
 
+func encodeSecret(value string) string {
+	if strings.TrimSpace(value) != value || strings.Trim(value, `"'`) != value ||
+		strings.Contains(value, " #") || strings.ContainsAny(value, "\r\n\x00") {
+		return strconv.Quote(value)
+	}
+	return value
+}
+
+var secretRefPattern = regexp.MustCompile(`\{secret:([a-zA-Z0-9_.-]+)\}`)
+var factKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_.-]+$`)
+
 func cmdFact(out, errOut io.Writer, args []string) error {
 	st, err := mustStore()
 	if err != nil {
 		return err
 	}
 	if len(args) == 0 || args[0] == "list" {
-		facts := loadFacts(st.Root)
-		if len(facts) == 0 {
-			fmt.Fprintln(out, "No facts defined (.spec/facts.yml).")
+		secrets := loadSecretFacts(st.Root)
+		facts := publicFacts(readFacts(factsPath(st.Root)), factsMap(secrets))
+		if len(facts) == 0 && len(secrets) == 0 {
+			fmt.Fprintln(out, "No facts defined (.spec/facts.yml or .spec/secrets.yml).")
 			return nil
 		}
 		for _, f := range facts {
 			fmt.Fprintf(out, "%-20s %s\n", f.Key, f.Value)
+		}
+		seen := map[string]bool{}
+		for _, f := range secrets {
+			if !seen[f.Key] {
+				fmt.Fprintf(out, "%-20s <secret>\n", f.Key)
+				seen[f.Key] = true
+			}
 		}
 		return nil
 	}
@@ -159,75 +219,70 @@ func cmdFact(out, errOut io.Writer, args []string) error {
 		if len(args) < 2 {
 			return fmt.Errorf("usage: spec fact get <key>")
 		}
-		v, ok := factsMap(loadFacts(st.Root))[args[1]]
+		v, ok := factsMap(loadSecretFacts(st.Root))[args[1]]
+		if !ok {
+			v, ok = factsMap(readFacts(factsPath(st.Root)))[args[1]]
+		}
 		if !ok {
 			return fmt.Errorf("fact %q not defined", args[1])
 		}
 		fmt.Fprintln(out, v)
 	case "set":
-		if len(args) < 3 {
-			return fmt.Errorf("usage: spec fact set <key> <value>")
+		args = args[1:]
+		forceSecret := len(args) > 0 && args[0] == "--secret"
+		if forceSecret {
+			args = args[1:]
 		}
-		if err := setFact(st.Root, args[1], strings.Join(args[2:], " ")); err != nil {
+		if len(args) < 2 {
+			return fmt.Errorf("usage: spec fact set [--secret] <key> <value>")
+		}
+		key, value := args[0], strings.Join(args[1:], " ")
+		if !factKeyPattern.MatchString(key) {
+			return fmt.Errorf("invalid fact key %q", key)
+		}
+		_, alreadySecret := factsMap(loadSecretFacts(st.Root))[key]
+		if forceSecret || alreadySecret {
+			if err := setFactIn(secretsPath(st.Root), 0o600, key, value); err != nil {
+				return err
+			}
+			if _, err := unsetFactIn(factsPath(st.Root), 0o644, key); err != nil {
+				return err
+			}
+			value = "<secret>"
+		} else if err := setFact(st.Root, key, value); err != nil {
 			return err
 		}
-		fmt.Fprintf(out, "%s = %s\n", args[1], strings.Join(args[2:], " "))
+		fmt.Fprintf(out, "%s = %s\n", key, value)
 	case "unset":
 		if len(args) < 2 {
 			return fmt.Errorf("usage: spec fact unset <key>")
 		}
-		removed, err := unsetFact(st.Root, args[1])
+		// Remove the public entry first so a shadowed value cannot become visible.
+		removed, err := unsetFactIn(factsPath(st.Root), 0o644, args[1])
 		if err != nil {
 			return err
 		}
-		if !removed {
+		removedSecret, err := unsetFactIn(secretsPath(st.Root), 0o600, args[1])
+		if err != nil {
+			return err
+		}
+		if !removed && !removedSecret {
 			return fmt.Errorf("fact %q not defined", args[1])
 		}
 		fmt.Fprintf(out, "Removed %s\n", args[1])
 	default:
-		return fmt.Errorf("usage: spec fact [list|get <key>|set <key> <value>|unset <key>|discover [--yes]]")
+		return fmt.Errorf("usage: spec fact [list|get <key>|set [--secret] <key> <value>|unset <key>|discover [--yes]]")
 	}
 	return nil
 }
 
-// cmdCheck audits facts usage: {fact:key} references in spec bodies must
-// resolve; defined-but-never-referenced keys are reported as warnings.
+// cmdCheck audits fact references, possible secret leaks, reminders, and drift.
 func cmdCheck(out, errOut io.Writer) error {
 	st, err := mustStore()
 	if err != nil {
 		return err
 	}
-	facts := loadFacts(st.Root)
-	defined := factsMap(facts)
-	referenced := map[string]bool{}
-	var undefined []string
-	for _, s := range st.Specs() {
-		for _, m := range factRefPattern.FindAllStringSubmatch(s.Body, -1) {
-			key := m[1]
-			if _, ok := defined[key]; !ok {
-				undefined = append(undefined, fmt.Sprintf("%s: {fact:%s}", s.ID(), key))
-			}
-			referenced[key] = true
-		}
-	}
-	problems := 0
-	for _, u := range undefined {
-		fmt.Fprintln(out, "FAIL  undefined fact reference", u)
-		problems++
-	}
-	seen := map[string]bool{}
-	for _, f := range facts {
-		if f.Value == "" {
-			fmt.Fprintf(out, "WARN  fact %q has an empty value\n", f.Key)
-		}
-		if seen[f.Key] {
-			fmt.Fprintf(out, "WARN  fact %q is defined more than once\n", f.Key)
-		}
-		seen[f.Key] = true
-		if !referenced[f.Key] {
-			fmt.Fprintf(out, "WARN  fact %q is never referenced ({fact:%s})\n", f.Key, f.Key)
-		}
-	}
+	problems := checkFacts(st, out)
 	// reminders (FEAT-023): warn on due entries and misconfig, never fail
 	now := time.Now()
 	for _, r := range loadReminders(st.Root) {
@@ -249,7 +304,7 @@ func cmdCheck(out, errOut io.Writer) error {
 		}
 	}
 	if problems > 0 {
-		return fmt.Errorf("%d undefined fact reference(s)", problems)
+		return fmt.Errorf("%d fact check failure(s)", problems)
 	}
 	fmt.Fprintln(out, "OK  facts check passed")
 	return nil

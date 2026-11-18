@@ -12,9 +12,9 @@ verified: b4e420a69259da3f82ca5556a41d034f7d8a8757
 
 ## Summary
 
-`spec fact discover` populates `.spec/facts.yml` instead of making the user
-hunt for keys one at a time. It always seeds `{fact:<key>}` placeholders
-found in spec bodies as empty entries. When an agent is configured, it also
+`spec fact discover` populates the public and secret fact files from the repository. It
+seeds undefined `{fact:<key>}` placeholders found in spec bodies as
+empty public entries. When an agent is configured, it also
 asks the agent to scan the repository for definite project values —
 domains, phone numbers, emails, project names, anything that doesn't
 change — and proposes them as `key: value` candidates for confirmation.
@@ -34,10 +34,11 @@ Addresses: REQ-004, REQ-006, REQ-009
 ## Design
 
 - New `spec fact` subcommand; usage becomes
-  `spec fact [list|get <key>|set <key> <value>|unset <key>|discover [--yes]]`.
+  `spec fact [list|get <key>|set [--secret] <key> <value>|unset <key>|discover [--yes]]`.
 - **Placeholder seeding (always, offline):** collect `{fact:<key>}`
   references from the same spec set `spec check` audits (`st.Specs()`,
   including archived specs) and append missing keys to `.spec/facts.yml`
+  when neither tier defines them
   with empty values — so `spec check`'s `FAIL undefined fact reference`
   becomes the existing `WARN fact has an empty value` until filled.
 - **Agent scan (agent configured):** resolve and run the configured agent
@@ -48,8 +49,10 @@ Addresses: REQ-004, REQ-006, REQ-009
 - **Confirmation before write:** agent-proposed and heuristic candidates
   are printed (`key: value — source`) and written only after the user
   confirms; `--yes` accepts all, like `spec apply --yes`. Existing keys
-  are never overwritten — a proposal for an already-defined key is shown
-  as a conflict and skipped.
+  in either tier are preserved. A conflicting proposal is reported and skipped.
+  Recognized token shapes are proposed as secrets with masked values.
+  Accepted secret proposals go to `.spec/secrets.yml` with mode `0600`.
+  Discovery seeds only public placeholders.
 - **Heuristic fallback:** with `agent: none` (or an agent failure —
   warn and fall back, like `spec draft`), only placeholder seeding plus
   values derivable from structured files run: git remote host, `go.mod`
@@ -62,7 +65,7 @@ Addresses: REQ-004, REQ-006, REQ-009
   when value proposals are declined; seeded empty keys are preserved.
 - Values are never silently invented: heuristics read only authoritative
   files; everything else is a confirmed proposal.
-- `facts.yml` is rewritten atomically, preserving existing entries,
+- Each fact file is rewritten atomically, preserving existing entries,
   comments, and order.
 - Output summarizes keys seeded, candidates proposed, and what was
   written. Idempotent — a rerun proposes nothing already defined.

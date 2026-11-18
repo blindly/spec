@@ -97,8 +97,8 @@ Addresses: REQ-014
     stamps `verified:`.
 - **`spec verified <id>...`** stamps `verified: <HEAD commit>` (the spec has
   been checked and is accurate).
-- **`spec check`** prints a `WARN` line for each possibly-stale spec. It
-  doesn't fail.
+- **`spec check`** prints a `WARN` line for each possibly-stale spec.
+  Drift warnings leave the exit status unchanged.
 
 ### Around apply
 

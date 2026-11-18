@@ -17,7 +17,7 @@ spec's title, or else the repo's folder name. Folder names depend on where a
 repo was cloned (`website-1`), so the same project could show different names
 in different clones, and when the folder matched the branch name it looked
 like the badge showed the branch. The name now comes from, in order: an
-explicit `project_name` fact, the project spec's title, the git remote's repo
+explicit public `project_name` fact, the project spec's title, the git remote's repo
 name, and only then the folder.
 
 ## Motivation
@@ -32,7 +32,8 @@ Addresses: REQ-007, REQ-009
 ## Design
 
 - **Order:**
-  1. `project_name` in `.spec/facts.yml` (`spec fact set project_name "…"`)
+  1. A public `project_name` from `.spec/facts.yml` (`spec fact set project_name "…"`).
+     A secret with the same key shadows the public definition.
   2. the title of the first non-archived project spec
   3. the repo name from `remote.origin.url`, e.g.
      `git@github.com:acme/truecare-website.git` → `truecare-website`
@@ -43,7 +44,7 @@ Addresses: REQ-007, REQ-009
 
 ## Acceptance Criteria
 
-- [x] A `project_name` fact wins over everything else
+- [x] A public `project_name` fact wins over everything else
 - [x] Without the fact, the project spec's title is used; archived project specs are ignored
 - [x] Without either, the git remote's repo name is used (ssh, https, and local-path remotes, with or without `.git`)
 - [x] Without a remote, the folder name is used

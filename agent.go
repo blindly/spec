@@ -20,6 +20,7 @@ import (
 type agent struct {
 	name string
 	argv []string
+	env  []string
 }
 
 // knownAdapters maps a name to argv; {prompt} and {prompt-file} are the
@@ -51,7 +52,7 @@ func resolveAgent(cfg Config) (*agent, error) {
 		if len(argv) == 0 {
 			return nil, fmt.Errorf("agent_cmd is empty")
 		}
-		return &agent{name: "custom", argv: argv}, nil
+		return &agent{name: "custom", argv: argv, env: cfg.AgentEnv}, nil
 	}
 	if cfg.Agent == "" || cfg.Agent == "none" {
 		return nil, nil
@@ -63,7 +64,7 @@ func resolveAgent(cfg Config) (*agent, error) {
 	if _, err := exec.LookPath(argv[0]); err != nil {
 		return nil, fmt.Errorf("agent %q configured but %q not found on PATH", cfg.Agent, argv[0])
 	}
-	return &agent{name: cfg.Agent, argv: argv}, nil
+	return &agent{name: cfg.Agent, argv: argv, env: cfg.AgentEnv}, nil
 }
 
 // agentTimeoutError is returned when the agent is killed by agent_timeout;
@@ -98,9 +99,55 @@ func init() {
 	}
 }
 
+var envNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+func agentEnvironment(root string, grants []string) ([]string, error) {
+	if len(grants) == 0 {
+		return nil, nil
+	}
+	env := []string{}
+	inherit := func(name string) {
+		if value, ok := os.LookupEnv(name); ok {
+			env = append(env, name+"="+value)
+		}
+	}
+	for _, name := range []string{"PATH", "HOME", "TMPDIR"} {
+		inherit(name)
+	}
+	if runtime.GOOS == "windows" {
+		for _, name := range []string{"USERPROFILE", "TEMP", "TMP", "SYSTEMROOT", "COMSPEC", "PATHEXT"} {
+			inherit(name)
+		}
+	}
+	secrets := factsMap(loadSecretFacts(root))
+	for _, grant := range grants {
+		name, key, inject := strings.Cut(unquote(grant), "=")
+		if !envNamePattern.MatchString(name) {
+			return nil, fmt.Errorf("agent_env: expected NAME or NAME=secret_key")
+		}
+		if !inject {
+			inherit(name)
+			continue
+		}
+		value, ok := secrets[key]
+		if !ok {
+			return nil, fmt.Errorf("agent_env: %s refers to undefined secret fact %q", name, key)
+		}
+		if strings.ContainsRune(value, 0) {
+			return nil, fmt.Errorf("agent_env: secret fact %q contains a NUL byte", key)
+		}
+		env = append(env, name+"="+value)
+	}
+	return env, nil
+}
+
 // runLive is run plus optional live streaming: when live is non-nil the
 // agent's stdout is tee'd to it while also being captured for the caller.
 func (a *agent) runLive(prompt, dir string, timeoutSecs int, live io.Writer) (string, error) {
+	env, err := agentEnvironment(dir, a.env)
+	if err != nil {
+		return "", err
+	}
 	var argv []string
 	usesPlaceholder := false
 	var promptFile string
@@ -144,6 +191,7 @@ func (a *agent) runLive(prompt, dir string, timeoutSecs int, live io.Writer) (st
 	defer cancel()
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir = dir
+	cmd.Env = env
 	if !usesPlaceholder {
 		cmd.Stdin = strings.NewReader(prompt)
 	}
@@ -326,6 +374,16 @@ func repoContext(st Store, maxEntries int) string {
 		b.WriteString("\nProject facts (definite values — use these, do not invent):\n")
 		for _, f := range facts {
 			fmt.Fprintf(&b, "- %s: %s\n", f.Key, f.Value)
+		}
+	}
+	if secrets := loadSecretFacts(st.Root); len(secrets) > 0 {
+		b.WriteString("\nSecret facts (values withheld — fetch with `spec fact get <key>` when needed):\n")
+		seen := map[string]bool{}
+		for _, f := range secrets {
+			if !seen[f.Key] {
+				fmt.Fprintf(&b, "- %s\n", f.Key)
+				seen[f.Key] = true
+			}
 		}
 	}
 	if r := readmeExcerpt(st.Root, 2048); r != "" {

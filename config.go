@@ -12,6 +12,7 @@ import (
 type Config struct {
 	Agent        string   // none | adapter name
 	AgentCmd     string   // custom command; {prompt} is replaced by the prompt, {prompt-file} by a temp file holding it, else prompt goes to stdin
+	AgentEnv     []string // pass-through names and NAME=secret_key grants
 	AgentTimeout int      // seconds
 	WebPort      int      // default port for `spec web`
 	WebHost      string   // bind address for `spec web` (127.0.0.1 or 0.0.0.0)
@@ -148,6 +149,11 @@ func loadConfig(root string) Config {
 			cfg.Agent = strings.Trim(v, `"'`)
 		case "agent_cmd":
 			cfg.AgentCmd = unquote(v)
+		case "agent_env":
+			cfg.AgentEnv = parseList(v)
+			if v != "" && (!strings.HasPrefix(v, "[") || !strings.HasSuffix(v, "]")) {
+				cfg.AgentEnv = []string{""} // reject malformed lists before launching an agent
+			}
 		case "agent_timeout":
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				cfg.AgentTimeout = n
@@ -206,8 +212,8 @@ func unionStrings(a, b []string) []string {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nviewer: %s\npersona: %s\nskills: [%s]\nskill_targets: [%s]\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]",
-		c.Agent, c.AgentCmd, c.AgentTimeout, c.WebHost, c.WebPort, c.editor(), c.Viewer, c.Persona,
+	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_env: [%s]\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nviewer: %s\npersona: %s\nskills: [%s]\nskill_targets: [%s]\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]",
+		c.Agent, c.AgentCmd, strings.Join(c.AgentEnv, ", "), c.AgentTimeout, c.WebHost, c.WebPort, c.editor(), c.Viewer, c.Persona,
 		strings.Join(c.Skills, ", "), strings.Join(c.SkillTargets, ", "),
 		strings.Join(c.Statuses, ", "), strings.Join(c.DoneStatuses, ", "),
 		strings.Join(c.IdeaStatuses, ", "), strings.Join(c.Verify, ", "))
@@ -219,6 +225,7 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 # Agent (opt-in; none = no subprocess ever runs)
 # agent: claude        # claude | devin | gemini | codex | aider | opencode | amp | cline | vibe
 # agent_cmd: mycli --flag {prompt}   # {prompt} = prompt arg; {prompt-file} = temp file; absent = stdin
+# agent_env: [LANG, API_TOKEN=deploy_token]  # empty inherits the environment
 # agent_timeout: 3600   # seconds
 
 # Web
@@ -258,6 +265,7 @@ const repoConfigTemplate = `version: 1
 # Agent (opt-in; none = no subprocess ever runs)
 # agent: claude        # claude | devin | gemini | codex | aider | opencode | amp | cline | vibe
 # agent_cmd: mycli --flag {prompt}   # {prompt} = prompt arg; {prompt-file} = temp file; absent = stdin
+# agent_env: [LANG, API_TOKEN=deploy_token]  # empty inherits the environment
 # agent_timeout: 3600   # seconds
 
 # Web

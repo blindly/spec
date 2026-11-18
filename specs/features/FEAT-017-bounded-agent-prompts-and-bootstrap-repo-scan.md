@@ -54,7 +54,9 @@ Addresses: REQ-004
   existing dot-dir skip, and caps the manifest/doc lists at
   `maxDetectedFiles` (50) so a monorepo can't produce an unbounded section.
 - `repoContext` now honors its `maxEntries` parameter, collapsing excess
-  specs into a "… and N more specs" line.
+  specs into a "… and N more specs" line. Public facts appear inline and
+  secret fact keys appear with a retrieval hint. The secret fact file
+  supplies keys only to prompt context.
 
 ## Acceptance Criteria
 

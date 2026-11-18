@@ -37,9 +37,9 @@ go build -o spec .
 | `spec apply [--print\|--yes\|--no-verify\|--force] [id…]` | Run the configured agent to implement specs. Named ids may be accepted or proposed; with no ids, all accepted specs after a confirmation (`--yes` skips it). Success means the spec reached `implemented` and `verify:` passed (`--no-verify` skips it). `--print` outputs the prompt(s) |
 | `spec role [edit\|refine]` | Print, edit, or improve the repo-local `.spec/role.md` development persona (refine requires an agent) |
 | `spec status` | Summarize repo spec state (counts, coverage, agent) |
-| `spec fact [list\|get\|set\|unset\|discover [--yes]]` | Manage `.spec/facts.yml` project facts |
+| `spec fact [list\|get\|set\|unset\|discover [--yes]]` | Manage public and secret project facts (`set --secret <key> <value>`) |
 | `spec remind [list\|add <title> --every <period> [--spec <id>]\|done <id>\|remove <id>]` | Track recurring obligations in `.spec/reminders.yml` (`--every`: `7d`, `30d`, … or `weekly`/`monthly`/`quarterly`/`yearly`); `spec status`/`spec check` and agent prompts surface due items |
-| `spec check` | Audit `{fact:key}` references against facts.yml; warn about possibly-stale specs |
+| `spec check` | Audit fact and secret references, enforce the secrets file ignore rule, and warn about possible leaks and drift |
 | `spec drift [--review [--yes]] [id…]` | List system specs whose covered code (`covers:` frontmatter) changed since they were last updated or verified. `--review` asks the agent whether each is really stale: accurate → `verified:` stamp, stale → proposed update applied on confirmation. Needs git |
 | `spec covers [--infer] [id…]` | Show the files each spec covers; `--infer` fills empty `covers:` from the commits that touched each spec. `spec apply` records covers automatically |
 | `spec skill` | List skills with source and status: repo-owned `.spec/skills/<name>/`, managed library skills (`skills:` in config → `~/.config/spec/skills/<name>/`), the built-in `spec` skill, and available library entries |
@@ -72,6 +72,7 @@ your agent once globally and only override per repo when needed.
 agent: claude          # none | claude | devin | gemini | codex | aider | opencode | amp | cline | vibe
 agent_cmd: "mycli --flag {prompt}"   # custom command; {prompt} = prompt arg,
                                      # omitted = prompt on stdin
+agent_env: []          # e.g. [LANG, API_TOKEN=deploy_token]
 agent_timeout: 3600     # seconds
 web_host: 127.0.0.1    # bind address for `spec web`; 0.0.0.0 exposes it (--host overrides)
 web_port: 8080         # default port for `spec web` (--port overrides)
@@ -93,6 +94,12 @@ into arguments with shell-style quoting (`'a b'`, `"a b"`, `a\ b`) but never
 run through a shell. `statuses` controls the valid status list used
 by `spec validate`, the web editor dropdown, and `spec roadmap` ordering.
 
+An unset or empty `agent_env:` list lets agents inherit the whole environment.
+A nonempty list grants the essentials (`PATH`, `HOME`, `TMPDIR`, and platform
+equivalents), plus any variable named in the list. An entry like
+`API_TOKEN=deploy_token` injects the secret fact `deploy_token`; a missing
+secret prevents the agent from starting.
+
 ## Facts
 
 `.spec/facts.yml` holds definite project facts as flat `key: value` pairs
@@ -102,12 +109,20 @@ into LLM agent prompts so drafts use real values instead of inventing
 them. `spec check` reports references to undefined facts and defined
 facts that nothing references.
 
+Store credentials with `spec fact set --secret <key> <value>`. This writes
+`.spec/secrets.yml` with mode `0600`. `spec init` adds the file to
+`.gitignore`, and `spec check` rejects a tracked or unignored secrets file
+and warns about possible leaks. Use `{secret:key}` to document a credential
+in a spec. This placeholder stays literal and agent context shows secret
+keys with a retrieval hint. `spec fact list` masks secret values. Use
+`spec fact get <key>` to retrieve a credential at the point of use.
+
 `spec fact discover` seeds missing placeholder keys with empty values and
 proposes values from structured repository files, or from the configured
-agent. Proposals require confirmation (`--yes` accepts all); existing keys
-are preserved.
+agent. Token-shaped candidates are proposed as secrets. Proposals require
+confirmation (`--yes` accepts all), and existing keys are preserved.
 
-The web UI's project badge uses the `project_name` fact if set
+The web UI's project badge uses the public `project_name` fact if set
 (`spec fact set project_name "My Project"`), else the project spec's title,
 else the git remote's repo name, else the folder name.
 

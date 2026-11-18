@@ -151,14 +151,26 @@ stays intact:
 company name, …) as flat ` + "`key: value`" + ` pairs. Reference them in spec
 bodies as ` + "`{fact:key}`" + ` instead of inventing values — they are
 substituted at spec creation and injected into agent prompts.
-` + "`spec check`" + ` fails on references to undefined keys.
+` + "`spec check`" + ` checks both placeholder types and warns about possible credential leaks.
+
+Store credentials in the gitignored ` + "`.spec/secrets.yml`" + ` with
+` + "`spec fact set --secret <key> <value>`" + `. Use ` + "`{secret:key}`" + ` in specs.
+The placeholder stays literal and agents see the key in their project context.
+` + "`spec fact list`" + ` masks secret values. Retrieve a value when needed with
+` + "`spec fact get <key>`" + `.
+
+A nonempty ` + "`agent_env:`" + ` list limits agents launched by spec to the listed
+variables plus essentials. Use ` + "`NAME`" + ` to pass a variable through or
+` + "`NAME=key`" + ` to inject a secret fact. An empty or absent list inherits the
+whole environment.
 
 Manage facts from the CLI: ` + "`spec fact list|get|set|unset|discover [--yes]`" + `.
 
 ` + "`spec fact discover`" + ` seeds missing placeholders and proposes repository values
-for confirmation; ` + "`--yes`" + ` accepts all proposals. Existing keys are preserved.
+for confirmation; ` + "`--yes`" + ` accepts all proposals. Token-shaped values are proposed as secrets.
+Existing keys are preserved.
 
-The project name in the web UI's badge comes from the ` + "`project_name`" + ` fact
+The project name in the web UI's badge comes from the public ` + "`project_name`" + ` fact
 if set (` + "`spec fact set project_name \"My Project\"`" + `), else the project spec's
 title, else the git remote's repo name, else the folder name.
 

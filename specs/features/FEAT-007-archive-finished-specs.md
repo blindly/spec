@@ -6,7 +6,7 @@ id: FEAT-007
 status: implemented
 title: Archive finished specs
 type: feature
-verified: b4e420a69259da3f82ca5556a41d034f7d8a8757
+verified: cbc841f0916fbfd44c8ca3369c829adb54a64fbb
 ---
 
 # Archive finished specs
@@ -48,10 +48,12 @@ Addresses: REQ-012, REQ-011
   `nextID` never reuses an archived id, and `depends_on` references to them
   still resolve. A spec counts as archived when its path is under
   `specs/archive/`.
-- **Excluded from:** the board (even with `?all=1`), the inbox (FEAT-008),
+- **Excluded from:** the board (even with `?all=1`),
   `spec apply` (naming an archived id is an error suggesting `unarchive`),
   `spec status` counts (it prints a single "archived: N" line instead), and
   `spec roadmap`.
+- **Inbox (FEAT-008):** archived ideas are hidden by default and appear with
+  `spec inbox --all` (or `-a`) or with `?all=1` in the web inbox.
 - **Still included in:**
   - `spec search`, with results marked `[archived]`
   - `spec trace`, where archived features still count as implementing a

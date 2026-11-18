@@ -45,10 +45,10 @@ Usage:
                                        persona library (~/.config/spec/personas/); use selects
                                        one for this repo; view cats one (default: active) to stdout
   spec status                        Summarize repository spec state
-  spec fact [list|get <key>|set <key> <value>|unset <key>|discover [--yes]]     Manage .spec/facts.yml project facts
+  spec fact [list|get <key>|set [--secret] <key> <value>|unset <key>|discover [--yes]]     Manage public and secret project facts
   spec remind [list|add <title> --every <7d|30d|weekly|monthly|quarterly|yearly> [--spec <id>]|done <id>|remove <id>]
                                        Manage recurring task reminders (.spec/reminders.yml)
-  spec check                         Audit {fact:key} references vs facts.yml; warn about drift
+  spec check                         Audit fact references, possible secret leaks, and drift
   spec drift [--review [--yes]] [id...]   Specs whose covered code changed since they were last updated;
                                        --review asks the agent if each is stale and proposes an update
   spec covers [--infer] [id...]      Show (or infer from git history) the files each spec covers
@@ -67,6 +67,7 @@ Usage:
 Agent configuration lives in .spec/config.yml:
   agent: none|claude|devin|gemini|codex|aider|opencode|amp|cline|vibe   (default: none)
   agent_cmd: "mycli --flag {prompt}" # {prompt} = prompt arg · {prompt-file} = temp file
+  agent_env: [LANG, API_TOKEN=deploy_token] # empty inherits the environment
                                        holding the prompt · absent = prompt via stdin
   agent_timeout: 3600                 # seconds
 `

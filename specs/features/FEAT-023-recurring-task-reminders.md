@@ -48,9 +48,9 @@ Addresses: REQ-015
   deduplicated); `spec remind done <id>` stamps `last_done` with the
   local date; `spec remind remove <id>` deletes an entry.
 - Surfacing: `spec status` prints `Reminders: N due`; `spec check` warns
-  on each due entry and on a `spec:` field referencing an unknown spec
-  id (warn, never fail — like drift); `repoContext` gains a "Recurring
-  tasks due" section so agents see obligations in prompts.
+  on due entries, invalid cadences, and links to unknown specs. Reminder
+  warnings leave the exit status unchanged. The "Recurring tasks due"
+  section of `repoContext` shows agents their obligations.
 - Non-goals: web UI editing, push notifications, per-user local state,
   scheduled agent runs.
 

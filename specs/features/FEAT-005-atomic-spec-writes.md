@@ -38,7 +38,7 @@ Addresses: REQ-006
   - `spec refine` (commands.go)
   - `spec role refine` (role.go), including newly drafted roles
   - `spec bootstrap` when it updates an existing spec (commands.go)
-  - `setFact` and `unsetFact` (facts.go)
+  - `setFactIn` and `unsetFactIn` for public and secret facts (facts.go)
   - the web editor save (web.go), replacing its inline temp-file logic
 - Creating brand-new files can keep using `os.WriteFile`, since there's no
   existing content to lose.
