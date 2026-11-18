@@ -68,15 +68,12 @@ func cmdInit(out, errOut io.Writer) error {
 		}
 	}
 	// install the resolved skill set (built-in spec + any global skills:
-	// baseline) into the agent skill dirs; those dirs are generated
-	// output, so make sure .gitignore covers them
+	// baseline) into the agent skill dirs; sync also ensures .gitignore
+	// covers those generated dirs
 	st := Store{Root: "."}
 	cfg := loadConfig(".")
 	targets := skillTargets(cfg)
 	if _, err := syncSkills(st, cfg, targets, false, out); err != nil {
-		return err
-	}
-	if err := ensureGitignore(".", targets); err != nil {
 		return err
 	}
 	fmt.Fprintln(out, "Initialized spec repository.")

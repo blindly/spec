@@ -338,6 +338,14 @@ func skillStatusLine(st Store, cfg Config, targets []string, name, scope string)
 // it they are reported stale and left alone. Returns the number of
 // non-current paths.
 func syncSkills(st Store, cfg Config, targets []string, force bool, out io.Writer) (int, error) {
+	// generated skill dirs are install output — ensure .gitignore covers
+	// them (and secrets facts) on every repo sync, not only at spec init;
+	// repo-free library commands skip this (no .gitignore context)
+	if isDir(filepath.Join(st.Root, configDir)) {
+		if err := ensureGitignore(st.Root, targets); err != nil {
+			return 0, err
+		}
+	}
 	bad := 0
 	resolved := map[string]bool{}
 	for _, name := range skillNames(st, cfg) {

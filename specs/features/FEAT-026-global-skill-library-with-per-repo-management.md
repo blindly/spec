@@ -52,8 +52,9 @@ Addresses: REQ-017
     repo's git. Local skills live here; so do forks adopted from the
     library. Agent-agnostic by construction.
   - Installed: the resolved target dirs — generated output only,
-    gitignored (`spec init` appends the resolved targets to
-    `.gitignore`; a stale committed copy would differ from some other
+    gitignored (every repo `sync` ensures the resolved targets are in
+    `.gitignore`, so `spec init` and pre-existing repos alike are
+    covered; a stale committed copy would differ from some other
     machine's resolved source and block `sync` without `--force`).
     spec creates, refreshes, and removes dirs there to match resolution; it
     never treats them as source.
@@ -205,8 +206,9 @@ Addresses: REQ-017
   clobber differing copies without `--force`; `--global` covers the
   user-level dirs
 - [x] The embedded spec skill works as a built-in library entry; `spec
-  init` runs `sync` and seeds `.gitignore` with the resolved target
-  dirs (generated installs stay untracked); FEAT-025's freshness check
+  init` runs `sync`, and every repo sync seeds `.gitignore` with the
+  resolved target dirs (generated installs stay untracked, including in
+  repos initialized before this existed); FEAT-025's freshness check
   keeps working
 - [x] `refine` is repo-blind for library skills and repo-aware for repo
   skills; `--local` on `edit`/`refine` ensures a `.spec/skills/` copy

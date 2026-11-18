@@ -43,7 +43,8 @@ Addresses: REQ-009, REQ-004
 
 - **`.spec/secrets.yml`** — same parser and write discipline as
   `facts.yml` (flat `key: value`, comments, `writeFileAtomic`). It must
-  never be committed: `spec init` appends `/.spec/secrets.yml` to
+  never be committed: `spec init` (and every repo `spec skill sync`)
+  appends `/.spec/secrets.yml` to
   `.gitignore` alongside the skill-target entries, and `spec check`
   FAILs when a `secrets.yml` exists but is not ignored by git (tracked
   or would-be-committed). Values are file-permission protected only —
@@ -104,7 +105,7 @@ Addresses: REQ-009, REQ-004
 - [x] `spec fact set --secret k v` writes `.spec/secrets.yml` mode 0600;
   `get k` prints the raw value; `list` masks it as `<secret>`; `unset`
   removes it; `set`/`unset` operate on whichever file holds the key
-- [x] `spec init` gitignores `/.spec/secrets.yml`; `spec check` FAILs
+- [x] `spec init` and repo `spec skill sync` gitignore `/.spec/secrets.yml`; `spec check` FAILs
   when a `secrets.yml` exists unignored, and WARNs on duplicate keys
   across the two files
 - [x] `{secret:<key>}` never expands into files and counts as a defined

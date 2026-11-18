@@ -447,6 +447,27 @@ func TestInitGitignoresSkillTargets(t *testing.T) {
 	}
 }
 
+func TestSkillSyncGitignoresTargets(t *testing.T) {
+	st := setupRepo(t)
+	// a repo initialized before .gitignore seeding existed
+	os.WriteFile(filepath.Join(st.Root, ".gitignore"), []byte("/spec\n"), 0o644)
+	if err := cmdSkill(io.Discard, io.Discard, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(st.Root, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range []string{"/.devin/skills/", "/.claude/skills/"} {
+		if !strings.Contains(string(data), e) {
+			t.Fatalf("sync did not gitignore %s:\n%s", e, data)
+		}
+	}
+	if !strings.Contains(string(data), "/spec\n") {
+		t.Fatalf("sync clobbered existing .gitignore entries:\n%s", data)
+	}
+}
+
 func TestSkillImportMovesRepoSource(t *testing.T) {
 	st := setupRepo(t)
 	dir := filepath.Join(st.Root, ".devin", "skills", "runbook")
