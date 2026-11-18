@@ -100,12 +100,16 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
 
 ## Facts and credentials
 
-Use `spec fact set --secret <key> <value>` to store a credential in
-`.spec/secrets.yml`. In a spec, `{secret:key}` stays literal. Agent context
-lists secret key names, and `spec fact list` masks secret values. Retrieve
-the credential where it is needed using `spec fact get <key>` or an
-environment variable granted to the agent. `spec check` audits both types of
-reference and warns about possible credential leaks.
+Credentials (tokens, keys, passwords) always go in `.spec/secrets.yml` —
+never in `facts.yml`, spec bodies, or skill files, all of which are
+committed. Use `spec fact set --secret <key> <value>` to store one. In a
+spec, `{secret:key}` stays literal. Agent context lists secret key names,
+and `spec fact list` masks secret values. Retrieve the credential where it
+is needed using `spec fact get <key>` or an environment variable granted
+to the agent. `spec check` audits both types of reference and warns about
+possible credential leaks. Secrets are protected by file permissions only:
+anything that can run `spec fact get` can read them, so grant agents
+credentials via `agent_env:` rather than letting them fetch freely.
 
 A nonempty `agent_env:` list grants variables to agents launched by spec
 alongside essentials such as `PATH`. List `NAME` to pass through an exported

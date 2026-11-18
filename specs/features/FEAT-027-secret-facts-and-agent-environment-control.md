@@ -1,10 +1,11 @@
 ---
+covers: [facts.go, factcheck.go, factdiscover.go, agent.go, config.go, commands.go, facts_test.go, skills/spec/SKILL.md, help.go, main.go, README.md, .spec/config.yml, .gitignore]
 created: 2026-11-17
 id: FEAT-027
 status: implemented
 title: Secret facts and agent environment control
 type: feature
-covers: [facts.go, factcheck.go, factdiscover.go, agent.go, config.go, commands.go, facts_test.go, skills/spec/SKILL.md, help.go, main.go, README.md, .spec/config.yml, .gitignore]
+verified: fea1137c8810ea95b41d68ce4e4f0e692784a146
 ---
 
 # Secret facts and agent environment control
