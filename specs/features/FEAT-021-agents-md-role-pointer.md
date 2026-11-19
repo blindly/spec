@@ -5,7 +5,7 @@ id: FEAT-021
 status: implemented
 title: AGENTS.md role pointer
 type: feature
-verified: b4e420a69259da3f82ca5556a41d034f7d8a8757
+verified: 9e8057e2d58e9714e550c829d01be2c5f5f3fad5
 ---
 
 # AGENTS.md role pointer
