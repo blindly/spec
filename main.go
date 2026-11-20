@@ -10,68 +10,6 @@ import (
 
 var version = "dev" // overridden by -ldflags "-X main.version=x.y.z"
 
-const usage = `spec — offline specification management
-
-Usage:
-  spec init                          Initialize repository
-  spec idea <title>                  Capture an untyped idea in the inbox (not sure of the type yet)
-  spec promote <id> [type] [--force] Turn an idea into a project|feature|adr spec (deletes the idea)
-  spec discard <id>...               Mark ideas as discarded
-  spec archive <id>... [--force]     Move no-longer-valid specs (deprecated/rejected) and discarded ideas to specs/archive/
-  spec unarchive <id>...             Move archived specs back
-  spec new <project|feature|adr|idea> <title>   Create a specification
-  spec bootstrap                     Bootstrap specs from existing project
-  spec import <file>                 Import existing documentation
-  spec analyze                       Analyze repository
-  spec ls [--all] [--paths]          List specs (id, type, status, title, path) — alias: list
-  spec inbox [--all] [--paths]       List inbox ideas (id, status, suggested type, title, path)
-  spec search <query>                Search specifications
-  spec validate                      Validate specifications
-  spec export [file.json]            Export metadata as JSON
-  spec roadmap [file.md]             Generate roadmap
-  spec graph [--mermaid]             Dependency graph
-  spec trace                         Requirements traceability
-  spec draft feature <title>         Generate feature draft (LLM agent if configured)
-  spec view [--cmd CMD] <id>...       Print specs (or use an external viewer)
-  spec edit <id>                     Open a spec in your editor
-  spec refine <id> [--force]         LLM agent improves an existing spec; for ideas, also
-                                       suggests a type and offers to promote (--force: discarded ideas)
-  spec apply [flags] [id...]         Run agent to implement specs (no ids: all accepted, after confirmation)
-                                       --print outputs prompts · --yes skips confirmation
-                                       --no-verify skips verify · --force allows any status
-  spec role [edit|refine|adopt]      Show/edit/refine the effective role (.spec/role.md or persona);
-                                       adopt copies the active persona into .spec/role.md
-  spec persona [new|edit|refine <name>|use <name|none>|view [name]]   Manage the shared
-                                       persona library (~/.config/spec/personas/); use selects
-                                       one for this repo; view cats one (default: active) to stdout
-  spec status                        Summarize repository spec state
-  spec fact [list|get <key>|set [--secret] <key> <value>|unset <key>|discover [--yes]]     Manage public and secret project facts
-  spec remind [list|add <title> --every <7d|30d|weekly|monthly|quarterly|yearly> [--spec <id>]|done <id>|remove <id>]
-                                       Manage recurring task reminders (.spec/reminders.yml)
-  spec check                         Audit fact references, possible secret leaks, and drift
-  spec drift [--review [--yes]] [id...]   Specs whose covered code changed since they were last updated;
-                                       --review asks the agent if each is stale and proposes an update
-  spec covers [--infer] [id...]      Show (or infer from git history) the files each spec covers
-  spec verified <id>...              Mark specs as checked and accurate (clears drift until code changes)
-  spec skill [check|update] [--global]   Check the installed spec skill copies against the one
-                                       embedded in this binary; update rewrites stale/missing
-                                       (--global: user-level ~/.config/devin + ~/.claude skills)
-  spec verify                        Run configured verification commands
-  spec config                        Show effective configuration
-  spec config init [global|repo] [--force]   Write config template (--force regenerates)
-  spec config edit [global|repo]     Open config file in $EDITOR (or editor: key)
-  spec web [--port N]                Web interface (default: web_port from config)
-  spec update [tag]                  Self-update to a release (default: latest)
-  spec version                       Print version
-
-Agent configuration lives in .spec/config.yml:
-  agent: none|claude|devin|gemini|codex|aider|opencode|amp|cline|vibe   (default: none)
-  agent_cmd: "mycli --flag {prompt}" # {prompt} = prompt arg · {prompt-file} = temp file
-  agent_env: [LANG, API_TOKEN=deploy_token] # empty inherits the environment
-                                       holding the prompt · absent = prompt via stdin
-  agent_timeout: 3600                 # seconds
-`
-
 var commands = map[string]func(args []string, out, errOut io.Writer) error{
 	"init":      func(a []string, o, e io.Writer) error { return cmdInit(o, e) },
 	"bootstrap": func(a []string, o, e io.Writer) error { return cmdBootstrap(o, e) },
@@ -227,12 +165,40 @@ func run(args []string, out, errOut io.Writer) int {
 		fmt.Fprint(out, usage)
 		return 1
 	}
+	for _, a := range args[1:] {
+		if a == "--help" || a == "-h" {
+			if doc, ok := commandDocByName[args[0]]; ok {
+				fmt.Fprintln(out, doc)
+				return 0
+			}
+			break
+		}
+	}
 	switch args[0] {
 	case "version", "--version":
 		fmt.Fprintln(out, "spec "+version)
 		return 0
+	case "completion":
+		if err := cmdCompletion(out, errOut, args[1:]); err != nil {
+			fmt.Fprintln(errOut, "error:", err)
+			return 1
+		}
+		return 0
 	case "help", "--help", "-h":
+		if len(args) > 1 {
+			doc, ok := commandDocByName[args[1]]
+			if !ok {
+				fmt.Fprintf(errOut, "spec: unknown command %q\n\n", args[1])
+				fmt.Fprint(errOut, usage)
+				return 1
+			}
+			fmt.Fprintln(out, doc)
+			return 0
+		}
 		fmt.Fprint(out, usage)
+		return 0
+	case "__complete":
+		cmdCompleteKinds(out, args[1:])
 		return 0
 	}
 	fn, ok := commands[args[0]]

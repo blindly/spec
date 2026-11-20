@@ -103,6 +103,13 @@ and implement specs. A local web UI provides browsing and editing.
   with source and status, enables or detaches library skills, pushes repo
   skills to the library, imports external skill dirs, and refuses to
   clobber locally modified copies.
+- REQ-018: Every command explains itself in-band: `spec <command> --help`
+  (equivalently `spec help <command>`) prints that command's usage,
+  subcommands, flags, and a short description — not a generic error.
+- REQ-019: The CLI ships shell completion for bash, zsh, and fish:
+  `spec completion <shell>` prints a script completing commands,
+  subcommands, flags, and the dynamic arguments a command takes (spec
+  ids, skill and persona names).
 
 ## Architecture
 

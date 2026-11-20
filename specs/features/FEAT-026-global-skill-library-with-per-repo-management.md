@@ -5,7 +5,7 @@ id: FEAT-026
 status: implemented
 title: Global skill library with per-repo management
 type: feature
-verified: cbc841f0916fbfd44c8ca3369c829adb54a64fbb
+verified: f553f09672ef33fcfba92ba02f281bdca2c4d78b
 ---
 
 # Global skill library with per-repo management

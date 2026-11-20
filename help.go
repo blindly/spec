@@ -1,5 +1,7 @@
 package main
 
+import "strings"
+
 // helpMarkdown is rendered on the web UI's /help page via mdBlock.
 const helpMarkdown = `# Help
 
@@ -244,5 +246,103 @@ spec apply      # all accepted specs, after confirmation (--yes to skip)
 spec verify     # run verify: commands from .spec/config.yml
 spec graph      # dependency graph (--mermaid)
 spec trace      # REQ → feature coverage
+spec <cmd> --help / spec help <cmd>   # one command's usage block
+spec completion <bash|zsh|fish>       # print a shell completion script
 ` + "```" + `
 `
+
+// commandDoc pairs a command name with its usage block — the same lines
+// the main help's Usage list shows. `spec <cmd> --help` prints a
+// command's block; the main help is assembled from all blocks so the
+// two can't diverge.
+type commandDoc struct {
+	name  string
+	block string
+}
+
+var commandDocs = []commandDoc{
+	{"init", `  spec init                          Initialize repository`},
+	{"idea", `  spec idea <title>                  Capture an untyped idea in the inbox (not sure of the type yet)`},
+	{"promote", `  spec promote <id> [type] [--force] Turn an idea into a project|feature|adr spec (deletes the idea)`},
+	{"discard", `  spec discard <id>...               Mark ideas as discarded`},
+	{"archive", `  spec archive <id>... [--force]     Move no-longer-valid specs (deprecated/rejected) and discarded ideas to specs/archive/`},
+	{"unarchive", `  spec unarchive <id>...             Move archived specs back`},
+	{"new", `  spec new <project|feature|adr|idea> <title>   Create a specification`},
+	{"bootstrap", `  spec bootstrap                     Bootstrap specs from existing project`},
+	{"import", `  spec import <file>                 Import existing documentation`},
+	{"analyze", `  spec analyze                       Analyze repository`},
+	{"ls", `  spec ls [--all] [--paths]          List specs (id, type, status, title, path) — alias: list`},
+	{"inbox", `  spec inbox [--all] [--paths]       List inbox ideas (id, status, suggested type, title, path)`},
+	{"search", `  spec search <query>                Search specifications`},
+	{"validate", `  spec validate                      Validate specifications`},
+	{"export", `  spec export [file.json]            Export metadata as JSON`},
+	{"roadmap", `  spec roadmap [file.md]             Generate roadmap`},
+	{"graph", `  spec graph [--mermaid]             Dependency graph`},
+	{"trace", `  spec trace                         Requirements traceability`},
+	{"draft", `  spec draft feature <title>         Generate feature draft (LLM agent if configured)`},
+	{"view", `  spec view [--cmd CMD] <id>...       Print specs (or use an external viewer)`},
+	{"edit", `  spec edit <id>                     Open a spec in your editor`},
+	{"refine", `  spec refine <id> [--force]         LLM agent improves an existing spec; for ideas, also
+                                       suggests a type and offers to promote (--force: discarded ideas)`},
+	{"apply", `  spec apply [flags] [id...]         Run agent to implement specs (no ids: all accepted, after confirmation)
+                                       --print outputs prompts · --yes skips confirmation
+                                       --no-verify skips verify · --force allows any status`},
+	{"role", `  spec role [edit|refine|adopt]      Show/edit/refine the effective role (.spec/role.md or persona);
+                                       adopt copies the active persona into .spec/role.md`},
+	{"persona", `  spec persona [new|edit|refine <name>|use <name|none>|view [name]]   Manage the shared
+                                       persona library (~/.config/spec/personas/); use selects
+                                       one for this repo; view cats one (default: active) to stdout`},
+	{"status", `  spec status                        Summarize repository spec state`},
+	{"fact", `  spec fact [list|get <key>|set [--secret] <key> <value>|unset <key>|discover [--yes]]     Manage public and secret project facts`},
+	{"remind", `  spec remind [list|add <title> --every <7d|30d|weekly|monthly|quarterly|yearly> [--spec <id>]|done <id>|remove <id>]
+                                       Manage recurring task reminders (.spec/reminders.yml)`},
+	{"check", `  spec check                         Audit fact references, possible secret leaks, and drift`},
+	{"drift", `  spec drift [--review [--yes]] [id...]   Specs whose covered code changed since they were last updated;
+                                       --review asks the agent if each is stale and proposes an update`},
+	{"covers", `  spec covers [--infer] [id...]      Show (or infer from git history) the files each spec covers`},
+	{"verified", `  spec verified <id>...              Mark specs as checked and accurate (clears drift until code changes)`},
+	{"skill", `  spec skill                           List skills: source + status (repo/library/built-in/available)
+  spec skill use|unuse <name>           Enable/disable a library skill here (--global: global baseline)
+  spec skill adopt|push <name>          managed → repo-owned fork · repo skill → library
+  spec skill rm <name>                  Delete a repo skill + its installs (--library: library entry)
+  spec skill new|edit|view|refine <name>   Manage skills (--library: library file, --local: repo copy)
+  spec skill import [<name|path>]       Pull a skill into .spec/skills/ (bare: all foreign dirs;
+                                       --library: into the library; in-repo sources are moved)
+  spec skill check|sync [--force]       Verify / regenerate installed copies (--global: user-level dirs)`},
+	{"verify", `  spec verify                        Run configured verification commands`},
+	{"config", `  spec config                        Show effective configuration
+  spec config init [global|repo] [--force]   Write config template (--force regenerates)
+  spec config edit [global|repo]     Open config file in $EDITOR (or editor: key)`},
+	{"web", `  spec web [--port N] [--host ADDR]   Web interface (defaults: web_port/web_host from config)`},
+	{"update", `  spec update [tag]                  Self-update to a release (default: latest)`},
+	{"version", `  spec version                       Print version`},
+	{"help", `  spec help [command]                 Full help, or one command's help block`},
+	{"completion", `  spec completion <bash|zsh|fish>   Print a shell completion script`},
+}
+
+var commandDocByName = func() map[string]string {
+	m := map[string]string{}
+	for _, d := range commandDocs {
+		m[d.name] = d.block
+	}
+	m["list"] = m["ls"]
+	return m
+}()
+
+var usage = func() string {
+	var b strings.Builder
+	b.WriteString("spec — offline specification management\n\nUsage:\n")
+	for _, d := range commandDocs {
+		b.WriteString(d.block)
+		b.WriteString("\n")
+	}
+	b.WriteString(`
+Agent configuration lives in .spec/config.yml:
+  agent: none|claude|devin|gemini|codex|aider|opencode|amp|cline|vibe   (default: none)
+  agent_cmd: "mycli --flag {prompt}" # {prompt} = prompt arg · {prompt-file} = temp file
+  agent_env: [LANG, API_TOKEN=deploy_token] # empty inherits the environment
+                                       holding the prompt · absent = prompt via stdin
+  agent_timeout: 3600                 # seconds
+`)
+	return b.String()
+}()

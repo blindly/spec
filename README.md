@@ -54,6 +54,8 @@ go build -o spec .
 | `spec config` | Show effective configuration and resolved agent |
 | `spec config init [global\|repo] [--force]` | Write config template with all options; `--force` regenerates |
 | `spec web [--port N]` | Local web UI with three views: **inbox** (front page) to capture/promote/discard ideas, **board** of refined ideas ("ready") and work in progress by status, and **system** — implemented specs and accepted ADRs, the living documentation. Plus an archive list, create, edit body/status, README/agent docs (default :8080) |
+| `spec <command> --help` / `spec help <command>` | Print one command's usage block (same text as the main help) |
+| `spec completion <bash\|zsh\|fish>` | Print a shell completion script — commands, subcommands, flags, and dynamic args (spec ids, skill/persona names, fact keys). Install: `source <(spec completion bash)`, `spec completion zsh > ~/.zfunc/_spec`, `spec completion fish > ~/.config/fish/completions/spec.fish` |
 
 All operations are filesystem-only; no network access is required. LLM
 agent commands (`draft`, `bootstrap`, `refine`) only run if you configure
