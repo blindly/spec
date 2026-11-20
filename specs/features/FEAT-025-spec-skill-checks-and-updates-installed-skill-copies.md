@@ -56,6 +56,11 @@ installed copies are generated into the resolved `skill_targets:` dirs,
 `update` remains as a `sync --force` alias, and `--global` covers the
 user-level dirs as before.
 
+FEAT-030 changes the install material: repo and library skills install
+as symlinks to their source, so "current" means the link resolves — the
+byte-compare staleness model above applies to copied installs only
+(the embedded built-in and the link-failure fallback).
+
 ## Acceptance Criteria
 
 - [x] `spec skill` prints per-location status (current/stale/missing)

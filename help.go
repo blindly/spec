@@ -238,7 +238,7 @@ spec skill rm <name>              # delete a repo skill + its installs (--librar
 spec skill new|edit|view|refine <name>   # manage skills (--library: library file, --local: repo copy)
 spec skill import [<name|path>]   # pull a skill into .spec/skills/ (bare: all foreign dirs;
                                 # --library: into the library; in-repo sources are moved)
-spec skill check|sync [--force]   # verify / regenerate installed copies (--global: user-level dirs)
+spec skill check|sync [--force]   # verify / regenerate installs — links to the source (--global: user dirs)
 spec apply <id> # run the configured agent to implement a spec
 spec apply      # all accepted specs, after confirmation (--yes to skip)
                 # succeeds only if status reaches implemented and verify: passes
@@ -308,7 +308,7 @@ var commandDocs = []commandDoc{
   spec skill new|edit|view|refine <name>   Manage skills (--library: library file, --local: repo copy)
   spec skill import [<name|path>]       Pull a skill into .spec/skills/ (bare: all foreign dirs;
                                        --library: into the library; in-repo sources are moved)
-  spec skill check|sync [--force]       Verify / regenerate installed copies (--global: user-level dirs)`},
+  spec skill check|sync [--force]       Verify / regenerate installs — links to the source (--global: user dirs)`},
 	{"verify", `  spec verify                        Run configured verification commands`},
 	{"config", `  spec config                        Show effective configuration
   spec config init [global|repo] [--force]   Write config template (--force regenerates)

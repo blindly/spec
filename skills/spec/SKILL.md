@@ -124,8 +124,11 @@ environments.
   (`sh -c 'a b'`).
 - All commands must run inside a spec-managed tree (`.spec/` is found by
   walking up from cwd — `spec init` creates it).
-- Installed copies of this skill are snapshots from `spec init` — they go
-  stale when the binary's embedded version changes. `spec skill` checks;
-  `spec skill update` refreshes them.
+- `spec skill sync` installs skills as symlinks to their source — repo
+  skills link to `.spec/skills/`, library skills to
+  `~/.config/spec/skills/` — so harnesses always see current content.
+  This `spec` skill is embedded in the binary and installed as a copy:
+  it goes stale when the binary's embedded version changes. `spec skill`
+  checks; `spec skill update` refreshes it.
 - `.spec/config.yml` documents every key; regenerate it with
   `spec config init repo --force`.

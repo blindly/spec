@@ -38,6 +38,26 @@ func writeRepoSkill(t *testing.T, st Store, name string, files map[string]string
 	}
 }
 
+// materializeInstall replaces a linked install at dst with a real copy of
+// its contents, so a test can diverge it from the source.
+func materializeInstall(t *testing.T, dst string) {
+	t.Helper()
+	real, err := filepath.EvalSymlinks(dst)
+	if err != nil {
+		t.Fatalf("%s is not a link: %v", dst, err)
+	}
+	files, err := skillFiles(real)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(dst); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeSkillFiles(dst, files); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func simpleSkill(name, body string) map[string]string {
 	return map[string]string{"SKILL.md": "---\nname: " + name + "\ndescription: test\n---\n\n" + body}
 }
@@ -82,6 +102,7 @@ func TestSkillUnuseProtectsModified(t *testing.T) {
 	if err := cmdSkill(io.Discard, io.Discard, []string{"use", "review"}); err != nil {
 		t.Fatal(err)
 	}
+	materializeInstall(t, filepath.Join(st.Root, ".devin", "skills", "review"))
 	installed := filepath.Join(st.Root, ".devin", "skills", "review", "SKILL.md")
 	os.WriteFile(installed, []byte("local tweaks"), 0o644)
 
@@ -217,6 +238,7 @@ func TestSkillSyncClobberProtection(t *testing.T) {
 	if err := cmdSkill(io.Discard, io.Discard, []string{"use", "review"}); err != nil {
 		t.Fatal(err)
 	}
+	materializeInstall(t, filepath.Join(st.Root, ".devin", "skills", "review"))
 	installed := filepath.Join(st.Root, ".devin", "skills", "review", "SKILL.md")
 	os.WriteFile(installed, []byte("hand edit"), 0o644)
 
@@ -253,8 +275,8 @@ func TestSkillOrphaned(t *testing.T) {
 	if !strings.Contains(out.String(), "orphaned") {
 		t.Fatalf("want orphaned, got:\n%s", out.String())
 	}
-	// installed copy is reported, never deleted
-	if !isDir(filepath.Join(st.Root, ".devin", "skills", "review")) {
+	// installed entry (now a dangling link) is reported, never deleted
+	if _, err := os.Lstat(filepath.Join(st.Root, ".devin", "skills", "review")); err != nil {
 		t.Fatal("orphaned installed copy was deleted")
 	}
 }
@@ -610,12 +632,136 @@ func TestSkillRm(t *testing.T) {
 	}
 }
 
+func TestSkillLinkedInstalls(t *testing.T) {
+	st := setupRepo(t)
+
+	// repo skill → relative symlink into .spec/skills
+	writeRepoSkill(t, st, "local", simpleSkill("local", "local v1"))
+	// library skills → absolute symlinks into the library
+	writeLibrarySkill(t, "shared", simpleSkill("shared", "shared v1"))
+	writeLibrarySkill(t, "temp", simpleSkill("temp", "temp"))
+	for _, n := range []string{"shared", "temp"} {
+		if err := cmdSkill(io.Discard, io.Discard, []string{"use", n}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := cmdSkill(io.Discard, io.Discard, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+
+	repoLink := filepath.Join(st.Root, ".devin", "skills", "local")
+	tg, err := os.Readlink(repoLink)
+	if err != nil {
+		t.Fatalf("repo skill not linked: %v", err)
+	}
+	if filepath.IsAbs(tg) {
+		t.Fatalf("repo skill link should be relative, got %s", tg)
+	}
+	libLink := filepath.Join(st.Root, ".devin", "skills", "shared")
+	tg, err = os.Readlink(libLink)
+	if err != nil {
+		t.Fatalf("library skill not linked: %v", err)
+	}
+	if !filepath.IsAbs(tg) {
+		t.Fatalf("library skill link should be absolute, got %s", tg)
+	}
+	if tg != librarySkillDir("shared") {
+		t.Fatalf("library link → %s, want %s", tg, librarySkillDir("shared"))
+	}
+
+	// built-in spec skill stays a real copied dir
+	specDst := filepath.Join(st.Root, ".devin", "skills", "spec")
+	if li, err := os.Lstat(specDst); err != nil || li.Mode()&os.ModeSymlink != 0 {
+		t.Fatal("built-in spec should be copied, not linked")
+	}
+
+	// edits to sources are live through the links — no re-sync needed
+	os.WriteFile(filepath.Join(repoSkillDir(st.Root, "local"), "SKILL.md"), []byte("local v2"), 0o644)
+	os.WriteFile(filepath.Join(librarySkillDir("shared"), "SKILL.md"), []byte("shared v2"), 0o644)
+	if data, _ := os.ReadFile(filepath.Join(repoLink, "SKILL.md")); string(data) != "local v2" {
+		t.Fatal("repo link not live")
+	}
+	if data, _ := os.ReadFile(filepath.Join(libLink, "SKILL.md")); string(data) != "shared v2" {
+		t.Fatal("library link not live")
+	}
+	var out bytes.Buffer
+	if err := cmdSkill(&out, io.Discard, []string{"check"}); err != nil {
+		t.Fatalf("check should pass through current links: %v\n%s", err, out.String())
+	}
+
+	// adopt re-points the install from library link to relative repo link
+	if err := cmdSkill(io.Discard, io.Discard, []string{"adopt", "shared"}); err != nil {
+		t.Fatal(err)
+	}
+	tg, err = os.Readlink(libLink)
+	if err != nil {
+		t.Fatalf("adopted skill not linked: %v", err)
+	}
+	if filepath.IsAbs(tg) {
+		t.Fatalf("adopted skill link should be relative, got %s", tg)
+	}
+
+	// unuse removes only the link — the library source stays
+	tempLink := filepath.Join(st.Root, ".devin", "skills", "temp")
+	if err := cmdSkill(io.Discard, io.Discard, []string{"unuse", "temp"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(tempLink); !os.IsNotExist(err) {
+		t.Fatal("unuse left the link in place")
+	}
+	if !isDir(librarySkillDir("temp")) {
+		t.Fatal("unuse deleted the library skill")
+	}
+
+	// rm removes links and the source — and only those
+	if err := cmdSkill(io.Discard, io.Discard, []string{"rm", "local"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(repoLink); !os.IsNotExist(err) {
+		t.Fatal("rm left the link in place")
+	}
+	if isDir(repoSkillDir(st.Root, "local")) {
+		t.Fatal("rm did not remove the repo skill")
+	}
+}
+
+func TestSkillSyncUpgradesLegacyCopies(t *testing.T) {
+	st := setupRepo(t)
+	writeLibrarySkill(t, "shared", simpleSkill("shared", "v1"))
+	if err := cmdSkill(io.Discard, io.Discard, []string{"use", "shared"}); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(st.Root, ".devin", "skills", "shared")
+
+	// an equal-content copy upgrades to a link without --force
+	materializeInstall(t, dst)
+	var out bytes.Buffer
+	if err := cmdSkill(&out, io.Discard, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Readlink(dst); err != nil {
+		t.Fatalf("equal copy was not upgraded to a link: %v", err)
+	}
+
+	// check reports a still-copied install as "copied", not current
+	materializeInstall(t, dst)
+	out.Reset()
+	err := cmdSkill(&out, io.Discard, []string{"check"})
+	if err == nil {
+		t.Fatal("check should flag a copied install")
+	}
+	if !strings.Contains(out.String(), "copied") {
+		t.Fatalf("want copied status, got:\n%s", out.String())
+	}
+}
+
 func TestSkillRmDifferingNeedsForce(t *testing.T) {
 	st := setupRepo(t)
 	writeRepoSkill(t, st, "dead", simpleSkill("dead", "v1"))
 	if err := cmdSkill(io.Discard, io.Discard, []string{"sync"}); err != nil {
 		t.Fatal(err)
 	}
+	materializeInstall(t, filepath.Join(st.Root, ".devin", "skills", "dead"))
 	installed := filepath.Join(st.Root, ".devin", "skills", "dead", "SKILL.md")
 	os.WriteFile(installed, []byte("hand edit"), 0o644)
 	if err := cmdSkill(io.Discard, io.Discard, []string{"rm", "dead"}); err == nil || !strings.Contains(err.Error(), "--force") {

@@ -89,9 +89,12 @@ Addresses: REQ-017
   `.spec/skills/<name>` → `skills:` entry → library file → built-in
   (`spec` only). A `.spec/skills/<name>` always shadows the library —
   this is the fork, distinguished by path like `.spec/role.md` shadows a
-  persona. `sync` writes the resolved tree to every `skill_targets` dir.
-- **States**, derived from path membership and byte-compare (recursive
-  over the dir tree) — no manifest, no bookkeeping:
+  persona. `sync` installs the resolved tree into every `skill_targets`
+  dir — as a symlink to the source since FEAT-030 (file copy only for
+  the embedded built-in and the link-failure fallback).
+- **States**, derived from path membership and the install status
+  (link target, or byte-compare for copies) — no manifest, no
+  bookkeeping:
   - `local` — in `.spec/skills/` only
   - `managed` — in `skills:`, installed copies match the resolved source
   - `stale` — in `skills:` or `.spec/skills/`, an installed copy differs

@@ -145,8 +145,8 @@ func TestSkill(t *testing.T) {
 	if err := cmdSkill(&out, io.Discard, []string{"sync", "--force"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "updated") || !strings.Contains(out.String(), "installed") {
-		t.Fatalf("want updated+installed, got:\n%s", out.String())
+	if !strings.Contains(out.String(), "copied") {
+		t.Fatalf("want copied status, got:\n%s", out.String())
 	}
 	for _, p := range []string{devinSkill, claudeSkill} {
 		data, _ := os.ReadFile(p)

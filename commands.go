@@ -668,9 +668,15 @@ func cmdStatus(out, errOut io.Writer) error {
 				managed++
 			}
 			for _, t := range targets {
-				installed, _ := skillFiles(filepath.Join(st.Root, t, name))
+				dst := filepath.Join(st.Root, t, name)
+				if src.kind == "" {
+					if _, err := os.Lstat(dst); err != nil {
+						stale++
+					}
+					continue
+				}
 				srcFiles, _ := skillFiles(src.dir)
-				if installed == nil || (src.kind != "" && !skillFilesEqual(installed, srcFiles)) {
+				if skillInstallStatus(dst, src, srcFiles) != "current" {
 					stale++
 				}
 			}

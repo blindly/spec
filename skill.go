@@ -129,6 +129,104 @@ func writeSkillFiles(dir string, files map[string][]byte) error {
 	return nil
 }
 
+// skillLinkTarget returns the symlink target for installing src at dst,
+// or false when the kind must be copied (built-in — embedded, no source
+// dir). repo skills link relatively (install target and .spec/skills are
+// in the same tree) so a repo move doesn't break them; library skills
+// link absolutely.
+func skillLinkTarget(dst string, src skillSource) (string, bool) {
+	if src.dir == "" {
+		return "", false
+	}
+	absSrc, err := filepath.Abs(src.dir)
+	if err != nil {
+		return "", false
+	}
+	if src.kind != "repo" {
+		return absSrc, true
+	}
+	absDstDir, err := filepath.Abs(filepath.Dir(dst))
+	if err != nil {
+		return "", false
+	}
+	rel, err := filepath.Rel(absDstDir, absSrc)
+	if err != nil {
+		return "", false
+	}
+	return rel, true
+}
+
+// skillInstallStatus reports the state at dst for the resolved source:
+// "current" (right link, or matching copy for kinds that can't link),
+// "missing", "relink" (link to another source), "copied" (real dir
+// matching the source — upgradeable to a link), or "stale" (differs).
+func skillInstallStatus(dst string, src skillSource, srcFiles map[string][]byte) string {
+	target, linkable := skillLinkTarget(dst, src)
+	li, err := os.Lstat(dst)
+	if err != nil {
+		return "missing"
+	}
+	if linkable && li.Mode()&os.ModeSymlink != 0 {
+		if t, _ := os.Readlink(dst); t == target {
+			return "current"
+		}
+		return "relink"
+	}
+	installed, err := skillFiles(dst)
+	if err != nil || installed == nil {
+		return "stale"
+	}
+	if skillFilesEqual(installed, srcFiles) {
+		if linkable {
+			return "copied"
+		}
+		return "current"
+	}
+	return "stale"
+}
+
+// installSkill materializes the install at dst: a symlink to the source
+// dir when the kind links, else a file copy. Link failures (Windows
+// privileges, cross-device) fall back to copy. Returns "linked" or
+// "copied" — what was actually written.
+func installSkill(dst string, src skillSource, srcFiles map[string][]byte) (string, error) {
+	if target, ok := skillLinkTarget(dst, src); ok {
+		if err := os.RemoveAll(dst); err != nil {
+			return "", err
+		}
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return "", err
+		}
+		if err := os.Symlink(target, dst); err == nil {
+			return "linked", nil
+		}
+	}
+	return "copied", writeSkillFiles(dst, srcFiles)
+}
+
+// generatedLink reports whether dst is a symlink pointing inside a skill
+// source root (.spec/skills/ or the library) — one spec created and may
+// remove. Links elsewhere are foreign and left alone.
+func generatedLink(st Store, dst string) bool {
+	t, err := os.Readlink(dst)
+	if err != nil {
+		return false
+	}
+	if !filepath.IsAbs(t) {
+		t = filepath.Join(filepath.Dir(dst), t)
+	}
+	t = filepath.Clean(t)
+	for _, root := range []string{repoSkillDir(st.Root, ""), skillLibraryDir()} {
+		if root == "" {
+			continue
+		}
+		if strings.HasPrefix(t, filepath.Clean(root)+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
+}
+
 func skillDirNames(dir string) []string {
 	entries, _ := os.ReadDir(dir)
 	var names []string
@@ -216,9 +314,16 @@ func skillNames(st Store, cfg Config) []string {
 func bestSkillFiles(st Store, cfg Config, name string) (map[string][]byte, error) {
 	src := resolveSkill(st, cfg, name)
 	if src.dir == "" && src.kind == "" {
-		// orphaned or unknown: fall back to an installed copy
+		// orphaned or unknown: fall back to an installed copy (resolve a
+		// leftover link first — WalkDir won't descend a symlinked root)
 		for _, t := range skillTargets(cfg) {
-			if files, _ := skillFiles(filepath.Join(st.Root, t, name)); files != nil {
+			p := filepath.Join(st.Root, t, name)
+			if li, err := os.Lstat(p); err == nil && li.Mode()&os.ModeSymlink != 0 {
+				if tg, err := filepath.EvalSymlinks(p); err == nil {
+					p = tg
+				}
+			}
+			if files, _ := skillFiles(p); files != nil {
 				return files, nil
 			}
 		}
@@ -229,7 +334,11 @@ func bestSkillFiles(st Store, cfg Config, name string) (map[string][]byte, error
 		return nil, err
 	}
 	for _, t := range skillTargets(cfg) {
-		installed, err := skillFiles(filepath.Join(st.Root, t, name))
+		dst := filepath.Join(st.Root, t, name)
+		if li, err := os.Lstat(dst); err == nil && li.Mode()&os.ModeSymlink != 0 {
+			continue // a link can't diverge from its source
+		}
+		installed, err := skillFiles(dst)
 		if err != nil {
 			return nil, err
 		}
@@ -319,28 +428,26 @@ func skillStatusLine(st Store, cfg Config, targets []string, name, scope string,
 		label = "orphaned"
 	}
 	ok := src.kind != ""
+	var srcFiles map[string][]byte
+	if src.kind != "" {
+		srcFiles, _ = skillFiles(src.dir)
+	}
 	var parts []string
 	for _, t := range targets {
-		installed, err := skillFiles(filepath.Join(st.Root, t, name))
-		if err != nil {
-			parts = append(parts, t+":error")
-			ok = false
-			continue
-		}
-		if installed == nil {
-			parts = append(parts, t+":missing")
-			if src.kind != "" {
-				ok = false
+		dst := filepath.Join(st.Root, t, name)
+		if src.kind == "" {
+			if _, err := os.Lstat(dst); err == nil {
+				parts = append(parts, t+":present")
+			} else {
+				parts = append(parts, t+":missing")
 			}
 			continue
 		}
-		srcFiles, err := skillFiles(src.dir)
-		if err != nil || !skillFilesEqual(installed, srcFiles) {
-			parts = append(parts, t+":stale")
+		status := skillInstallStatus(dst, src, srcFiles)
+		parts = append(parts, t+":"+status)
+		if status != "current" {
 			ok = false
-			continue
 		}
-		parts = append(parts, t+":current")
 	}
 	return fmt.Sprintf("%-*s %-16s %s", width, name, label, strings.Join(parts, "  ")), ok
 }
@@ -374,47 +481,50 @@ func syncSkills(st Store, cfg Config, targets []string, force bool, out io.Write
 		}
 		for _, t := range targets {
 			dst := filepath.Join(st.Root, t, name)
-			installed, err := skillFiles(dst)
-			if err != nil {
-				return bad, err
-			}
+			status := skillInstallStatus(dst, src, srcFiles)
 			switch {
-			case installed == nil:
-				if err := writeSkillFiles(dst, srcFiles); err != nil {
-					return bad, err
-				}
-				fmt.Fprintf(out, "%-8s %s\n", "installed", dst)
-			case skillFilesEqual(installed, srcFiles):
-				fmt.Fprintf(out, "%-8s %s\n", "current", dst)
-			case force:
-				if err := writeSkillFiles(dst, srcFiles); err != nil {
-					return bad, err
-				}
-				fmt.Fprintf(out, "%-8s %s\n", "updated", dst)
-			default:
+			case status == "current":
+			case status == "stale" && !force:
 				bad++
 				fmt.Fprintf(out, "%-8s %s (differs from source; sync --force to overwrite)\n", "stale", dst)
-			}
-		}
-	}
-	// generated dirs for names no longer resolved: remove when they still
-	// match the library (unmodified leftovers), report anything else
-	for _, t := range targets {
-		for _, name := range skillDirNames(filepath.Join(st.Root, t)) {
-			if resolved[name] {
 				continue
-			}
-			dst := filepath.Join(st.Root, t, name)
-			installed, _ := skillFiles(dst)
-			lib, _ := skillFiles(librarySkillDir(name))
-			if lib != nil && skillFilesEqual(installed, lib) {
-				if err := os.RemoveAll(dst); err != nil {
+			default:
+				what, err := installSkill(dst, src, srcFiles)
+				if err != nil {
 					return bad, err
 				}
-				fmt.Fprintf(out, "%-8s %s\n", "removed", dst)
-			} else {
-				fmt.Fprintf(out, "%-8s %s\n", "foreign", dst)
+				status = what
 			}
+			fmt.Fprintf(out, "%-8s %s\n", status, dst)
+		}
+	}
+	// generated dirs for names no longer resolved: links we created and
+	// real dirs that still match the library are removed; anything else is
+	// foreign and only reported
+	for _, t := range targets {
+		tdir := filepath.Join(st.Root, t)
+		entries, _ := os.ReadDir(tdir)
+		for _, e := range entries {
+			if !(e.IsDir() || e.Type()&os.ModeSymlink != 0) || resolved[e.Name()] {
+				continue
+			}
+			dst := filepath.Join(tdir, e.Name())
+			removable := false
+			if e.Type()&os.ModeSymlink != 0 {
+				removable = generatedLink(st, dst)
+			} else {
+				installed, _ := skillFiles(dst)
+				lib, _ := skillFiles(librarySkillDir(e.Name()))
+				removable = lib != nil && skillFilesEqual(installed, lib)
+			}
+			if !removable {
+				fmt.Fprintf(out, "%-8s %s\n", "foreign", dst)
+				continue
+			}
+			if err := os.RemoveAll(dst); err != nil {
+				return bad, err
+			}
+			fmt.Fprintf(out, "%-8s %s\n", "removed", dst)
 		}
 	}
 	return bad, nil
@@ -797,7 +907,15 @@ func cmdSkillUnuse(st Store, cfg Config, targets []string, name string, force bo
 	src := resolveSkill(st, cfg, name)
 	srcFiles, _ := skillFiles(src.dir)
 	for _, t := range targets {
-		installed, err := skillFiles(filepath.Join(st.Root, t, name))
+		dst := filepath.Join(st.Root, t, name)
+		li, err := os.Lstat(dst)
+		if err != nil {
+			continue
+		}
+		if li.Mode()&os.ModeSymlink != 0 {
+			continue // links are removed by unlinking — nothing to protect
+		}
+		installed, err := skillFiles(dst)
 		if err != nil {
 			return err
 		}
@@ -805,7 +923,7 @@ func cmdSkillUnuse(st Store, cfg Config, targets []string, name string, force bo
 			continue
 		}
 		if !force && (srcFiles == nil || !skillFilesEqual(installed, srcFiles)) {
-			return fmt.Errorf("installed copy at %s differs — use spec skill adopt %s to keep it, or --force to discard", filepath.Join(st.Root, t, name), name)
+			return fmt.Errorf("installed copy at %s differs — use spec skill adopt %s to keep it, or --force to discard", dst, name)
 		}
 	}
 	for _, t := range targets {
@@ -849,6 +967,10 @@ func cmdSkillRm(st Store, cfg Config, targets []string, name string, library, fo
 	srcFiles, _ := skillFiles(dir)
 	for _, t := range targets {
 		dst := filepath.Join(st.Root, t, name)
+		li, err := os.Lstat(dst)
+		if err != nil || li.Mode()&os.ModeSymlink != 0 {
+			continue // absent, or a generated link — removal only unlinks it
+		}
 		installed, _ := skillFiles(dst)
 		if installed != nil && !force && !skillFilesEqual(installed, srcFiles) {
 			return fmt.Errorf("installed copy at %s differs — --force to remove it anyway", dst)
@@ -1139,13 +1261,25 @@ func cmdSkillGlobal(out, errOut io.Writer, sub, name string, force bool) error {
 			return fmt.Errorf("skill %q is not in global skills:", name)
 		}
 		libFiles, _ := skillFiles(librarySkillDir(name))
+		libAbs, _ := filepath.Abs(librarySkillDir(name))
 		for _, t := range targets {
 			dst := filepath.Join(t, name)
-			installed, _ := skillFiles(dst)
-			if installed == nil {
+			li, err := os.Lstat(dst)
+			if err != nil {
 				continue
 			}
-			if !force && (libFiles == nil || !skillFilesEqual(installed, libFiles)) {
+			removable := false
+			if li.Mode()&os.ModeSymlink != 0 {
+				tg, _ := os.Readlink(dst)
+				if !filepath.IsAbs(tg) {
+					tg = filepath.Join(filepath.Dir(dst), tg)
+				}
+				removable = filepath.Clean(tg) == filepath.Clean(libAbs)
+			} else {
+				installed, _ := skillFiles(dst)
+				removable = libFiles != nil && skillFilesEqual(installed, libFiles)
+			}
+			if !removable && !force {
 				return fmt.Errorf("installed copy at %s differs — --force to discard it", dst)
 			}
 			if err := os.RemoveAll(dst); err != nil {
@@ -1171,19 +1305,7 @@ func cmdSkillGlobal(out, errOut io.Writer, sub, name string, force bool) error {
 		}
 		for _, t := range targets {
 			dst := filepath.Join(t, name)
-			installed, err := skillFiles(dst)
-			if err != nil {
-				return err
-			}
-			var status string
-			switch {
-			case installed == nil:
-				status = "missing"
-			case !skillFilesEqual(installed, srcFiles):
-				status = "stale"
-			default:
-				status = "current"
-			}
+			status := skillInstallStatus(dst, src, srcFiles)
 			if status != "current" {
 				bad++
 				if sub == "sync" || sub == "update" {
@@ -1191,10 +1313,11 @@ func cmdSkillGlobal(out, errOut io.Writer, sub, name string, force bool) error {
 						fmt.Fprintf(out, "%-8s %s (differs from source; sync --force to overwrite)\n", "stale", dst)
 						continue
 					}
-					if err := writeSkillFiles(dst, srcFiles); err != nil {
+					what, err := installSkill(dst, src, srcFiles)
+					if err != nil {
 						return err
 					}
-					status = "updated"
+					status = what
 				}
 			}
 			fmt.Fprintf(out, "%-8s %s\n", status, dst)
