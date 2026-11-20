@@ -50,6 +50,11 @@ Addresses: REQ-019
   `global|repo` for `config init|edit`.
 - Output is plain script to stdout, fully offline; the script reflects
   the binary that generated it, so it never drifts from the CLI.
+- `--install` writes the script to the shell's conventional per-user
+  completions dir (`~/.config/fish/completions/spec.fish`,
+  `~/.local/share/bash-completion/completions/spec`, `~/.zfunc/_spec`
+  — zsh has no standard dir, so the note tells the user to put
+  `~/.zfunc` in `fpath`) and reports the path written.
 - Documented in the main help and README (how to install per shell).
 
 ## Acceptance Criteria
@@ -60,4 +65,5 @@ Addresses: REQ-019
 - [x] Flag completion covers each command's flags (`--global`, `--force`, `--library`, `--local`, `--yes`, …)
 - [x] Command list in the scripts comes from the command table, not a hardcoded second copy
 - [x] Help/README show how to install for each shell
+- [x] `--install` writes the script to the shell's user completions dir and reports the path
 - [x] Tests: each shell's script generates and contains commands/subs; dynamic completers return ids and names in a temp repo

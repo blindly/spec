@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -148,5 +149,23 @@ func TestCompleteOutsideRepo(t *testing.T) {
 	cmdCompleteKinds(&out, []string{"shell"})
 	if out.String() == "" {
 		t.Fatal("static kinds should work outside a repo")
+	}
+}
+
+// spec completion <shell> --install writes to the shell's user dir.
+func TestCompletionInstall(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	var out bytes.Buffer
+	if err := cmdCompletion(&out, io.Discard, []string{"fish", "--install"}); err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(dir, ".config", "fish", "completions", "spec.fish")
+	data, err := os.ReadFile(p)
+	if err != nil || !strings.Contains(string(data), "complete -c spec") {
+		t.Fatalf("script not installed: %v", err)
+	}
+	if !strings.Contains(out.String(), p) {
+		t.Fatalf("install should report the path, got %q", out.String())
 	}
 }

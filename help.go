@@ -247,7 +247,7 @@ spec verify     # run verify: commands from .spec/config.yml
 spec graph      # dependency graph (--mermaid)
 spec trace      # REQ → feature coverage
 spec <cmd> --help / spec help <cmd>   # one command's usage block
-spec completion <bash|zsh|fish>       # print a shell completion script
+spec completion <bash|zsh|fish> [--install]  # print a completion script (or install it to your shell dir)
 ` + "```" + `
 `
 
@@ -317,7 +317,7 @@ var commandDocs = []commandDoc{
 	{"update", `  spec update [tag]                  Self-update to a release (default: latest)`},
 	{"version", `  spec version                       Print version`},
 	{"help", `  spec help [command]                 Full help, or one command's help block`},
-	{"completion", `  spec completion <bash|zsh|fish>   Print a shell completion script`},
+	{"completion", `  spec completion <bash|zsh|fish> [--install]   Print a completion script (or install it to your shell dir)`},
 }
 
 var commandDocByName = func() map[string]string {

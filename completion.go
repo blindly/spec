@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -23,7 +24,7 @@ type cmdComp struct {
 // completion; the rest map to candidates in completeCandidates.
 var completionTable = map[string]cmdComp{
 	"help":       {args: []string{"command"}},
-	"completion": {args: []string{"shell"}},
+	"completion": {args: []string{"shell"}, flags: []string{"--install"}},
 	"ls":         {flags: []string{"--all", "-a", "--paths"}},
 	"list":       {flags: []string{"--all", "-a", "--paths"}},
 	"inbox":      {flags: []string{"--all", "-a", "--paths"}},
@@ -188,11 +189,20 @@ func cmdCompleteKinds(out io.Writer, args []string) {
 
 // cmdCompletion prints a shell completion script (spec completion <shell>).
 func cmdCompletion(out, errOut io.Writer, args []string) error {
-	if len(args) != 1 {
-		return fmt.Errorf("usage: spec completion <bash|zsh|fish>")
+	install := false
+	var rest []string
+	for _, a := range args {
+		if a == "--install" {
+			install = true
+		} else {
+			rest = append(rest, a)
+		}
+	}
+	if len(rest) != 1 {
+		return fmt.Errorf("usage: spec completion <bash|zsh|fish> [--install]")
 	}
 	var script string
-	switch args[0] {
+	switch rest[0] {
 	case "bash":
 		script = bashCompletion()
 	case "zsh":
@@ -200,10 +210,45 @@ func cmdCompletion(out, errOut io.Writer, args []string) error {
 	case "fish":
 		script = fishCompletion()
 	default:
-		return fmt.Errorf("usage: spec completion <bash|zsh|fish>")
+		return fmt.Errorf("usage: spec completion <bash|zsh|fish> [--install]")
 	}
-	_, err := out.Write([]byte(script))
-	return err
+	if !install {
+		_, err := out.Write([]byte(script))
+		return err
+	}
+	path, err := completionInstallPath(rest[0])
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	if err := writeFileAtomic(path, []byte(script), 0o644); err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "Wrote %s\n", path)
+	if rest[0] == "zsh" {
+		fmt.Fprintln(errOut, "note: zsh has no standard user dir — ensure fpath includes ~/.zfunc (fpath+=~/.zfunc before compinit)")
+	}
+	return nil
+}
+
+// completionInstallPath is the conventional per-user file each shell
+// auto-loads completion scripts from.
+func completionInstallPath(shell string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	switch shell {
+	case "bash":
+		return filepath.Join(home, ".local", "share", "bash-completion", "completions", "spec"), nil
+	case "zsh":
+		return filepath.Join(home, ".zfunc", "_spec"), nil
+	case "fish":
+		return filepath.Join(home, ".config", "fish", "completions", "spec.fish"), nil
+	}
+	return "", fmt.Errorf("usage: spec completion <bash|zsh|fish> [--install]")
 }
 
 // kindAction renders the bash/zsh/fish word for completing one kind.
