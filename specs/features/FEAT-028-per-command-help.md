@@ -5,6 +5,7 @@ id: FEAT-028
 status: implemented
 title: Per-command help
 type: feature
+verified: 1753f80038be75249b0777d513bb30848de17789
 ---
 
 # Per-command help
