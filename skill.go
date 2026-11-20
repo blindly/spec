@@ -292,9 +292,21 @@ func ensureRepoSkill(st Store, cfg Config, name string) (string, error) {
 	return dst, nil
 }
 
+// colWidth returns the longest name's length — the padding width for a
+// column so entries with names longer than a fixed gutter stay aligned.
+func colWidth(names ...string) int {
+	w := 0
+	for _, n := range names {
+		if len(n) > w {
+			w = len(n)
+		}
+	}
+	return w
+}
+
 // skillStatusLine describes one resolved skill across the target dirs.
 // scope is "repo" or "global" for skills: entries — which level enabled them.
-func skillStatusLine(st Store, cfg Config, targets []string, name, scope string) (string, bool) {
+func skillStatusLine(st Store, cfg Config, targets []string, name, scope string, width int) (string, bool) {
 	src := resolveSkill(st, cfg, name)
 	label := src.kind
 	if src.kind == "repo" && contains(cfg.Skills, name) {
@@ -330,7 +342,7 @@ func skillStatusLine(st Store, cfg Config, targets []string, name, scope string)
 		}
 		parts = append(parts, t+":current")
 	}
-	return fmt.Sprintf("%-16s %-16s %s", name, label, strings.Join(parts, "  ")), ok
+	return fmt.Sprintf("%-*s %-16s %s", width, name, label, strings.Join(parts, "  ")), ok
 }
 
 // syncSkills materializes the resolved skill set into each target dir.
@@ -463,7 +475,10 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 		bad := 0
 		repoSet := stringSet(configFileSkills(repoConfigPath(st.Root)))
 		globalSet := stringSet(configFileSkills(globalConfigPath()))
-		for _, name := range skillNames(st, cfg) {
+		names := skillNames(st, cfg)
+		avail := availableSkills(st, cfg)
+		w := colWidth(append(append([]string{}, names...), avail...)...)
+		for _, name := range names {
 			scope := ""
 			switch {
 			case repoSet[name]:
@@ -471,14 +486,14 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 			case globalSet[name]:
 				scope = "global"
 			}
-			line, ok := skillStatusLine(st, cfg, targets, name, scope)
+			line, ok := skillStatusLine(st, cfg, targets, name, scope, w)
 			fmt.Fprintln(out, line)
 			if !ok {
 				bad++
 			}
 		}
-		for _, n := range availableSkills(st, cfg) {
-			fmt.Fprintf(out, "%-16s %-16s\n", n, "available")
+		for _, n := range avail {
+			fmt.Fprintf(out, "%-*s %-16s\n", w, n, "available")
 		}
 		if sub == "" {
 			return nil
@@ -552,13 +567,15 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 // built-in, globally enabled, and available entries.
 func cmdSkillLibraryList(out io.Writer) error {
 	enabled := stringSet(configFileSkills(globalConfigPath()))
-	fmt.Fprintf(out, "%-16s %-16s\n", "spec", "built-in")
-	for _, n := range skillDirNames(librarySkillDir("")) {
+	names := skillDirNames(librarySkillDir(""))
+	w := colWidth(append([]string{"spec"}, names...)...)
+	fmt.Fprintf(out, "%-*s %-16s\n", w, "spec", "built-in")
+	for _, n := range names {
 		label := "available"
 		if enabled[n] {
 			label = "library(global)"
 		}
-		fmt.Fprintf(out, "%-16s %-16s\n", n, label)
+		fmt.Fprintf(out, "%-*s %-16s\n", w, n, label)
 	}
 	return nil
 }
