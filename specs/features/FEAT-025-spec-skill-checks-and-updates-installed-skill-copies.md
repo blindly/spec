@@ -5,7 +5,7 @@ id: FEAT-025
 status: implemented
 title: spec skill checks and updates installed skill copies
 type: feature
-verified: 0e674adbbeff5c68c8841435770d07c835c2be86
+verified: e6e594a03351e599a92ae8889464ac5fec237569
 ---
 
 # spec skill checks and updates installed skill copies

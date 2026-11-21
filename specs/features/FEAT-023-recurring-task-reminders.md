@@ -5,7 +5,7 @@ id: FEAT-023
 status: implemented
 title: Recurring task reminders
 type: feature
-verified: ac81a6dc74a379de1908ad5e8fd1046f7a7c64df
+verified: e6e594a03351e599a92ae8889464ac5fec237569
 ---
 
 # Recurring task reminders

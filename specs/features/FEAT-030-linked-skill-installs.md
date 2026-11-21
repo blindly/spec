@@ -5,6 +5,7 @@ id: FEAT-030
 status: implemented
 title: Linked skill installs
 type: feature
+verified: e6e594a03351e599a92ae8889464ac5fec237569
 ---
 
 # Linked skill installs
