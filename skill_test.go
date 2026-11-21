@@ -863,3 +863,58 @@ func TestCheckSkillInstalls(t *testing.T) {
 		t.Fatalf("orphaned skill should FAIL, got %d:\n%s", n, out.String())
 	}
 }
+
+func TestSkillSyncSeedsAgentPointers(t *testing.T) {
+	st := setupRepo(t)
+	// simulate a repo inited before the pointer templates existed
+	os.Remove(filepath.Join(st.Root, "AGENTS.md"))
+	os.WriteFile(filepath.Join(st.Root, "CLAUDE.md"), []byte("custom"), 0o644)
+
+	if err := cmdSkill(io.Discard, io.Discard, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(st.Root, "AGENTS.md"))
+	if err != nil || !strings.Contains(string(data), "spec") {
+		t.Fatalf("AGENTS.md not seeded: %v", err)
+	}
+	if data, _ := os.ReadFile(filepath.Join(st.Root, "CLAUDE.md")); string(data) != "custom" {
+		t.Fatal("sync overwrote a hand-edited CLAUDE.md")
+	}
+}
+
+func TestSkillExternalTargetAbsoluteLink(t *testing.T) {
+	// repo inside a parent dir so the external target stays in temp space
+	base := t.TempDir()
+	root := filepath.Join(base, "repo")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old, _ := os.Getwd()
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chdir(old) })
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(base, ".xdg"))
+	if err := cmdInit(io.Discard, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	st := Store{Root: root}
+	writeRepoSkill(t, st, "local", simpleSkill("local", "v1"))
+
+	var out bytes.Buffer
+	targets := []string{filepath.Join("..", "ext")}
+	if _, err := syncSkills(st, loadConfig(st.Root), targets, false, &out); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(base, "ext", "local")
+	tg, err := os.Readlink(dst)
+	if err != nil {
+		t.Fatalf("external target not linked: %v", err)
+	}
+	if !filepath.IsAbs(tg) {
+		t.Fatalf("external target should get an absolute link, got %s", tg)
+	}
+	if data, _ := os.ReadFile(filepath.Join(dst, "SKILL.md")); !strings.Contains(string(data), "v1") {
+		t.Fatal("external link does not resolve to the source")
+	}
+}

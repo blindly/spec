@@ -161,4 +161,21 @@ func resyncAfterUpdate(self string, out, errOut io.Writer) {
 	if err := run.Run(); err != nil {
 		fmt.Fprintf(errOut, "note: 'spec skill sync --global' did not fully sync — run it to resolve\n")
 	}
+	// regenerate completion scripts that are already installed — they
+	// embed the old binary's command table; don't create ones the user
+	// never installed
+	for _, shell := range []string{"bash", "zsh", "fish"} {
+		p, err := completionInstallPath(shell)
+		if err != nil {
+			continue
+		}
+		if _, err := os.Stat(p); err != nil {
+			continue
+		}
+		run := exec.Command(self, "completion", shell, "--install")
+		run.Stdout, run.Stderr = out, errOut
+		if err := run.Run(); err != nil {
+			fmt.Fprintf(errOut, "note: could not regenerate %s\n", p)
+		}
+	}
 }

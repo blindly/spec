@@ -131,10 +131,11 @@ func writeSkillFiles(dir string, files map[string][]byte) error {
 
 // skillLinkTarget returns the symlink target for installing src at dst,
 // or false when the kind must be copied (built-in — embedded, no source
-// dir). repo skills link relatively (install target and .spec/skills are
-// in the same tree) so a repo move doesn't break them; library skills
-// link absolutely.
-func skillLinkTarget(dst string, src skillSource) (string, bool) {
+// dir). repo skills link relatively when the install target is inside
+// the repo (a repo move doesn't break it); targets outside root get an
+// absolute link — a ../ chain to an external dir breaks if either side
+// moves. library skills link absolutely.
+func skillLinkTarget(root, dst string, src skillSource) (string, bool) {
 	if src.dir == "" {
 		return "", false
 	}
@@ -149,6 +150,10 @@ func skillLinkTarget(dst string, src skillSource) (string, bool) {
 	if err != nil {
 		return "", false
 	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil || !withinRoot(absRoot, absDstDir) {
+		return absSrc, true
+	}
 	rel, err := filepath.Rel(absDstDir, absSrc)
 	if err != nil {
 		return "", false
@@ -160,8 +165,8 @@ func skillLinkTarget(dst string, src skillSource) (string, bool) {
 // "current" (right link, or matching copy for kinds that can't link),
 // "missing", "relink" (link to another source), "copied" (real dir
 // matching the source — upgradeable to a link), or "stale" (differs).
-func skillInstallStatus(dst string, src skillSource, srcFiles map[string][]byte) string {
-	target, linkable := skillLinkTarget(dst, src)
+func skillInstallStatus(root, dst string, src skillSource, srcFiles map[string][]byte) string {
+	target, linkable := skillLinkTarget(root, dst, src)
 	li, err := os.Lstat(dst)
 	if err != nil {
 		return "missing"
@@ -189,8 +194,8 @@ func skillInstallStatus(dst string, src skillSource, srcFiles map[string][]byte)
 // dir when the kind links, else a file copy. Link failures (Windows
 // privileges, cross-device) fall back to copy. Returns "linked" or
 // "copied" — what was actually written.
-func installSkill(dst string, src skillSource, srcFiles map[string][]byte) (string, error) {
-	if target, ok := skillLinkTarget(dst, src); ok {
+func installSkill(root, dst string, src skillSource, srcFiles map[string][]byte) (string, error) {
+	if target, ok := skillLinkTarget(root, dst, src); ok {
 		if err := os.RemoveAll(dst); err != nil {
 			return "", err
 		}
@@ -443,7 +448,7 @@ func skillStatusLine(st Store, cfg Config, targets []string, name, scope string,
 			}
 			continue
 		}
-		status := skillInstallStatus(dst, src, srcFiles)
+		status := skillInstallStatus(st.Root, dst, src, srcFiles)
 		parts = append(parts, t+":"+status)
 		if status != "current" {
 			ok = false
@@ -470,7 +475,7 @@ func checkSkillInstalls(st Store, out io.Writer) int {
 		srcFiles, _ := skillFiles(src.dir)
 		for _, t := range targets {
 			dst := filepath.Join(st.Root, t, name)
-			switch status := skillInstallStatus(dst, src, srcFiles); status {
+			switch status := skillInstallStatus(st.Root, dst, src, srcFiles); status {
 			case "current":
 			case "copied":
 				fmt.Fprintf(out, "WARN  %s installed as copy — 'spec skill sync' upgrades it to a link\n", dst)
@@ -493,9 +498,13 @@ func checkSkillInstalls(st Store, out io.Writer) int {
 func syncSkills(st Store, cfg Config, targets []string, force bool, out io.Writer) (int, error) {
 	// generated skill dirs are install output — ensure .gitignore covers
 	// them (and secrets facts) on every repo sync, not only at spec init;
-	// repo-free library commands skip this (no .gitignore context)
+	// repo-free library commands skip this (no .gitignore context).
+	// Same for the agent-pointer files harnesses read at session start.
 	if isDir(filepath.Join(st.Root, configDir)) {
 		if err := ensureGitignore(st.Root, targets); err != nil {
+			return 0, err
+		}
+		if err := ensureAgentPointers(st.Root); err != nil {
 			return 0, err
 		}
 	}
@@ -515,7 +524,7 @@ func syncSkills(st Store, cfg Config, targets []string, force bool, out io.Write
 		}
 		for _, t := range targets {
 			dst := filepath.Join(st.Root, t, name)
-			status := skillInstallStatus(dst, src, srcFiles)
+			status := skillInstallStatus(st.Root, dst, src, srcFiles)
 			switch {
 			case status == "current":
 			case status == "stale" && !force:
@@ -523,7 +532,7 @@ func syncSkills(st Store, cfg Config, targets []string, force bool, out io.Write
 				fmt.Fprintf(out, "%-8s %s (differs from source; sync --force to overwrite)\n", "stale", dst)
 				continue
 			default:
-				what, err := installSkill(dst, src, srcFiles)
+				what, err := installSkill(st.Root, dst, src, srcFiles)
 				if err != nil {
 					return bad, err
 				}
@@ -1339,7 +1348,7 @@ func cmdSkillGlobal(out, errOut io.Writer, sub, name string, force bool) error {
 		}
 		for _, t := range targets {
 			dst := filepath.Join(t, name)
-			status := skillInstallStatus(dst, src, srcFiles)
+			status := skillInstallStatus("", dst, src, srcFiles)
 			if status != "current" {
 				bad++
 				if sub == "sync" || sub == "update" {
@@ -1347,7 +1356,7 @@ func cmdSkillGlobal(out, errOut io.Writer, sub, name string, force bool) error {
 						fmt.Fprintf(out, "%-8s %s (differs from source; sync --force to overwrite)\n", "stale", dst)
 						continue
 					}
-					what, err := installSkill(dst, src, srcFiles)
+					what, err := installSkill("", dst, src, srcFiles)
 					if err != nil {
 						return err
 					}

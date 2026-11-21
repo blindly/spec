@@ -47,7 +47,7 @@ go build -o spec .
 | `spec skill adopt\|push <name>` | `adopt` forks a managed skill into `.spec/skills/`; `push` publishes a repo skill to the library (`--force` overwrites a differing shared copy) |
 | `spec skill new\|edit\|view\|refine <name>` | Manage skills — `--library` targets the library file, `--local` forks to `.spec/skills/` first (refine is repo-blind for shared skills, repo-aware for repo skills) |
 | `spec skill import <name\|path> [--library]` | Copy a skill dir from the usual agent skill dirs or an explicit path into `.spec/skills/` (or the library) |
-| `spec skill check\|sync [--force] [--global]` | Check exits non-zero on missing/stale installs; `sync` materializes them — symlinks to the resolved source (`skill_targets:`, else the configured agent's dir; the embedded built-in and link-failure fallback stay file copies). `--global` covers the user-level skill dirs |
+| `spec skill check\|sync [--force] [--global]` | Check exits non-zero on missing/stale installs; `sync` materializes them — symlinks to the resolved source (`skill_targets:`, else the configured agent's dir; the embedded built-in and link-failure fallback stay file copies); repo syncs also ensure `.gitignore` entries and `AGENTS.md`/`CLAUDE.md` pointers exist. `--global` covers the user-level skill dirs |
 | `SPEC_TRACE=1 spec …` | Print every git command spec runs, with its duration, to stderr — for diagnosing slow drift checks or `/system` loads on a given machine |
 | `spec verified <id>…` | Stamp `verified: <HEAD>` — the spec was checked and is accurate; clears drift until covered code changes again |
 | `spec verify` | Run configured `verify: [...]` commands (tests, validate, check) |

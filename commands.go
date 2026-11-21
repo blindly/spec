@@ -54,18 +54,8 @@ func cmdInit(out, errOut io.Writer) error {
 			return err
 		}
 	}
-	for path, content := range map[string]string{
-		"AGENTS.md": agentsTemplate,
-		"CLAUDE.md": claudeTemplate,
-	} {
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-				return err
-			}
-			if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-				return err
-			}
-		}
+	if err := ensureAgentPointers("."); err != nil {
+		return err
 	}
 	// install the resolved skill set (built-in spec + any global skills:
 	// baseline) into the agent skill dirs; sync also ensures .gitignore
@@ -77,6 +67,30 @@ func cmdInit(out, errOut io.Writer) error {
 		return err
 	}
 	fmt.Fprintln(out, "Initialized spec repository.")
+	return nil
+}
+
+// ensureAgentPointers seeds AGENTS.md/CLAUDE.md — the harness-facing
+// "this repo is spec-managed" pointers — in repos that lack them.
+// Never overwrites: these files attract hand edits.
+func ensureAgentPointers(root string) error {
+	for path, content := range map[string]string{
+		"AGENTS.md": agentsTemplate,
+		"CLAUDE.md": claudeTemplate,
+	} {
+		p := filepath.Join(root, path)
+		if _, err := os.Stat(p); err == nil {
+			continue
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -676,7 +690,7 @@ func cmdStatus(out, errOut io.Writer) error {
 					continue
 				}
 				srcFiles, _ := skillFiles(src.dir)
-				if skillInstallStatus(dst, src, srcFiles) != "current" {
+				if skillInstallStatus(st.Root, dst, src, srcFiles) != "current" {
 					stale++
 				}
 			}
