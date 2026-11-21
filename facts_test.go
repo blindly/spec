@@ -152,6 +152,9 @@ func TestCheckSecretLiteralWarnings(t *testing.T) {
 	writeFile(t, st, ".spec/skills/demo/SKILL.md", "token "+apiKey)
 	writeFile(t, st, ".spec/skills/demo/script.sh", custom)
 	writeFile(t, st, ".spec/skills/demo/example.md", "{secret:"+token+"}")
+	if err := cmdSkill(io.Discard, io.Discard, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
 	var out bytes.Buffer
 	if err := cmdCheck(&out, io.Discard); err != nil {
 		t.Fatal(err)

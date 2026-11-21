@@ -452,6 +452,40 @@ func skillStatusLine(st Store, cfg Config, targets []string, name, scope string,
 	return fmt.Sprintf("%-*s %-16s %s", width, name, label, strings.Join(parts, "  ")), ok
 }
 
+// checkSkillInstalls audits the resolved skill set's installs for
+// spec check: a stale or missing install means the harness reads
+// outdated (or no) skill guidance. Returns the problem count;
+// equal-content copies awaiting link upgrade only warn.
+func checkSkillInstalls(st Store, out io.Writer) int {
+	cfg := loadConfig(st.Root)
+	targets := skillTargets(cfg)
+	problems := 0
+	for _, name := range skillNames(st, cfg) {
+		src := resolveSkill(st, cfg, name)
+		if src.kind == "" {
+			problems++
+			fmt.Fprintf(out, "FAIL  skill %s in skills: has no resolvable source\n", name)
+			continue
+		}
+		srcFiles, _ := skillFiles(src.dir)
+		for _, t := range targets {
+			dst := filepath.Join(st.Root, t, name)
+			switch status := skillInstallStatus(dst, src, srcFiles); status {
+			case "current":
+			case "copied":
+				fmt.Fprintf(out, "WARN  %s installed as copy — 'spec skill sync' upgrades it to a link\n", dst)
+			case "stale":
+				problems++
+				fmt.Fprintf(out, "FAIL  %s stale (differs from source; 'spec skill sync --force' to overwrite)\n", dst)
+			default:
+				problems++
+				fmt.Fprintf(out, "FAIL  %s %s — run 'spec skill sync'\n", dst, status)
+			}
+		}
+	}
+	return problems
+}
+
 // syncSkills materializes the resolved skill set into each target dir.
 // force overwrites installed copies that differ from their source; without
 // it they are reported stale and left alone. Returns the number of

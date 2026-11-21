@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -138,5 +139,26 @@ func cmdUpdate(out, errOut io.Writer, requested string) error {
 		return err
 	}
 	fmt.Fprintf(out, "Updated %s to %s\n", self, rel.Tag)
+	resyncAfterUpdate(self, out, errOut)
 	return nil
+}
+
+// resyncAfterUpdate re-runs `spec skill sync` through the just-installed
+// binary so embedded-skill installs pick up the new version (this process
+// still holds the old embedded copy). Repo sync when cwd is inside a
+// spec-managed tree; global sync always. Best-effort — the update
+// already succeeded, so failures are notes, not errors.
+func resyncAfterUpdate(self string, out, errOut io.Writer) {
+	if _, err := mustStore(); err == nil {
+		run := exec.Command(self, "skill", "sync")
+		run.Stdout, run.Stderr = out, errOut
+		if err := run.Run(); err != nil {
+			fmt.Fprintf(errOut, "note: 'spec skill sync' did not fully sync — run it to resolve\n")
+		}
+	}
+	run := exec.Command(self, "skill", "sync", "--global")
+	run.Stdout, run.Stderr = out, errOut
+	if err := run.Run(); err != nil {
+		fmt.Fprintf(errOut, "note: 'spec skill sync --global' did not fully sync — run it to resolve\n")
+	}
 }

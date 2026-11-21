@@ -296,7 +296,7 @@ var commandDocs = []commandDoc{
 	{"fact", `  spec fact [list|get <key>|set [--secret] <key> <value>|unset <key>|discover [--yes]]     Manage public and secret project facts`},
 	{"remind", `  spec remind [list|add <title> --every <7d|30d|weekly|monthly|quarterly|yearly> [--spec <id>]|done <id>|remove <id>]
                                        Manage recurring task reminders (.spec/reminders.yml)`},
-	{"check", `  spec check                         Audit fact references, possible secret leaks, and drift`},
+	{"check", `  spec check                         Audit facts, secrets, skill installs, and drift`},
 	{"drift", `  spec drift [--review [--yes]] [id...]   Specs whose covered code changed since they were last updated;
                                        --review asks the agent if each is stale and proposes an update`},
 	{"covers", `  spec covers [--infer] [id...]      Show (or infer from git history) the files each spec covers`},

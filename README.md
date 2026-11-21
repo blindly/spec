@@ -39,7 +39,7 @@ go build -o spec .
 | `spec status` | Summarize repo spec state (counts, coverage, agent) |
 | `spec fact [list\|get\|set\|unset\|discover [--yes]]` | Manage public and secret project facts (`set --secret <key> <value>`) |
 | `spec remind [list\|add <title> --every <period> [--spec <id>]\|done <id>\|remove <id>]` | Track recurring obligations in `.spec/reminders.yml` (`--every`: `7d`, `30d`, … or `weekly`/`monthly`/`quarterly`/`yearly`); `spec status`/`spec check` and agent prompts surface due items |
-| `spec check` | Audit fact and secret references, enforce the secrets file ignore rule, and warn about possible leaks and drift |
+| `spec check` | Audit fact and secret references, enforce the secrets file ignore rule, fail on stale/missing skill installs, and warn about possible leaks and drift |
 | `spec drift [--review [--yes]] [id…]` | List system specs whose covered code (`covers:` frontmatter) changed since they were last updated or verified. `--review` asks the agent whether each is really stale: accurate → `verified:` stamp, stale → proposed update applied on confirmation. Needs git |
 | `spec covers [--infer] [id…]` | Show the files each spec covers; `--infer` fills empty `covers:` from the commits that touched each spec. `spec apply` records covers automatically |
 | `spec skill` | List skills with source and status: repo-owned `.spec/skills/<name>/`, managed library skills (`skills:` in config → `~/.config/spec/skills/<name>/`), the built-in `spec` skill, and available library entries |

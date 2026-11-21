@@ -296,6 +296,9 @@ func cmdCheck(out, errOut io.Writer) error {
 			fmt.Fprintf(out, "WARN  reminder %q is due (%s)\n", r.ID, r.Title)
 		}
 	}
+	// skills (FEAT-031): a stale or missing install means the harness
+	// reads outdated guidance — fail like `spec skill` does
+	problems += checkSkillInstalls(st, out)
 	// drift (FEAT-012): warn, never fail
 	if g := loadGit(st.Root); g != nil {
 		stale, _ := g.systemDrift(st, loadConfig(st.Root))
@@ -304,8 +307,8 @@ func cmdCheck(out, errOut io.Writer) error {
 		}
 	}
 	if problems > 0 {
-		return fmt.Errorf("%d fact check failure(s)", problems)
+		return fmt.Errorf("%d check failure(s)", problems)
 	}
-	fmt.Fprintln(out, "OK  facts check passed")
+	fmt.Fprintln(out, "OK  check passed")
 	return nil
 }

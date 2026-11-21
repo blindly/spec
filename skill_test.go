@@ -821,3 +821,45 @@ func TestSkillRefineKeepsFrontmatter(t *testing.T) {
 		t.Fatal("skill lost on bad output")
 	}
 }
+
+func TestCheckSkillInstalls(t *testing.T) {
+	st := setupRepo(t)
+	writeLibrarySkill(t, "shared", simpleSkill("shared", "v1"))
+	if err := cmdSkill(io.Discard, io.Discard, []string{"use", "shared"}); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(st.Root, ".devin", "skills", "shared")
+
+	var out bytes.Buffer
+	if n := checkSkillInstalls(st, &out); n != 0 {
+		t.Fatalf("current installs should pass, got %d:\n%s", n, out.String())
+	}
+
+	// equal-content copy: WARN, not a problem
+	materializeInstall(t, dst)
+	out.Reset()
+	if n := checkSkillInstalls(st, &out); n != 0 || !strings.Contains(out.String(), "WARN") {
+		t.Fatalf("copied install should WARN, got %d:\n%s", n, out.String())
+	}
+
+	// differing copy: FAIL stale
+	os.WriteFile(filepath.Join(dst, "SKILL.md"), []byte("hand edit"), 0o644)
+	out.Reset()
+	if n := checkSkillInstalls(st, &out); n == 0 || !strings.Contains(out.String(), "FAIL") {
+		t.Fatalf("stale copy should FAIL, got %d:\n%s", n, out.String())
+	}
+
+	// missing install: FAIL
+	os.RemoveAll(dst)
+	out.Reset()
+	if n := checkSkillInstalls(st, &out); n == 0 || !strings.Contains(out.String(), "missing") {
+		t.Fatalf("missing install should FAIL, got %d:\n%s", n, out.String())
+	}
+
+	// orphaned skills: entry: FAIL
+	os.RemoveAll(librarySkillDir("shared"))
+	out.Reset()
+	if n := checkSkillInstalls(st, &out); n == 0 || !strings.Contains(out.String(), "no resolvable source") {
+		t.Fatalf("orphaned skill should FAIL, got %d:\n%s", n, out.String())
+	}
+}
