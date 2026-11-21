@@ -5,6 +5,7 @@ id: FEAT-031
 status: implemented
 title: Post-update resync and skill install audit
 type: feature
+verified: 1751242ee09496a41c39f0b3615b1b669685dcc7
 ---
 
 # Post-update resync and skill install audit
