@@ -69,9 +69,10 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    made stale; if a flagged spec is still accurate, `spec verified <id>`.
    Commit spec updates together with the code they describe.
 8. **Pushes enforce it.** A spec-managed `pre-push` hook rejects pushes that
-   change files outside `specs/` without a spec update. A failing hook means
-   a spec is missing — write one. For a defect fix that restores already-
-   documented behavior, commit with a `Spec-Exempt: <reason>` trailer;
+   change files outside `specs/` without a spec update. Commit through
+   `spec commit` — it appends the `Spec-Exempt: <reason>` trailer the hook
+   needs for defect fixes (`--exempt`, or automatically when it writes the
+   message). A failing hook means a spec is missing — write one;
    `SPEC_SKIP=1 git push` is the last-resort bypass, not a routine one.
 
 ## Rules

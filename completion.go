@@ -82,6 +82,7 @@ var completionTable = map[string]cmdComp{
 	// provably covers every command
 	"init": {}, "bootstrap": {}, "analyze": {}, "validate": {}, "trace": {},
 	"status": {}, "ps": {}, "check": {}, "verify": {}, "idea": {}, "search": {},
+	"commit": {flags: []string{"-m", "--exempt"}},
 	"update": {},
 }
 

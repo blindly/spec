@@ -298,6 +298,8 @@ var commandDocs = []commandDoc{
                                        one for this repo; view cats one (default: active) to stdout`},
 	{"status", `  spec status                        Summarize repository spec state`},
 	{"ps", `  spec ps                            Like status, plus an In flight list of specs not yet done`},
+	{"commit", `  spec commit [-m msg] [--exempt R]  Stage all and commit; adds a Spec-Exempt trailer when the
+                                       commit has no specs/ change (auto-attests when -m is omitted)`},
 	{"fact", `  spec fact [list|get <key>|set [--secret] <key> <value>|unset <key>|discover [--yes]]     Manage public and secret project facts`},
 	{"remind", `  spec remind [list|add <title> --every <7d|30d|weekly|monthly|quarterly|yearly> [--spec <id>]|done <id>|remove <id>]
                                        Manage recurring task reminders (.spec/reminders.yml)`},

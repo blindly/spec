@@ -37,6 +37,7 @@ go build -o spec .
 | `spec apply [--print\|--yes\|--no-verify\|--force] [id…]` | Run the configured agent to implement specs. Named ids may be accepted or proposed; with no ids, all accepted specs after a confirmation (`--yes` skips it). Success means the spec reached `implemented` and `verify:` passed (`--no-verify` skips it). `--print` outputs the prompt(s) |
 | `spec role [edit\|refine]` | Print, edit, or improve the repo-local `.spec/role.md` development persona (refine requires an agent) |
 | `spec status` | Summarize repo spec state (counts, coverage, agent, pre-push hook state); `spec ps` adds an `In flight:` list of specs not yet done |
+| `spec commit [-m msg] [--exempt R]` | Stage all and commit; appends the `Spec-Exempt:` trailer the pre-push hook needs when the commit has no `specs/` change (`--exempt` reason, or auto when the message is generated) |
 | `spec fact [list\|get\|set\|unset\|discover [--yes]]` | Manage public and secret project facts (`set --secret <key> <value>`) |
 | `spec remind [list\|add <title> --every <period> [--spec <id>]\|done <id>\|remove <id>]` | Track recurring obligations in `.spec/reminders.yml` (`--every`: `7d`, `30d`, … or `weekly`/`monthly`/`quarterly`/`yearly`); `spec status`/`spec check` and agent prompts surface due items |
 | `spec check` | Audit fact and secret references, enforce the secrets file ignore rule, fail on stale/missing skill installs, and warn about possible leaks and drift |
