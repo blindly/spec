@@ -68,6 +68,11 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    changed since they were last updated. Before finishing, fix any your work
    made stale; if a flagged spec is still accurate, `spec verified <id>`.
    Commit spec updates together with the code they describe.
+8. **Pushes enforce it.** A spec-managed `pre-push` hook rejects pushes that
+   change files outside `specs/` without a spec update. A failing hook means
+   a spec is missing — write one. For a defect fix that restores already-
+   documented behavior, commit with a `Spec-Exempt: <reason>` trailer;
+   `SPEC_SKIP=1 git push` is the last-resort bypass, not a routine one.
 
 ## Rules
 

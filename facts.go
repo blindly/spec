@@ -299,6 +299,11 @@ func cmdCheck(out, errOut io.Writer) error {
 	// skills (FEAT-031): a stale or missing install means the harness
 	// reads outdated guidance — fail like `spec skill` does
 	problems += checkSkillInstalls(st, out)
+	// pre-push hook (FEAT-036): missing/outdated/foreign all mean the
+	// spec-coverage rule isn't enforced — warn, never fail
+	if hs := prePushHookState(st.Root); hs != "" && hs != "installed" {
+		fmt.Fprintf(out, "WARN  pre-push hook %s\n", hs)
+	}
 	// drift (FEAT-012): warn, never fail
 	if g := loadGit(st.Root); g != nil {
 		stale, _ := g.systemDrift(st, loadConfig(st.Root))

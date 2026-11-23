@@ -706,6 +706,9 @@ func statusReport(out, errOut io.Writer, showInFlight bool) error {
 		}
 		fmt.Fprintln(out)
 	}
+	if hs := prePushHookState(st.Root); hs != "" {
+		fmt.Fprintf(out, "Pre-push hook: %s\n", hs)
+	}
 	if rs := loadReminders(st.Root); len(rs) > 0 {
 		due := dueReminders(st.Root)
 		if len(due) > 0 {

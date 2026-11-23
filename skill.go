@@ -632,6 +632,7 @@ func syncSkills(st Store, cfg Config, targets []string, force bool, out io.Write
 		if err := ensureAgentPointers(st.Root); err != nil {
 			return 0, err
 		}
+		ensurePrePushHook(st.Root, out)
 	}
 	bad := 0
 	resolved := map[string]bool{}
