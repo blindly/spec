@@ -45,7 +45,7 @@ Addresses: REQ-019
 - Dynamic arguments: spec ids (`edit`, `view`, `apply`, `refine`,
   `archive`, `unarchive`, `discard`, `promote`, `covers`, `verified`,
   `drift`); skill names (`skill use|unuse|adopt|push|rm|edit|view|
-  refine|import`); persona names (`persona use|edit|refine|view`);
+  refine|which|diff`); persona names (`persona use|edit|refine|view`);
   fact keys (`fact get|unset`); spec types for `new`/`promote`;
   `global|repo` for `config init|edit`.
 - Output is plain script to stdout, fully offline; the script reflects

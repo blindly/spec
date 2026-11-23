@@ -639,7 +639,12 @@ func cmdSearch(out, errOut io.Writer, query string) error {
 
 var reqPattern = regexp.MustCompile(`REQ-\d+`)
 
-func cmdStatus(out, errOut io.Writer) error {
+func cmdStatus(out, errOut io.Writer) error { return statusReport(out, errOut, false) }
+
+// cmdPs is `spec status` plus a list of specs still in flight (FEAT-035).
+func cmdPs(out, errOut io.Writer) error { return statusReport(out, errOut, true) }
+
+func statusReport(out, errOut io.Writer, showInFlight bool) error {
 	st, err := mustStore()
 	if err != nil {
 		return err
@@ -695,7 +700,7 @@ func cmdStatus(out, errOut io.Writer) error {
 				}
 			}
 		}
-		fmt.Fprintf(out, "Skills: %d managed, %d local", managed, local)
+		fmt.Fprintf(out, "Skills: %d managed, %d local, %d available", managed, local, len(availableSkills(st, cfg)))
 		if stale > 0 {
 			fmt.Fprintf(out, ", %d stale/missing — spec skill sync", stale)
 		}
@@ -752,6 +757,47 @@ func cmdStatus(out, errOut io.Writer) error {
 	}
 	if archived > 0 {
 		fmt.Fprintf(out, "Archived: %d (specs/%s/)\n", archived, archiveDirName)
+	}
+
+	if showInFlight {
+		var flight []Spec
+		for _, s := range specs {
+			if s.Archived || s.IsIdea() {
+				continue
+			}
+			if cfg.isDone(s.Status()) || s.Status() == "implemented" {
+				continue
+			}
+			flight = append(flight, s)
+		}
+		order := map[string]int{}
+		for i, status := range cfg.Statuses {
+			order[status] = i
+		}
+		sort.Slice(flight, func(i, j int) bool {
+			oi, ok := order[flight[i].Status()]
+			if !ok {
+				oi = len(cfg.Statuses)
+			}
+			oj, ok := order[flight[j].Status()]
+			if !ok {
+				oj = len(cfg.Statuses)
+			}
+			if oi != oj {
+				return oi < oj
+			}
+			return flight[i].ID() < flight[j].ID()
+		})
+		if len(flight) == 0 {
+			fmt.Fprintln(out, "\nIn flight: none")
+		} else {
+			fmt.Fprintln(out, "\nIn flight:")
+			w := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
+			for _, s := range flight {
+				fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", s.ID(), s.Type(), s.Status(), s.Title())
+			}
+			w.Flush()
+		}
 	}
 
 	// Requirement coverage

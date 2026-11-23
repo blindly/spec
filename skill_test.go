@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -143,7 +144,6 @@ func TestSkillLocalShadowsLibrary(t *testing.T) {
 		t.Fatal("installed copy should come from .spec/skills, not library")
 	}
 }
-
 
 func TestSkillAdopt(t *testing.T) {
 	st := setupRepo(t)
@@ -323,8 +323,13 @@ func TestSkillAvailableListed(t *testing.T) {
 	if err := cmdSkill(&out, io.Discard, nil); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "unused") || !strings.Contains(out.String(), "available") {
-		t.Fatalf("available skill not listed:\n%s", out.String())
+	got := out.String()
+	if !strings.Contains(got, "unused") || !strings.Contains(got, "not enabled") {
+		t.Fatalf("available skill not listed:\n%s", got)
+	}
+	// the listing is self-describing: groups, descriptions, legend
+	if !strings.Contains(got, "enabled\n") || !strings.Contains(got, "statuses:") || !strings.Contains(got, "test") {
+		t.Fatalf("missing sections/description/legend:\n%s", got)
 	}
 }
 
@@ -861,6 +866,355 @@ func TestCheckSkillInstalls(t *testing.T) {
 	out.Reset()
 	if n := checkSkillInstalls(st, &out); n == 0 || !strings.Contains(out.String(), "no resolvable source") {
 		t.Fatalf("orphaned skill should FAIL, got %d:\n%s", n, out.String())
+	}
+}
+
+func TestSkillWhich(t *testing.T) {
+	st := setupRepo(t)
+	writeLibrarySkill(t, "lib", simpleSkill("lib", "x"))
+	writeRepoSkill(t, st, "own", simpleSkill("own", "y"))
+
+	var out bytes.Buffer
+	if err := cmdSkill(&out, io.Discard, []string{"which", "lib"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "library (not enabled)") {
+		t.Fatalf("want not-enabled library, got %q", out.String())
+	}
+	if err := cmdSkill(io.Discard, io.Discard, []string{"use", "lib"}); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if err := cmdSkill(&out, io.Discard, []string{"which", "lib"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "library "+librarySkillDir("lib")) {
+		t.Fatalf("want library source dir, got %q", out.String())
+	}
+	out.Reset()
+	if err := cmdSkill(&out, io.Discard, []string{"which", "own"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "repo "+repoSkillDir(st.Root, "own")) {
+		t.Fatalf("want repo source dir, got %q", out.String())
+	}
+	out.Reset()
+	if err := cmdSkill(&out, io.Discard, []string{"which", "spec"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "built-in (embedded)") {
+		t.Fatalf("want built-in embedded, got %q", out.String())
+	}
+	if err := cmdSkill(io.Discard, io.Discard, []string{"which", "nope"}); err == nil {
+		t.Fatal("unknown name should error")
+	}
+	// orphaned skills: entry
+	os.RemoveAll(librarySkillDir("lib"))
+	out.Reset()
+	if err := cmdSkill(&out, io.Discard, []string{"which", "lib"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "orphaned") {
+		t.Fatalf("want orphaned, got %q", out.String())
+	}
+}
+
+func TestSkillDiff(t *testing.T) {
+	st := setupRepo(t)
+	writeLibrarySkill(t, "shared", simpleSkill("shared", "v1"))
+	if err := cmdSkill(io.Discard, io.Discard, []string{"use", "shared"}); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(st.Root, ".devin", "skills", "shared")
+	materializeInstall(t, dst)
+	os.WriteFile(filepath.Join(dst, "SKILL.md"), []byte("hand edit"), 0o644)
+
+	var out bytes.Buffer
+	if err := cmdSkill(&out, io.Discard, []string{"diff", "shared"}); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "stale") || !strings.Contains(got, "-hand edit") || !strings.Contains(got, "@@") {
+		t.Fatalf("want unified diff of installed vs source, got:\n%s", got)
+	}
+	if !strings.Contains(got, ".claude/skills/shared:current") && !strings.Contains(got, "current  "+filepath.Join(st.Root, ".claude")) {
+		t.Fatalf("current install not reported:\n%s", got)
+	}
+}
+
+func TestSkillDiffLibrary(t *testing.T) {
+	st := setupRepo(t)
+	writeLibrarySkill(t, "lib", simpleSkill("lib", "shared"))
+	writeRepoSkill(t, st, "lib", simpleSkill("lib", "forked"))
+
+	var out bytes.Buffer
+	if err := cmdSkill(&out, io.Discard, []string{"diff", "lib", "--library"}); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "-forked") || !strings.Contains(got, "+shared") {
+		t.Fatalf("want repo-vs-library diff, got:\n%s", got)
+	}
+	if err := cmdSkill(io.Discard, io.Discard, []string{"diff", "nope", "--library"}); err == nil {
+		t.Fatal("diff --library of missing skill should error")
+	}
+}
+
+func TestUnifiedDiff(t *testing.T) {
+	got := unifiedDiff("a", "b", []byte("one\ntwo\nthree\n"), []byte("one\nTWO\nthree\n"))
+	for _, want := range []string{"--- a", "+++ b", "@@", "-two", "+TWO", " one", " three"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestSkillLint(t *testing.T) {
+	st := setupRepo(t)
+	writeLibrarySkill(t, "bad", map[string]string{
+		"SKILL.md": "---\nname: wrong\n---\n\nbody",
+	})
+	os.MkdirAll(librarySkillDir("empty"), 0o755)
+
+	// lint of non-enabled library entries is notes only — check still passes
+	var out, errs bytes.Buffer
+	if err := cmdSkill(&out, &errs, []string{"check"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(errs.String(), "bad") || !strings.Contains(errs.String(), "description") {
+		t.Fatalf("missing lint notes:\n%s", errs.String())
+	}
+	if !strings.Contains(errs.String(), "no SKILL.md") {
+		t.Fatalf("empty library entry not linted:\n%s", errs.String())
+	}
+
+	// an enabled skill's lint surfaces in spec check as WARN
+	if err := cmdSkill(io.Discard, io.Discard, []string{"use", "bad"}); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if n := checkSkillInstalls(st, &out); !strings.Contains(out.String(), "WARN") {
+		t.Fatalf("enabled malformed skill should WARN, got %d:\n%s", n, out.String())
+	}
+}
+
+func TestSkillRepoRegistry(t *testing.T) {
+	st := setupRepo(t)
+	abs, _ := filepath.Abs(st.Root)
+	data, err := os.ReadFile(repoRegistryPath())
+	if err != nil || !strings.Contains(string(data), abs) {
+		t.Fatalf("init sync did not register repo: %v\n%s", err, data)
+	}
+
+	// another registered repo that enables the skill
+	other := t.TempDir()
+	os.MkdirAll(filepath.Join(other, configDir), 0o755)
+	os.WriteFile(filepath.Join(other, configDir, "config.yml"), []byte("skills: [lib]\n"), 0o644)
+	registerRepo(other)
+
+	writeLibrarySkill(t, "lib", simpleSkill("lib", "x"))
+	var errs bytes.Buffer
+	if err := cmdSkill(io.Discard, &errs, []string{"rm", "lib", "--library"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(errs.String(), other) {
+		t.Fatalf("rm --library should name the enabled repo, got:\n%s", errs.String())
+	}
+
+	// stale entries are pruned
+	os.RemoveAll(other)
+	if contains(registeredRepos(), other) {
+		t.Fatal("removed repo should be pruned from the registry read")
+	}
+}
+
+func TestSkillPushNotesEnabledRepos(t *testing.T) {
+	st := setupRepo(t)
+	other := t.TempDir()
+	os.MkdirAll(filepath.Join(other, configDir), 0o755)
+	os.WriteFile(filepath.Join(other, configDir, "config.yml"), []byte("skills: [lib]\n"), 0o644)
+	registerRepo(other)
+
+	writeRepoSkill(t, st, "lib", simpleSkill("lib", "v1"))
+	var errs bytes.Buffer
+	if err := cmdSkill(io.Discard, &errs, []string{"push", "lib"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(errs.String(), "1 registered repo") {
+		t.Fatalf("push should note enabled repos, got:\n%s", errs.String())
+	}
+}
+
+func TestSkillImportRepoRoot(t *testing.T) {
+	st := setupRepo(t)
+	other := t.TempDir()
+	writeSkillAt(t, filepath.Join(other, configDir, "skills", "tool"), "tool body")
+
+	if err := cmdSkill(io.Discard, io.Discard, []string{"import", other}); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(repoSkillDir(st.Root, "tool") + "/SKILL.md"); string(data) != "tool body" {
+		t.Fatal("repo-root import did not pick the single skill")
+	}
+
+	// several skills → name required, and doubles as a rename elsewhere
+	other2 := t.TempDir()
+	writeSkillAt(t, filepath.Join(other2, configDir, "skills", "one"), "1")
+	writeSkillAt(t, filepath.Join(other2, configDir, "skills", "two"), "2")
+	if err := cmdSkill(io.Discard, io.Discard, []string{"import", other2}); err == nil {
+		t.Fatal("multi-skill repo root should require a name")
+	}
+	if err := cmdSkill(io.Discard, io.Discard, []string{"import", other2, "two"}); err != nil {
+		t.Fatal(err)
+	}
+	if !isDir(repoSkillDir(st.Root, "two")) {
+		t.Fatal("named skill not imported from repo root")
+	}
+}
+
+func TestSkillImportGitURL(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("no git")
+	}
+	st := setupRepo(t)
+	src := t.TempDir() + "/srcrepo"
+	writeSkillAt(t, filepath.Join(src, configDir, "skills", "thing"), "git skill body")
+	cmds := [][]string{
+		{"git", "-C", src, "init", "-q"},
+		{"git", "-C", src, "add", "."},
+		{"git", "-C", src, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "x"},
+	}
+	for _, c := range cmds {
+		if b, err := exec.Command(c[0], c[1:]...).CombinedOutput(); err != nil {
+			t.Fatalf("%v: %v\n%s", c, err, b)
+		}
+	}
+	if err := cmdSkill(io.Discard, io.Discard, []string{"import", "file://" + src}); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(repoSkillDir(st.Root, "thing") + "/SKILL.md"); string(data) != "git skill body" {
+		t.Fatal("git URL import did not copy the skill")
+	}
+}
+
+func TestSkillGlobalTargets(t *testing.T) {
+	setupRepo(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	writeLibrarySkill(t, "alpha", simpleSkill("alpha", "A"))
+	writeGlobalConfig(t, "skills: [alpha]\nskill_global_targets: [~/xskills, "+filepath.Join(home, "abs-skills")+"]\n")
+
+	if err := cmdSkill(io.Discard, io.Discard, []string{"sync", "--global"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []string{filepath.Join(home, "xskills"), filepath.Join(home, "abs-skills")} {
+		if !isDir(filepath.Join(d, "alpha")) {
+			t.Fatalf("skill_global_targets entry %s did not get the install", d)
+		}
+	}
+	// the default agent dirs get nothing
+	if isDir(filepath.Join(home, ".claude", "skills", "alpha")) {
+		t.Fatal("skill_global_targets should replace the default dirs")
+	}
+}
+
+func TestSkillWhichEnabledIn(t *testing.T) {
+	setupRepo(t)
+	writeLibrarySkill(t, "lib", simpleSkill("lib", "x"))
+	other := t.TempDir()
+	os.MkdirAll(filepath.Join(other, configDir), 0o755)
+	os.WriteFile(filepath.Join(other, configDir, "config.yml"), []byte("skills: [lib]\n"), 0o644)
+	registerRepo(other)
+	writeGlobalConfig(t, "skills: [glib]\n")
+	writeLibrarySkill(t, "glib", simpleSkill("glib", "y"))
+
+	if err := cmdSkill(io.Discard, io.Discard, []string{"use", "lib"}); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := cmdSkill(&out, io.Discard, []string{"which", "lib"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "enabled in: this repo") || !strings.Contains(out.String(), other) {
+		t.Fatalf("want enabled-in listing, got:\n%s", out.String())
+	}
+	out.Reset()
+	if err := cmdSkill(&out, io.Discard, []string{"which", "glib"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "global skills:") {
+		t.Fatalf("want global enablement, got:\n%s", out.String())
+	}
+}
+
+func TestSkillCheckForeignDirs(t *testing.T) {
+	st := setupRepo(t)
+	os.MkdirAll(filepath.Join(st.Root, ".devin", "skills", "leftover"), 0o755)
+	var out, errs bytes.Buffer
+	if err := cmdSkill(&out, &errs, []string{"check"}); err != nil {
+		t.Fatalf("foreign dirs are notes, not failures: %v", err)
+	}
+	if !strings.Contains(errs.String(), "foreign skill dir") {
+		t.Fatalf("foreign dir not noted:\n%s", errs.String())
+	}
+}
+
+func TestSkillNewNoEdit(t *testing.T) {
+	st := setupRepo(t)
+	setTerminal(t, true) // --no-edit must skip the editor even when interactive
+	var out bytes.Buffer
+	if err := cmdSkill(&out, io.Discard, []string{"new", "fresh", "--no-edit"}); err != nil {
+		t.Fatal(err)
+	}
+	if !isDir(repoSkillDir(st.Root, "fresh")) {
+		t.Fatal("--no-edit new did not scaffold")
+	}
+	if strings.Contains(out.String(), "Opening") {
+		t.Fatalf("editor should not open:\n%s", out.String())
+	}
+	if !isDir(filepath.Join(st.Root, ".devin", "skills", "fresh")) {
+		t.Fatal("new skill not installed")
+	}
+}
+
+func TestSkillRegistryPruning(t *testing.T) {
+	setupRepo(t)
+	dead := t.TempDir()
+	os.MkdirAll(filepath.Join(dead, configDir), 0o755)
+	registerRepo(dead)
+	os.RemoveAll(dead)
+
+	live := t.TempDir()
+	os.MkdirAll(filepath.Join(live, configDir), 0o755)
+	registerRepo(live)
+	data, _ := os.ReadFile(repoRegistryPath())
+	if strings.Contains(string(data), dead) {
+		t.Fatalf("dead entry not pruned on write:\n%s", data)
+	}
+	if !strings.Contains(string(data), live) {
+		t.Fatalf("live entry missing:\n%s", data)
+	}
+}
+
+func TestStatusAvailableCount(t *testing.T) {
+	setupRepo(t)
+	writeLibrarySkill(t, "spare", simpleSkill("spare", "x"))
+	var out bytes.Buffer
+	if err := cmdStatus(&out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "1 available") {
+		t.Fatalf("status missing available count:\n%s", out.String())
+	}
+}
+
+func writeSkillAt(t *testing.T, dir, body string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 

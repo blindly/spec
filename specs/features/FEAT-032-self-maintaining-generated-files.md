@@ -5,6 +5,7 @@ id: FEAT-032
 status: implemented
 title: Self-maintaining generated files
 type: feature
+verified: e851abc4ba6364c1fd794768e5737c96f870dbab
 ---
 
 # Self-maintaining generated files

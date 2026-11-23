@@ -230,14 +230,18 @@ spec check      # audit {fact:key} references; warn about drift
 spec drift [--review]             # specs whose covered code changed since they were updated
 spec covers [--infer]             # files each spec covers (infer from git history)
 spec verified <id>                # mark a spec checked and accurate
-spec skill      # skills with source + status: repo (.spec/skills/), library(repo|global),
-                # built-in, available (~/.config/spec/skills/); installs land in agent skill dirs
+spec skill      # enabled skills (source + status + description) then the
+                # library's not-enabled entries — 'spec skill use <name>' enables
+spec skill which <name>           # show a skill's resolved source (repo/library/built-in dir)
+spec skill diff <name>            # diff installed copies vs source (--library: repo vs library)
 spec skill use|unuse <name>       # enable/disable a library skill here (--global: global baseline)
 spec skill adopt|push <name>      # managed → repo-owned fork · repo skill → library
 spec skill rm <name>              # delete a repo skill + its installs (--library: library entry)
-spec skill new|edit|view|refine <name>   # manage skills (--library: library file, --local: repo copy)
-spec skill import [<name|path>]   # pull a skill into .spec/skills/ (bare: all foreign dirs;
-                                # --library: into the library; in-repo sources are moved)
+spec skill new|edit|view|refine <name>   # manage skills (--library: library file, --local: repo copy,
+                                # new --no-edit: scaffold without opening $EDITOR)
+spec skill import [<name|path|url> [<name>]]  # pull a skill into .spec/skills/ (bare: all
+                                # foreign dirs; repo root or git URL picks a .spec/skills
+                                # entry; --library: into the library; in-repo sources are moved)
 spec skill check|sync [--force]   # verify / regenerate installs — links to the source (--global: user dirs)
 spec apply <id> # run the configured agent to implement a spec
 spec apply      # all accepted specs, after confirmation (--yes to skip)
@@ -293,6 +297,7 @@ var commandDocs = []commandDoc{
                                        persona library (~/.config/spec/personas/); use selects
                                        one for this repo; view cats one (default: active) to stdout`},
 	{"status", `  spec status                        Summarize repository spec state`},
+	{"ps", `  spec ps                            Like status, plus an In flight list of specs not yet done`},
 	{"fact", `  spec fact [list|get <key>|set [--secret] <key> <value>|unset <key>|discover [--yes]]     Manage public and secret project facts`},
 	{"remind", `  spec remind [list|add <title> --every <7d|30d|weekly|monthly|quarterly|yearly> [--spec <id>]|done <id>|remove <id>]
                                        Manage recurring task reminders (.spec/reminders.yml)`},
@@ -301,12 +306,17 @@ var commandDocs = []commandDoc{
                                        --review asks the agent if each is stale and proposes an update`},
 	{"covers", `  spec covers [--infer] [id...]      Show (or infer from git history) the files each spec covers`},
 	{"verified", `  spec verified <id>...              Mark specs as checked and accurate (clears drift until code changes)`},
-	{"skill", `  spec skill                           List skills: source + status (repo/library/built-in/available)
+	{"skill", `  spec skill                           List enabled skills (source + status + description),
+                                       then the library's not-enabled entries
+  spec skill which <name>               Show a skill's resolved source (repo/library/built-in dir)
+  spec skill diff <name>                Diff installed copies vs source (--library: repo vs library)
   spec skill use|unuse <name>           Enable/disable a library skill here (--global: global baseline)
   spec skill adopt|push <name>          managed → repo-owned fork · repo skill → library
   spec skill rm <name>                  Delete a repo skill + its installs (--library: library entry)
-  spec skill new|edit|view|refine <name>   Manage skills (--library: library file, --local: repo copy)
-  spec skill import [<name|path>]       Pull a skill into .spec/skills/ (bare: all foreign dirs;
+  spec skill new|edit|view|refine <name>   Manage skills (--library: library file, --local: repo copy,
+                                       new --no-edit: scaffold without opening $EDITOR)
+  spec skill import [<name|path|url> [<name>]]   Pull a skill into .spec/skills/ (bare: all foreign
+                                       dirs; repo root or git URL picks a .spec/skills entry;
                                        --library: into the library; in-repo sources are moved)
   spec skill check|sync [--force]       Verify / regenerate installs — links to the source (--global: user dirs)`},
 	{"verify", `  spec verify                        Run configured verification commands`},

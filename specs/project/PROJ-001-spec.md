@@ -39,7 +39,9 @@ and implement specs. A local web UI provides browsing and editing.
 - REQ-002: `spec validate` enforces required sections, configured statuses,
   references to defined `REQ-xxx` ids, and the absence of dependency cycles.
 - REQ-003: All operations other than agent commands work offline. Agents
-  run only when configured.
+  run only when configured. The single networked non-agent operation is
+  `spec skill import <git-url>`, which clones only when the user passes
+  a remote URL.
 - REQ-004: Agent commands (`draft`, `refine`, `apply`, `fact discover`, `role refine`) run the configured
   agent CLI with a timeout and report the actual outcome to the user.
   An optional nonempty `agent_env:` list grants specific inherited
@@ -98,11 +100,15 @@ and implement specs. A local web UI provides browsing and editing.
   with git) plus repo-owned skills under `.spec/skills/`. A `skills:`
   config list opts a repo into library skills; installed copies are
   generated into the agent skill dirs implied by the configured agent
-  (or an explicit `skill_targets:` override) and checked for staleness.
+  (or an explicit `skill_targets:` override; `skill_global_targets:` does
+  the same for user-level installs) and checked for staleness.
   `spec skill` manages all layers: it lists skills
-  with source and status, enables or detaches library skills, pushes repo
-  skills to the library, imports external skill dirs, and refuses to
-  clobber locally modified copies.
+  with source, status, and description, enables or detaches library
+  skills, pushes repo skills to the library, imports external skill dirs
+  (from agent dirs, explicit paths, spec repo roots, and git URLs),
+  inspects resolution (`which`) and content drift (`diff`), lints
+  library entries, warns about cross-repo effects via a registry of
+  known repos, and refuses to clobber locally modified copies.
 - REQ-018: Every command explains itself in-band: `spec <command> --help`
   (equivalently `spec help <command>`) prints that command's usage,
   subcommands, flags, and a short description — not a generic error.

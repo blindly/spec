@@ -125,7 +125,7 @@ func TestSkill(t *testing.T) {
 	if err := cmdSkill(&out, io.Discard, nil); err != nil {
 		t.Fatalf("fresh init should be current: %v", err)
 	}
-	if strings.Count(out.String(), "current") != 2 {
+	if strings.Count(out.String(), ":current") != 2 {
 		t.Fatalf("want 2 current copies, got:\n%s", out.String())
 	}
 
@@ -506,6 +506,42 @@ func TestStatusGroupsFinished(t *testing.T) {
 	acc, impl, fin, dep := strings.Index(out, "accepted"), strings.Index(out, "implemented"), strings.Index(out, "finished:"), strings.Index(out, "deprecated")
 	if acc < 0 || impl < 0 || fin < 0 || dep < 0 || !(acc < fin && impl < fin && fin < dep) {
 		t.Fatalf("accepted and implemented should precede the finished group (deprecated):\n%s", out)
+	}
+}
+
+// FEAT-035: ps = status + an In flight queue of specs not yet done.
+func TestStatusPs(t *testing.T) {
+	st := setupRepo(t)
+	body := "# x\n\n## Summary\n\ns\n\n## Design\n\nd\n\n## Acceptance Criteria\n\n- [ ] x\n"
+	st.Create("feature", "active", body, map[string][]string{"status": {"accepted"}})
+	st.Create("feature", "shipped", body, map[string][]string{"status": {"implemented"}})
+	var buf bytes.Buffer
+	if code := run([]string{"ps"}, &buf, io.Discard); code != 0 {
+		t.Fatalf("spec ps: exit %d", code)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Specs:") || !strings.Contains(out, "In flight:") {
+		t.Fatalf("ps should print status plus in-flight list:\n%s", out)
+	}
+	if !strings.Contains(out, "active") || strings.Contains(out, "shipped") {
+		t.Fatalf("in-flight should list accepted, not implemented:\n%s", out)
+	}
+	// status itself stays queue-free
+	buf.Reset()
+	if code := run([]string{"status"}, &buf, io.Discard); code != 0 {
+		t.Fatal(code)
+	}
+	if strings.Contains(buf.String(), "In flight") {
+		t.Fatalf("status should not show in-flight:\n%s", buf.String())
+	}
+	// empty queue
+	setupRepo(t)
+	buf.Reset()
+	if code := run([]string{"ps"}, &buf, io.Discard); code != 0 {
+		t.Fatal(code)
+	}
+	if !strings.Contains(buf.String(), "In flight: none") {
+		t.Fatalf("empty queue should print none:\n%s", buf.String())
 	}
 }
 

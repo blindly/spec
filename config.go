@@ -252,6 +252,7 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 # skills under .spec/skills/
 # skills: [token-efficiency]   # see: spec skill
 # skill_targets: [.devin/skills, .claude/skills]   # install dirs (default: the configured agent's dir, else both)
+# skill_global_targets: [~/.claude/skills, ~/.config/devin/skills]   # user-level dirs for --global (default: agent's dir, else both)
 
 # Viewer for spec view (default: built-in plain output; no $PAGER)
 # viewer: "glow --style dark {file}"   # {file} = path; absent = appended

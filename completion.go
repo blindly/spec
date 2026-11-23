@@ -53,11 +53,12 @@ var completionTable = map[string]cmdComp{
 		subFlags: map[string][]string{"set": {"--secret"}, "discover": {"--yes"}},
 	},
 	"skill": {
-		subs:  []string{"check", "sync", "update", "view", "new", "edit", "refine", "use", "unuse", "adopt", "push", "import", "rm"},
-		flags: []string{"--global", "--force", "--library", "--local"},
+		subs:  []string{"check", "sync", "update", "view", "which", "diff", "new", "edit", "refine", "use", "unuse", "adopt", "push", "import", "rm"},
+		flags: []string{"--global", "--force", "--library", "--local", "--no-edit"},
 		subArgs: map[string][]string{
 			"use": {"skill"}, "unuse": {"skill"}, "adopt": {"skill"}, "push": {"skill"},
 			"rm": {"skill"}, "edit": {"skill"}, "view": {"skill"}, "refine": {"skill"},
+			"which": {"skill"}, "diff": {"skill"},
 			"import": {"file"},
 		},
 	},
@@ -80,7 +81,7 @@ var completionTable = map[string]cmdComp{
 	// no completions beyond the command name — listed so the table
 	// provably covers every command
 	"init": {}, "bootstrap": {}, "analyze": {}, "validate": {}, "trace": {},
-	"status": {}, "check": {}, "verify": {}, "idea": {}, "search": {},
+	"status": {}, "ps": {}, "check": {}, "verify": {}, "idea": {}, "search": {},
 	"update": {},
 }
 

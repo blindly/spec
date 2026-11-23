@@ -55,7 +55,8 @@ func toUTF8(data []byte) string {
 }
 
 // parseFrontmatter splits a document into YAML-subset frontmatter and body.
-// Supports "key: value" scalars, "key: [a, b]" inline lists, and dash lists.
+// Supports "key: value" scalars, "key: [a, b]" inline lists, dash lists,
+// and "key: >" / "key: |" block scalars (folded / literal).
 func parseFrontmatter(text string) (map[string][]string, string) {
 	meta := map[string][]string{}
 	lines := strings.Split(text, "\n")
@@ -72,8 +73,10 @@ func parseFrontmatter(text string) (map[string][]string, string) {
 	if end < 0 {
 		return map[string][]string{}, text
 	}
+	fm := lines[1:end]
 	var key string
-	for _, line := range lines[1:end] {
+	for i := 0; i < len(fm); i++ {
+		line := fm[i]
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
 			continue
@@ -94,6 +97,25 @@ func parseFrontmatter(text string) (map[string][]string, string) {
 					meta[key] = append(meta[key], item)
 				}
 			}
+		} else if v == ">" || v == "|" || v == ">-" || v == "|-" || v == ">+" || v == "|+" {
+			var buf []string
+			for i+1 < len(fm) {
+				nxt := fm[i+1]
+				if nxt == "" {
+					i++ // blank lines inside a block scalar
+					continue
+				}
+				if nxt[0] != ' ' && nxt[0] != '\t' {
+					break
+				}
+				buf = append(buf, strings.TrimSpace(nxt))
+				i++
+			}
+			sep := "\n"
+			if v[0] == '>' {
+				sep = " "
+			}
+			meta[key] = []string{strings.Join(buf, sep)}
 		} else if v != "" {
 			meta[key] = []string{v}
 		} else {

@@ -20,6 +20,7 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 		return cmdConfig(o, e, a)
 	},
 	"status":  func(a []string, o, e io.Writer) error { return cmdStatus(o, e) },
+	"ps":      func(a []string, o, e io.Writer) error { return cmdPs(o, e) },
 	"ls":      func(a []string, o, e io.Writer) error { return cmdList(o, e, a) },
 	"list":    func(a []string, o, e io.Writer) error { return cmdList(o, e, a) },
 	"inbox":   func(a []string, o, e io.Writer) error { return cmdInbox(o, e, a) },

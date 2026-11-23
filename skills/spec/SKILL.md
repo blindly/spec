@@ -130,5 +130,9 @@ environments.
   This `spec` skill is embedded in the binary and installed as a copy:
   it goes stale when the binary's embedded version changes. `spec skill`
   checks; `spec skill update` refreshes it.
+- `spec skill` lists enabled skills (with descriptions) then the
+  library's not-enabled entries; `spec skill which <name>` shows the
+  resolved source and `spec skill diff <name>` diffs installed copies
+  against it.
 - `.spec/config.yml` documents every key; regenerate it with
   `spec config init repo --force`.
