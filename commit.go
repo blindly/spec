@@ -64,20 +64,17 @@ func cmdCommit(out, errOut io.Writer, args []string) error {
 	switch {
 	case !(outside && !covered):
 		// spec-covered or spec-irrelevant — clean commit
-	case hasSpecExempt(m):
-		// user or agent already wrote the trailer
+	case specExemptMessage(m):
+		// user or agent already attested — trailer or non-feat: prefix
 	case *exempt != "":
 		m += "\n\nSpec-Exempt: " + *exempt
-	case *msg == "":
-		// the tool wrote the message (agent or summary) → auto-attest
-		m += "\n\nSpec-Exempt: spec auto-commit — no spec-covered files"
-		if *useAgent {
-			fmt.Fprintln(errOut, "note: agent did not attest spec-neutrality —")
-			fmt.Fprintln(errOut, "      committed with the generic exemption; this may need a spec")
-		}
 	default:
+		// unattested — explicit -m without a marker, or a generated
+		// message (feat:, unprefixed) the agent declined to attest.
+		// Commit anyway but warn: spec doesn't rubber-stamp.
 		fmt.Fprintln(errOut, "note: no specs/ in this commit — the pre-push hook will block")
-		fmt.Fprintln(errOut, "      the push. Re-commit with --exempt <reason> or include a spec.")
+		fmt.Fprintln(errOut, "      the push. Re-commit with --exempt <reason>, a non-feat: prefix,")
+		fmt.Fprintln(errOut, "      or include a spec.")
 	}
 	res, err := gitOut(st.Root, "commit", "-m", m)
 	fmt.Fprint(out, res)
@@ -99,7 +96,10 @@ Staged diff%s:
 %s
 
 Rules:
-- First line: imperative summary, at most 72 characters; a body only when needed.
+- First line: conventional-commit format, at most 72 characters —
+  "type: imperative summary" using one of feat, fix, docs, test, chore,
+  refactor, perf, style, ci, build, revert; a body only when needed.
+  "feat" means behavior was added or altered.
 - Output ONLY the commit message — no code fences, no commentary.
 %s`
 
@@ -128,9 +128,11 @@ func agentCommitMessage(st Store, files []string, covered bool) (string, error) 
 		coverage = "- A spec under specs/ is staged — do not add any trailer."
 	} else {
 		coverage = "- No spec under specs/ is staged. If the change is spec-neutral (a defect\n" +
-			"  fix restoring documented behavior, a refactor, docs, CI), end the message\n" +
-			"  with one trailer line: Spec-Exempt: <short reason>. If it adds or alters\n" +
-			"  behavior, do NOT add the trailer — this repo expects a spec."
+			"  fix restoring documented behavior, a refactor, docs, CI), its non-feat:\n" +
+			"  prefix is the attestation — or end the message with a Spec-Exempt:\n" +
+			"  <short reason> trailer for anything the type can't express. If it\n" +
+			"  adds or alters behavior (feat:), neither applies — this repo expects\n" +
+			"  a spec and the push will be rejected."
 	}
 	prompt := fmt.Sprintf(commitPromptFmt,
 		strings.Join(files, "\n"),
@@ -162,12 +164,43 @@ func cleanCommitMessage(out string) string {
 	return strings.TrimSpace(s)
 }
 
-// hasSpecExempt reports whether the message already carries a
-// Spec-Exempt trailer — same grep the pre-push hook performs.
-func hasSpecExempt(m string) bool {
+// specExemptMessage reports whether a commit message attests
+// spec-neutrality: a Spec-Exempt trailer (explicit, with reason) or a
+// non-feat conventional-commit prefix on the first line (the routine
+// categories — a "feat" label declares behavior work and never
+// attests; neither does a breaking "type!" marker). Same rule the
+// spec-managed hooks apply.
+func specExemptMessage(m string) bool {
 	for _, line := range strings.Split(m, "\n") {
 		if strings.HasPrefix(line, "Spec-Exempt:") {
 			return true
+		}
+	}
+	subject, _, _ := strings.Cut(m, "\n")
+	return nonFeatPrefix(subject)
+}
+
+// nonFeatPrefixes are the conventional-commit types that attest
+// spec-neutral work — everything not "feat".
+var nonFeatPrefixes = []string{
+	"fix", "docs", "test", "chore", "refactor",
+	"perf", "style", "ci", "build", "revert",
+}
+
+func nonFeatPrefix(subject string) bool {
+	for _, t := range nonFeatPrefixes {
+		rest, ok := strings.CutPrefix(subject, t)
+		if !ok {
+			continue
+		}
+		// fix: ... · fix(scope): ... — but never fix!: / fix(scope)!:
+		if strings.HasPrefix(rest, ":") {
+			return true
+		}
+		if strings.HasPrefix(rest, "(") {
+			if i := strings.Index(rest, ")"); i > 0 {
+				return strings.HasPrefix(rest[i+1:], ":")
+			}
 		}
 	}
 	return false
@@ -220,5 +253,5 @@ func diffSummary(dir string) string {
 	if len(files) != 1 {
 		noun += "s"
 	}
-	return fmt.Sprintf("update %d %s (+%d -%d): %s", len(files), noun, adds, dels, shown)
+	return fmt.Sprintf("chore: update %d %s (+%d -%d): %s", len(files), noun, adds, dels, shown)
 }

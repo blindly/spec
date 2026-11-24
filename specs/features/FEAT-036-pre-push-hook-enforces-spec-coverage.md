@@ -45,18 +45,25 @@ Addresses: REQ-014
 - **The rule.** If the union of changed paths contains anything outside
   `specs/` and `.spec/` (config and facts aren't specs) but no
   `specs/` path, the push fails — *unless* every new commit in the
-  push carries a `Spec-Exempt: <reason>` trailer attesting a defect
-  fix that restores documented behavior. The failure names the
-  offending commits. Strict by design — docs, CI, and metadata changes
-  also route through specs or an attestation; a `code_paths`-style
-  allowlist is a possible later refinement if the strictness proves
-  noisy.
-- **Why a trailer.** Exemption is self-attestation the hook can't
-  verify, so the mechanism's job is audibility plus deliberate
-  friction: the trailer lives in `git log` forever and forces a
-  written reason, unlike an env var that vanishes. Conventional-commit
-  prefixes (`fix:`) were rejected — spec doesn't assume that
-  convention and a type label doesn't attest spec-alignment.
+  push attests spec-neutrality, via either a `Spec-Exempt: <reason>`
+  trailer (explicit, wins) or a non-`feat` conventional-commit
+  subject (`fix:`, `docs:`, `test:`, `chore:`, `refactor:`,
+  `perf:`, `style:`, `ci:`, `build:`, `revert:` — `feat:` declares
+  behavior work and never attests, nor does a breaking `type!`
+  marker). Merge commits are skipped (`--no-merges`) — their content
+  is vetted through the parent commits. The failure names the
+  offending commits. Strict by design — docs, CI, and metadata
+  changes also route through specs or an attestation; a
+  `code_paths`-style allowlist is a possible later refinement if the
+  strictness proves noisy.
+- **Why two attestations.** Exemption is self-attestation the hook
+  can't verify, so the mechanism's job is audibility plus deliberate
+  friction: the trailer and the type prefix both live in `git log`
+  forever, unlike an env var that vanishes. The trailer is the
+  explicit, reasoned form and always wins; the conventional-commit
+  prefix is the zero-ceremony routine form, accepted once the repo
+  adopted conventional commits — earlier the trailer stood alone
+  because a prefix meant nothing without a convention holding it.
 - **Escape hatch.** `SPEC_SKIP=1 git push` skips the check entirely —
   last resort for spec-neutral bulk changes (typos, refactors,
   test-only sweeps), not a routine alternative to the trailer.
@@ -79,8 +86,9 @@ Addresses: REQ-014
 ## Acceptance Criteria
 
 - [x] A push touching files outside `specs/`/`.spec/` without `specs/`
-  exits non-zero unless every new commit carries `Spec-Exempt:`; the
-  failure names the offending commits and the trailer
+  exits non-zero unless every new commit carries `Spec-Exempt:` or a
+  non-`feat:` subject; the failure names the offending commits and
+  both remedies; `feat:`/`type!:` subjects are never attestations
 - [x] Pushes including a `specs/` change pass; spec-only pushes pass
 - [x] New-ref pushes are handled via `--not --remotes`
 - [x] `SPEC_SKIP=1` bypasses; foreign hooks are never clobbered

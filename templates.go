@@ -103,11 +103,11 @@ This repository uses spec for spec-driven development.
   last updated; fix them, or spec verified <id> if still accurate.
 - A spec-managed pre-push hook blocks pushes that change files outside
   specs/ without a spec update; an advisory commit-msg hook warns at
-  commit time. Commit through spec commit: it adds a
-  'Spec-Exempt: <reason>' trailer for defect fixes (--exempt, or auto
-  when it writes the message; --agent asks the configured agent to write
-  both); SPEC_SKIP=1 git push is the last-resort
-  bypass.
+  commit time. Commit through spec commit with conventional-commit
+  subjects: a non-feat: prefix (fix:, docs:, chore:, ...) or a
+  'Spec-Exempt: <reason>' trailer (--exempt) attests spec-neutral work;
+  --agent asks the configured agent to write the message and pick the
+  attestation; SPEC_SKIP=1 git push is the last-resort bypass.
 - A development role may be defined in .spec/role.md or selected via
   persona: in .spec/config.yml (shared library ~/.config/spec/personas/) —
   when set, adopt that persona and its conventions for all work here.

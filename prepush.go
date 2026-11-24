@@ -24,9 +24,11 @@ const prePushHook = `#!/usr/bin/env bash
 #
 # pre-push: behavior ships with its spec — a push that changes files
 # outside specs/ and .spec/ must include a spec update in the same push,
-# unless every new commit carries a 'Spec-Exempt: <reason>' trailer
-# (defect fixes restoring documented behavior). Last-resort bypass for
-# spec-neutral changes (typos, refactors, test-only):
+# unless every new commit attests spec-neutrality via a
+# 'Spec-Exempt: <reason>' trailer or a non-feat conventional-commit
+# prefix (fix:, docs:, test:, chore:, refactor:, perf:, style:, ci:,
+# build:, revert: — feat: and type!: always need the spec or trailer).
+# Last-resort bypass for spec-neutral bulk changes:
 #   SPEC_SKIP=1 git push
 
 [ "${SPEC_SKIP:-0}" = "1" ] && exit 0
@@ -50,29 +52,33 @@ changed=$(
 if printf '%s\n' "$changed" | grep -qEv '^$|^specs/|^\.spec/' && \
    ! printf '%s\n' "$changed" | grep -q '^specs/'; then
     # code changed, no spec in the push — allowed only when every new
-    # commit attests a defect repair via a 'Spec-Exempt:' trailer
+    # commit attests spec-neutrality (trailer or non-feat: prefix).
+    # --no-merges: a merge's content is vetted via its parent commits.
     unmarked=""
     while read -r _lref local_sha _rref remote_sha; do
         [ "$local_sha" = "$zero" ] && continue
         if [ "$remote_sha" = "$zero" ]; then
-            range_commits=$(git rev-list "$local_sha" --not --remotes)
+            range_commits=$(git rev-list --no-merges "$local_sha" --not --remotes)
         else
-            range_commits=$(git rev-list "$remote_sha..$local_sha")
+            range_commits=$(git rev-list --no-merges "$remote_sha..$local_sha")
         fi
         for sha in $range_commits; do
-            git log -1 --format=%B "$sha" | grep -q '^Spec-Exempt:' || \
+            git log -1 --format=%B "$sha" | grep -q '^Spec-Exempt:' && continue
+            git log -1 --format=%s "$sha" | \
+                grep -qE '^(fix|docs|test|chore|refactor|perf|style|ci|build|revert)(\([^)]*\))?:' || \
                 unmarked="$unmarked $sha"
         done
     done <<< "$push_updates"
     if [ -n "$unmarked" ]; then
         echo "pre-push: code changed without a spec update, and these commits" >&2
-        echo "          lack a 'Spec-Exempt: <reason>' trailer:" >&2
+        echo "          lack a 'Spec-Exempt: <reason>' trailer or non-feat: prefix:" >&2
         for sha in $unmarked; do
             echo "            $(git log -1 --format='%h %s' "$sha")" >&2
         done
         echo "          behavior ships with its spec — add or amend a spec under" >&2
         echo "          specs/ (see: spec new feature <title>), re-commit a defect" >&2
-        echo "          fix with a Spec-Exempt: trailer, or SPEC_SKIP=1 git push" >&2
+        echo "          fix with a Spec-Exempt: trailer or non-feat: prefix, or" >&2
+        echo "          SPEC_SKIP=1 git push" >&2
         exit 1
     fi
 fi
@@ -87,16 +93,18 @@ const commitMsgHook = `#!/usr/bin/env bash
 # (hand edits are lost on the next sync)
 #
 # commit-msg: advisory only — warn when a commit changes files outside
-# specs/ and .spec/ with no specs/ change or 'Spec-Exempt:' trailer in
-# the message. Enforcement is the pre-push hook; this is the early nudge.
+# specs/ and .spec/ with no specs/ change, 'Spec-Exempt:' trailer, or
+# non-feat: prefix in the message. Enforcement is the pre-push hook;
+# this is the early nudge.
 
 changed=$(git diff --cached --name-only)
 if printf '%s\n' "$changed" | grep -qEv '^$|^specs/|^\.spec/' && \
    ! printf '%s\n' "$changed" | grep -q '^specs/' && \
-   ! grep -q '^Spec-Exempt:' "$1"; then
-    echo "note: no specs/ change or Spec-Exempt trailer in this commit —" >&2
-    echo "      the pre-push hook will reject the push unless a later commit" >&2
-    echo "      adds one (see: spec new feature, or spec commit --exempt)." >&2
+   ! grep -q '^Spec-Exempt:' "$1" && \
+   ! head -1 "$1" | grep -qE '^(fix|docs|test|chore|refactor|perf|style|ci|build|revert)(\([^)]*\))?:'; then
+    echo "note: no specs/ change, Spec-Exempt trailer, or non-feat: prefix in" >&2
+    echo "      this commit — the pre-push hook will reject the push unless a later" >&2
+    echo "      commit adds one (see: spec new feature, or spec commit --exempt)." >&2
 fi
 exit 0
 `

@@ -72,10 +72,12 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    change files outside `specs/` without a spec update; a `commit-msg`
    hook warns earlier, at commit time (advisory only — never blocks).
    Commit through
-   `spec commit` — it appends the `Spec-Exempt: <reason>` trailer the hook
-   needs for defect fixes (`--exempt`, or automatically when it writes the
-   message; `--agent` has the configured agent write message and reason
-   from the staged diff). A failing push hook means a spec is missing — write one;
+   `spec commit` — use conventional-commit subjects (`feat:`, `fix:`,
+   `docs:`, `chore:`, …). The hook accepts a non-`feat:` prefix or a
+   `Spec-Exempt: <reason>` trailer as attestation for spec-neutral work
+   (`--exempt` adds one; `--agent` has the configured agent write the
+   message and pick the attestation from the staged diff). `feat:` —
+   and anything unlabeled — means the push needs a `specs/` change.
    `SPEC_SKIP=1 git push` is the last-resort bypass, not a routine one.
 
 ## Rules

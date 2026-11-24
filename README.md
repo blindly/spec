@@ -14,7 +14,7 @@ go build -o spec .
 
 | Command | Description |
 | --- | --- |
-| `spec init` | Initialize spec management in a repository (seeds `AGENTS.md`, `CLAUDE.md`, installs the resolved skills — built-in `spec` plus any global `skills:` baseline — into the agent skill dirs, and installs spec hooks: `pre-push` requires a `specs/` change in any push that touches other files — a `Spec-Exempt: <reason>` commit trailer covers defect fixes, `SPEC_SKIP=1 git push` is the bypass) |
+| `spec init` | Initialize spec management in a repository (seeds `AGENTS.md`, `CLAUDE.md`, installs the resolved skills — built-in `spec` plus any global `skills:` baseline — into the agent skill dirs, and installs spec hooks: `pre-push` requires a `specs/` change in any push that touches other files — attested per commit by a non-`feat:` conventional-commit subject or a `Spec-Exempt: <reason>` trailer; `SPEC_SKIP=1 git push` is the bypass) |
 | `spec idea <title>` | Capture an untyped idea in the inbox (`specs/inbox/`) — decide the type later |
 | `spec inbox [--all] [--paths]` | List inbox ideas (id, status, suggested type, title, path); `--all` includes discarded and archived |
 | `spec promote <IDEA-id> [project\|feature\|adr] [--force]` | Turn an idea into a spec (defaults to its suggested type); the idea's notes go into the first section, `depends_on` references are updated, and the idea file is deleted |
@@ -37,7 +37,7 @@ go build -o spec .
 | `spec apply [--print\|--yes\|--no-verify\|--force] [id…]` | Run the configured agent to implement specs. Named ids may be accepted or proposed; with no ids, all accepted specs after a confirmation (`--yes` skips it). Success means the spec reached `implemented` and `verify:` passed (`--no-verify` skips it). `--print` outputs the prompt(s) |
 | `spec role [edit\|refine]` | Print, edit, or improve the repo-local `.spec/role.md` development persona (refine requires an agent) |
 | `spec status` | Summarize repo spec state (counts, coverage, agent, spec-hook state); `spec ps` prints just the `In flight:` queue of specs not yet done |
-| `spec commit [-m msg] [--exempt R] [--agent]` | Stage all and commit; appends the `Spec-Exempt:` trailer the pre-push hook needs when the commit has no `specs/` change (`--exempt` reason, or auto when the message is generated); `--agent` asks the configured agent to write the message — and an honest exempt reason — from the staged diff |
+| `spec commit [-m msg] [--exempt R] [--agent]` | Stage all and commit, conventional-commit style; an uncovered commit needs attestation — a non-`feat:` subject or a `Spec-Exempt:` trailer (`--exempt` adds it) — or it warns the push will fail; `--agent` asks the configured agent to write the message and pick the attestation from the staged diff |
 | `spec fact [list\|get\|set\|unset\|discover [--yes]]` | Manage public and secret project facts (`set --secret <key> <value>`) |
 | `spec remind [list\|add <title> --every <period> [--spec <id>]\|done <id>\|remove <id>]` | Track recurring obligations in `.spec/reminders.yml` (`--every`: `7d`, `30d`, … or `weekly`/`monthly`/`quarterly`/`yearly`); `spec status`/`spec check` and agent prompts surface due items |
 | `spec check` | Audit fact and secret references, enforce the secrets file ignore rule, fail on stale/missing skill installs, and warn about possible leaks and drift |

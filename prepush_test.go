@@ -129,6 +129,12 @@ func TestCommitMsgHookWarning(t *testing.T) {
 	if out := run("fix\n\nSpec-Exempt: restores documented behavior\n"); out != "" {
 		t.Fatalf("exempt commit should stay quiet:\n%s", out)
 	}
+	if out := run("fix: panic on empty config\n"); out != "" {
+		t.Fatalf("non-feat: prefix should stay quiet:\n%s", out)
+	}
+	if out := run("feat: undocumented knob\n"); !strings.Contains(out, "Spec-Exempt") {
+		t.Fatalf("feat: without a spec should warn:\n%s", out)
+	}
 	os.WriteFile(filepath.Join(st.Root, "specs", "features", "FEAT-001-x.md"),
 		[]byte("---\nid: FEAT-001\ntype: feature\nstatus: draft\n---\n# x\n"), 0o644)
 	exec.Command("git", "-C", st.Root, "add", "specs/").Run()
@@ -202,11 +208,26 @@ func TestPrePushHookEnforcement(t *testing.T) {
 	if code, _ := push(marked, rev("HEAD~1")); code != 0 {
 		t.Fatal("Spec-Exempt commit should pass")
 	}
-	// one unmarked commit in the push still fails, named in the output
+	// so does a non-feat conventional-commit prefix
+	os.WriteFile(filepath.Join(st.Root, "fix2.go"), []byte("package x\n"), 0o644)
+	commit("fix: panic on empty config")
+	if code, _ := push(rev("HEAD"), marked); code != 0 {
+		t.Fatal("fix: prefix should pass")
+	}
+	// feat: declares behavior work — it is never an attestation
+	os.WriteFile(filepath.Join(st.Root, "feat.go"), []byte("package x\n"), 0o644)
+	commit("feat: undocumented knob")
+	feat := rev("HEAD")
+	if code, errOut := push(feat, rev("HEAD~1")); code == 0 {
+		t.Fatal("feat: commit without a spec should fail")
+	} else if !strings.Contains(errOut, "Spec-Exempt") {
+		t.Fatalf("failure should name the remedy:\n%s", errOut)
+	}
+	// a plain unmarked commit fails too, named in the output
 	os.WriteFile(filepath.Join(st.Root, "more.go"), []byte("package x\n"), 0o644)
 	commit("drive-by")
-	code, errOut := push(rev("HEAD"), marked)
-	if code == 0 || !strings.Contains(errOut, "Spec-Exempt") {
-		t.Fatalf("unmarked commit should fail naming the trailer: %d\n%s", code, errOut)
+	code, errOut := push(rev("HEAD"), feat)
+	if code == 0 || !strings.Contains(errOut, "drive-by") {
+		t.Fatalf("unmarked commit should fail naming it: %d\n%s", code, errOut)
 	}
 }

@@ -49,13 +49,27 @@ func TestSpecCommit(t *testing.T) {
 		t.Fatalf("want exempt trailer:\n%s", lastCommitMsg(t, st))
 	}
 
-	// uncovered + auto message: harness attests
+	// uncovered + auto message: chore: prefix attests — no trailer needed
 	writeFile(t, st, "baz.go", "package x\n")
 	if err := cmdCommit(&out, io.Discard, nil); err != nil {
 		t.Fatal(err)
 	}
-	if m := lastCommitMsg(t, st); !strings.Contains(m, "Spec-Exempt: spec auto-commit") || !strings.HasPrefix(m, "update ") {
-		t.Fatalf("want auto summary + auto attestation:\n%s", m)
+	if m := lastCommitMsg(t, st); strings.Contains(m, "Spec-Exempt") || !strings.HasPrefix(m, "chore: update ") {
+		t.Fatalf("want chore: summary, prefix is the attestation:\n%s", m)
+	}
+
+	// uncovered + non-feat: prefix: the prefix itself attests — no
+	// trailer, no warning
+	writeFile(t, st, "qux.go", "package x\n")
+	errs.Reset()
+	if err := cmdCommit(&out, &errs, []string{"-m", "fix: panic on empty config"}); err != nil {
+		t.Fatal(err)
+	}
+	if m := lastCommitMsg(t, st); strings.Contains(m, "Spec-Exempt") {
+		t.Fatalf("fix: prefix attests without a trailer:\n%s", m)
+	}
+	if errs.String() != "" {
+		t.Fatalf("fix: prefix should commit silently:\n%s", errs.String())
 	}
 
 	// covered commit: no trailer
@@ -119,8 +133,8 @@ func TestSpecCommitAgent(t *testing.T) {
 		t.Fatalf("prompt should carry the staged files and coverage state:\n%s", prompt)
 	}
 
-	// agent emits a bare message on an uncovered commit → generic
-	// attestation + a note that the agent did not attest
+	// agent emits an unattested message on an uncovered commit → the
+	// commit lands but warns the push will fail; spec doesn't stamp it
 	fakeCommitAgent(t, st, "add experimental flag\n")
 	writeFile(t, st, "bar.go", "package x\n")
 	errs.Reset()
@@ -128,11 +142,24 @@ func TestSpecCommitAgent(t *testing.T) {
 		t.Fatal(err)
 	}
 	if m := lastCommitMsg(t, st); !strings.Contains(m, "add experimental flag") ||
-		!strings.Contains(m, "Spec-Exempt: spec auto-commit") {
-		t.Fatalf("want agent message + generic attestation:\n%s", m)
+		strings.Contains(m, "Spec-Exempt") {
+		t.Fatalf("want agent message, no rubber stamp:\n%s", m)
 	}
-	if !strings.Contains(errs.String(), "did not attest") {
-		t.Fatalf("want non-attestation note:\n%s", errs.String())
+	if !strings.Contains(errs.String(), "pre-push") {
+		t.Fatalf("want push-block warning:\n%s", errs.String())
+	}
+	// an agent fix: prefix attests on its own — no trailer appended
+	fakeCommitAgent(t, st, "fix: flaky test teardown\n")
+	writeFile(t, st, "test.go", "package x\n")
+	errs.Reset()
+	if err := cmdCommit(&out, &errs, []string{"--agent"}); err != nil {
+		t.Fatal(err)
+	}
+	if m := lastCommitMsg(t, st); strings.Contains(m, "Spec-Exempt") {
+		t.Fatalf("fix: prefix attests without a trailer:\n%s", m)
+	}
+	if errs.String() != "" {
+		t.Fatalf("fix: prefix should commit silently:\n%s", errs.String())
 	}
 
 	// -m beats --agent, noted on stderr

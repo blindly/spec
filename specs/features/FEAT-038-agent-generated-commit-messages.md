@@ -43,18 +43,18 @@ Addresses: REQ-003 (agent optional; offline fallback preserved)
   rubber-stamped summary.
 - **Bounded prompt** (FEAT-017): staged file list + `--numstat` scale
   + the staged diff truncated at 48 KiB. `agent_timeout` applies.
-- **Honest attestation.** The prompt names the coverage state: when no
-  `specs/` file is staged, the agent is asked to end the message with
-  `Spec-Exempt: <reason>` only if the change is genuinely spec-neutral
-  (defect fix restoring documented behavior, refactor, docs, CI) — and
-  to omit the trailer if the change alters behavior. An agent-emitted
-  trailer satisfies the gate directly.
-- **The judgment is surfaced, not enforced.** A generated message on an
-  uncovered commit that arrives *without* a trailer still gets the
-  generic auto-attestation (same rule as the summary path — the tool
-  wrote the message), plus a stderr note that the agent did not attest
-  spec-neutrality so the change may need a spec. Refusing to commit is
-  a possible follow-up; v1 stays a commit helper.
+- **Honest attestation.** The prompt names the coverage state and asks
+  for conventional-commit format (`type: summary`; `feat` = behavior).
+  When no `specs/` file is staged, a spec-neutral change attests via
+  its non-`feat` prefix alone — or a `Spec-Exempt: <reason>` trailer
+  for anything the type can't express. A `feat:` (or otherwise
+  unattested) message on an uncovered commit is the agent's judgment
+  that a spec is missing.
+- **The judgment is surfaced, not overridden.** An unattested message
+  commits with a stderr note that the push will fail — spec does not
+  append a rubber-stamp trailer to a message it didn't attest. The
+  diff-summary fallback is `chore:`-prefixed, so it attests itself
+  silently.
 - **Output hygiene.** Agent output is trimmed and a single outer code
   fence unwrapped; an empty result errors.
 - **Layering unchanged.** No `VERSION`, no push, no tag — tasks.py
@@ -67,10 +67,10 @@ Addresses: REQ-003 (agent optional; offline fallback preserved)
   message; the prompt carries the staged diff and file list
 - [x] `--agent` with no configured agent fails visibly; agent errors
   propagate
-- [x] An agent-emitted `Spec-Exempt:` line satisfies the gate — no
-  generic trailer appended
-- [x] An uncovered commit whose agent message lacks the trailer gets
-  the generic attestation plus a stderr note about the missing judgment
+- [x] An agent-emitted `Spec-Exempt:` line or non-`feat:` prefix
+  satisfies the gate — no trailer appended
+- [x] An uncovered commit whose agent message attests nothing commits
+  with a push-block warning — no rubber-stamp trailer
 - [x] `-m` beats `--agent` (noted on stderr); `--exempt` still appends
 - [x] No `--agent` and no `-m` → unchanged summary behavior, fully
   offline
