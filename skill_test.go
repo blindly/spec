@@ -280,6 +280,21 @@ func TestSkillSyncBuiltInAlwaysOverwrites(t *testing.T) {
 	if data, _ := os.ReadFile(installed); string(data) == "written by an older binary" {
 		t.Fatal("stale built-in install not overwritten")
 	}
+
+	// same repair on the --global path (user-level agent dirs)
+	t.Setenv("HOME", t.TempDir())
+	writeGlobalConfig(t, "agent: claude\n")
+	home, _ := os.UserHomeDir()
+	gdst := filepath.Join(home, ".claude", "skills", "spec")
+	os.MkdirAll(gdst, 0o755)
+	os.WriteFile(filepath.Join(gdst, "SKILL.md"), []byte("written by an older binary"), 0o644)
+	var gout bytes.Buffer
+	if err := cmdSkillGlobal(&gout, io.Discard, "sync", "", false); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(filepath.Join(gdst, "SKILL.md")); string(data) == "written by an older binary" {
+		t.Fatalf("stale global built-in install not overwritten:\n%s", gout.String())
+	}
 }
 
 func TestSkillOrphaned(t *testing.T) {

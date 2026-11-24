@@ -1669,7 +1669,7 @@ func cmdSkillGlobal(out, errOut io.Writer, sub, name string, force bool) error {
 			if status != "current" {
 				bad++
 				if sub == "sync" || sub == "update" {
-					if status == "stale" && !force && sub != "update" {
+					if status == "stale" && !force && sub != "update" && src.kind != "built-in" {
 						fmt.Fprintf(out, "%-8s %s (differs from source; sync --force to overwrite)\n", "stale", dst)
 						continue
 					}
