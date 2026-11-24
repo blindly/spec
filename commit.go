@@ -20,6 +20,7 @@ func cmdCommit(out, errOut io.Writer, args []string) error {
 	msg := fs.String("m", "", "commit message (default: diff summary)")
 	exempt := fs.String("exempt", "", "Spec-Exempt trailer reason")
 	useAgent := fs.Bool("agent", false, "ask the configured agent to write the message")
+	noAgent := fs.Bool("no-agent", false, "skip the agent even when commit_agent is set")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -55,13 +56,14 @@ func cmdCommit(out, errOut io.Writer, args []string) error {
 			outside = true
 		}
 	}
+	wantAgent := (*useAgent || cfg.CommitAgent) && !*noAgent
 	m := *msg
 	switch {
 	case m != "":
 		if *useAgent {
 			fmt.Fprintln(errOut, "note: --agent ignored, -m supplied")
 		}
-	case *useAgent:
+	case wantAgent:
 		generated, err := agentCommitMessage(st, files, covered)
 		if err != nil {
 			return err

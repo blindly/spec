@@ -1,11 +1,12 @@
 ---
 covers: [version.go, commit.go, config.go, main.go, help.go, completion.go]
 created: 2026-11-24
+depends_on: [FEAT-037, FEAT-036]
 id: FEAT-039
 status: implemented
 title: VERSION stamping in spec commit and spec release
 type: feature
-depends_on: [FEAT-037, FEAT-036]
+verified: 70bac3c085dfdf70c10c20bf361fd51ed63dc7e1
 ---
 
 # FEAT-039: VERSION stamping in spec commit and `spec release`

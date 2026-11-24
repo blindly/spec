@@ -295,3 +295,39 @@ func TestSpecRelease(t *testing.T) {
 		t.Fatalf("want existing-tag refusal: %v", err)
 	}
 }
+
+// FEAT-038: commit_agent: true makes the agent the default; --no-agent
+// opts a single commit back to the offline summary.
+func TestSpecCommitAgentDefault(t *testing.T) {
+	st := setupRepo(t)
+	commit := gitInit(t, st)
+	commit("baseline")
+	var out, errs bytes.Buffer
+
+	promptFile := fakeCommitAgent(t, st, "fix: handle nil map\n")
+	// fakeCommitAgent rewrote config — add the default-on key
+	cfg, _ := os.ReadFile(filepath.Join(st.Root, ".spec", "config.yml"))
+	writeFile(t, st, ".spec/config.yml", string(cfg)+"commit_agent: true\n")
+
+	// bare commit uses the agent when commit_agent is set
+	writeFile(t, st, "foo.go", "package x\n")
+	if err := cmdCommit(&out, &errs, nil); err != nil {
+		t.Fatal(err)
+	}
+	if m := lastCommitMsg(t, st); !strings.Contains(m, "fix: handle nil map") {
+		t.Fatalf("want agent message by default:\n%s", m)
+	}
+	if prompt, _ := os.ReadFile(promptFile); len(prompt) == 0 {
+		t.Fatal("agent was not invoked")
+	}
+
+	// --no-agent falls back to the offline summary
+	writeFile(t, st, "bar.go", "package x\n")
+	errs.Reset()
+	if err := cmdCommit(&out, &errs, []string{"--no-agent"}); err != nil {
+		t.Fatal(err)
+	}
+	if m := lastCommitMsg(t, st); !strings.HasPrefix(m, "chore: update") {
+		t.Fatalf("--no-agent should use the summary:\n%s", m)
+	}
+}

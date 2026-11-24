@@ -298,12 +298,14 @@ var commandDocs = []commandDoc{
                                        one for this repo; view cats one (default: active) to stdout`},
 	{"status", `  spec status                        Summarize repository spec state`},
 	{"ps", `  spec ps                            List specs in flight (not yet done) — the queue, not the dashboard`},
-	{"commit", `  spec commit [-m msg] [--exempt R] [--agent]   Stage all and commit, conventional-commit
+	{"commit", `  spec commit [-m msg] [--exempt R] [--agent|--no-agent]   Stage all and commit, conventional-commit
                                        style; an uncovered commit needs a non-feat: subject or a
                                        Spec-Exempt trailer (--exempt) or the push will fail;
                                        --agent asks the configured agent to write the message
-                                       and pick the attestation from the staged diff.
-                                       Refreshes VERSION when the repo has one (version_stamp: false opts out)`},
+                                       and pick the attestation from the staged diff
+                                       (commit_agent: true makes that the default; --no-agent
+                                       overrides). Refreshes VERSION when the repo has one
+                                       (version_stamp: false opts out)`},
 	{"release", `  spec release [--major N]           Stamp VERSION, commit it alone, push, and tag
                                        v<stamp> — requires release: true in the repo
                                        config; the tag triggers the release workflow`},

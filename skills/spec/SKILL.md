@@ -76,7 +76,9 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    `docs:`, `chore:`, …). The hook accepts a non-`feat:` prefix or a
    `Spec-Exempt: <reason>` trailer as attestation for spec-neutral work
    (`--exempt` adds one; `--agent` has the configured agent write the
-   message and pick the attestation from the staged diff). `feat:` —
+   message and pick the attestation from the staged diff — `commit_agent:
+   true` in config makes that the default, `--no-agent` opts one out).
+   `feat:` —
    and anything unlabeled — means the push needs a `specs/` change.
    `SPEC_SKIP=1 git push` is the last-resort bypass, not a routine one.
 9. **Releases are stamped, not numbered.** A `VERSION` file at the repo

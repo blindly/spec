@@ -33,11 +33,14 @@ Addresses: REQ-003 (agent optional; offline fallback preserved)
 
 ## Design
 
-- **Opt-in flag.** `--agent` means a commit without `-m` is a network
-  call; making it opt-in keeps bare `spec commit` instant and offline.
-  You opted in per-commit, matching `drift --review`'s opt-in.
-- **Message precedence.** `-m` > `--agent` > `diffSummary` fallback.
-  `-m --agent` together: `-m` wins, noted on stderr.
+- **Opt-in flag or config default.** `--agent` means a commit without
+  `-m` is a network call; making it opt-in keeps bare `spec commit`
+  instant and offline. `commit_agent: true` in config flips the
+  default — bare `spec commit` asks the agent every time, and
+  `--no-agent` opts a single commit back out to the offline summary.
+- **Message precedence.** `-m` > agent (`--agent` or `commit_agent:
+  true`) > `diffSummary` fallback. `-m --agent` together: `-m` wins,
+  noted on stderr.
 - **`--agent` without a configured agent errors** rather than silently
   falling back — an explicit request that can't be honored should fail
   visibly. Agent failures likewise surface instead of committing a
