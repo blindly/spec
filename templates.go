@@ -108,6 +108,9 @@ This repository uses spec for spec-driven development.
   'Spec-Exempt: <reason>' trailer (--exempt) attests spec-neutral work;
   --agent asks the configured agent to write the message and pick the
   attestation; SPEC_SKIP=1 git push is the last-resort bypass.
+- A VERSION file opts the repo into release versioning: spec commit
+  refreshes the <major>.<yy>.<mm>-build-<ddhhmm> stamp, and spec release
+  stamps a VERSION-only commit, pushes, and tags v<stamp>.
 - A development role may be defined in .spec/role.md or selected via
   persona: in .spec/config.yml (shared library ~/.config/spec/personas/) —
   when set, adopt that persona and its conventions for all work here.

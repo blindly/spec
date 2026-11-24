@@ -20,3 +20,6 @@ This repository uses spec for spec-driven development.
   `Spec-Exempt: <reason>` trailer (--exempt) attests spec-neutral work;
   --agent asks the configured agent to write the message and pick the
   attestation; `SPEC_SKIP=1 git push` is the last-resort bypass.
+- A VERSION file opts the repo into release versioning: `spec commit`
+  refreshes the stamp, and `spec release` stamps a VERSION-only commit,
+  pushes, and tags `v<stamp>`.

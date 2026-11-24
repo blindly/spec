@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -196,5 +197,93 @@ func TestSpecCommitAgentUnconfigured(t *testing.T) {
 	err := cmdCommit(io.Discard, io.Discard, []string{"--agent"})
 	if err == nil || !strings.Contains(err.Error(), "configured agent") {
 		t.Fatalf("want configured-agent error: %v", err)
+	}
+}
+
+// FEAT-039: a VERSION file opts a repo into stamping; spec commit
+// refreshes it and spec release tags it.
+var stampRe = regexp.MustCompile(`^1\.\d{2}\.\d{2}-build-\d{6}$`)
+
+func TestSpecCommitStampsVersion(t *testing.T) {
+	st := setupRepo(t)
+	commit := gitInit(t, st)
+	writeFile(t, st, "VERSION", "1.25.01-build-010000\n")
+	writeFile(t, st, "a.txt", "x")
+	commit("chore: baseline")
+
+	writeFile(t, st, "a.txt", "y")
+	var out, errs bytes.Buffer
+	if err := cmdCommit(&out, &errs, []string{"-m", "chore: change"}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(st.Root, "VERSION"))
+	if err != nil || !stampRe.MatchString(strings.TrimSpace(string(data))) {
+		t.Fatalf("VERSION not stamped: %q %v", data, err)
+	}
+	if files := mustGit(st.Root, "show", "--name-only", "--format=", "HEAD"); !strings.Contains(files, "VERSION") {
+		t.Fatalf("VERSION did not ride the commit: %s", files)
+	}
+
+	// version_stamp: false opts the repo back out
+	cfg, _ := os.ReadFile(filepath.Join(st.Root, ".spec", "config.yml"))
+	writeFile(t, st, ".spec/config.yml", string(cfg)+"\nversion_stamp: false\n")
+	before := string(data)
+	writeFile(t, st, "a.txt", "z")
+	out.Reset()
+	if err := cmdCommit(&out, &errs, nil); err != nil {
+		t.Fatal(err)
+	}
+	if after, _ := os.ReadFile(filepath.Join(st.Root, "VERSION")); string(after) != before {
+		t.Fatalf("version_stamp: false still stamped: %s", after)
+	}
+}
+
+func TestSpecRelease(t *testing.T) {
+	st := setupRepo(t)
+	commit := gitInit(t, st)
+	writeFile(t, st, "VERSION", "9.25.01-build-010000\n")
+	commit("chore: baseline")
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", st.Root}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	run("config", "user.name", "t")
+	run("config", "user.email", "t@t")
+	remote := filepath.Join(t.TempDir(), "r.git")
+	run("init", "--bare", remote)
+	run("remote", "add", "origin", remote)
+
+	var out, errs bytes.Buffer
+	// dirty tree refuses — the release commit must be VERSION-only
+	writeFile(t, st, "a.txt", "uncommitted")
+	if err := cmdRelease(&out, &errs, nil); err == nil || !strings.Contains(err.Error(), "spec commit first") {
+		t.Fatalf("want dirty-tree refusal: %v", err)
+	}
+	run("clean", "-f", "a.txt")
+
+	if err := cmdRelease(&out, &errs, nil); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(filepath.Join(st.Root, "VERSION"))
+	stamp := strings.TrimSpace(string(data))
+	if !regexp.MustCompile(`^9\.\d{2}\.\d{2}-build-\d{6}$`).MatchString(stamp) {
+		t.Fatalf("VERSION not stamped: %q", stamp)
+	}
+	if msg := strings.TrimSpace(lastCommitMsg(t, st)); msg != "chore: bump "+stamp {
+		t.Fatalf("release commit: %q", msg)
+	}
+	if files := strings.TrimSpace(mustGit(st.Root, "show", "--name-only", "--format=", "HEAD")); files != "VERSION" {
+		t.Fatalf("release commit not VERSION-only: %s", files)
+	}
+	if !strings.Contains(mustGit(st.Root, "ls-remote", "--tags", "origin"), "refs/tags/v"+stamp) {
+		t.Fatal("tag not pushed")
+	}
+
+	// a second release on the same minute re-tags — must refuse
+	if err := cmdRelease(&out, &errs, nil); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("want existing-tag refusal: %v", err)
 	}
 }

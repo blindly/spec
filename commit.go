@@ -27,6 +27,15 @@ func cmdCommit(out, errOut io.Writer, args []string) error {
 	if err != nil {
 		return err
 	}
+	// A VERSION file opts the repo into stamped releases — refresh it so
+	// every commit carries a fresh build stamp (version_stamp: false in
+	// config opts back out).
+	cfg := loadConfig(st.Root)
+	if cfg.VersionStamp {
+		if _, err := stampVersion(st.Root, 0); err != nil {
+			return fmt.Errorf("VERSION: %w", err)
+		}
+	}
 	if out2, err := gitOut(st.Root, "add", "-A"); err != nil {
 		return fmt.Errorf("git add: %s", out2)
 	}

@@ -31,9 +31,10 @@ Addresses: REQ-014
 
 ## Design
 
-- `git add -A`, then commit with `-m`, an agent-written message
-  (`--agent`, FEAT-038), or a `chore:`-prefixed diff summary
-  (`chore: update N files (+a -d): f, g, +k more`).
+- Refreshes `VERSION` when the repo has one (`version_stamp: false`
+  opts out — FEAT-039), then `git add -A`, then commit with `-m`, an
+  agent-written message (`--agent`, FEAT-038), or a `chore:`-prefixed
+  diff summary (`chore: update N files (+a -d): f, g, +k more`).
 - **Gate** (same rule as the hook): spec repo, at least one staged
   file outside `specs/`/`.spec/`, and no `specs/` file staged → the
   commit needs attestation, which is any of:

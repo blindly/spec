@@ -302,7 +302,10 @@ var commandDocs = []commandDoc{
                                        style; an uncovered commit needs a non-feat: subject or a
                                        Spec-Exempt trailer (--exempt) or the push will fail;
                                        --agent asks the configured agent to write the message
-                                       and pick the attestation from the staged diff`},
+                                       and pick the attestation from the staged diff.
+                                       Refreshes VERSION when the repo has one (version_stamp: false opts out)`},
+	{"release", `  spec release [--major N]           Stamp VERSION, commit it alone, push, and tag
+                                       v<stamp> — the tag triggers the release workflow`},
 	{"fact", `  spec fact [list|get <key>|set [--secret] <key> <value>|unset <key>|discover [--yes]]     Manage public and secret project facts`},
 	{"remind", `  spec remind [list|add <title> --every <7d|30d|weekly|monthly|quarterly|yearly> [--spec <id>]|done <id>|remove <id>]
                                        Manage recurring task reminders (.spec/reminders.yml)`},

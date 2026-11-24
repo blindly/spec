@@ -1,11 +1,12 @@
 ---
 covers: [commit.go, commit_test.go, agent.go, help.go, README.md]
 created: 2026-11-23
+depends_on: [FEAT-037, FEAT-036, FEAT-014]
 id: FEAT-038
 status: implemented
 title: spec commit --agent — agent-generated commit messages
 type: feature
-depends_on: [FEAT-037, FEAT-036, FEAT-014]
+verified: b3fced235ce1edf8fbe429442664b7a7f1a5a9f2
 ---
 
 # spec commit --agent — agent-generated commit messages

@@ -82,8 +82,9 @@ var completionTable = map[string]cmdComp{
 	// provably covers every command
 	"init": {}, "bootstrap": {}, "analyze": {}, "validate": {}, "trace": {},
 	"status": {}, "ps": {}, "check": {}, "verify": {}, "idea": {}, "search": {},
-	"commit": {flags: []string{"-m", "--exempt"}},
-	"update": {},
+	"commit":  {flags: []string{"-m", "--exempt", "--agent"}},
+	"release": {flags: []string{"--major"}},
+	"update":  {},
 }
 
 // completionCommandNames is every word `spec <TAB>` offers — the command

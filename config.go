@@ -23,6 +23,7 @@ type Config struct {
 	Editor       string   // editor command for `spec config edit`
 	Verify       []string // commands run by spec verify
 	Persona      string   // name of a ~/.config/spec/personas/<name>.md used as the role when .spec/role.md is unset
+	VersionStamp bool     // spec commit refreshes VERSION (opt-in by the file's presence); spec release stamps + tags
 	Skills       []string // library skills (~/.config/spec/skills/<name>/) enabled for this repo
 	SkillTargets []string // agent skill dirs installed copies are generated into
 }
@@ -37,7 +38,8 @@ var (
 
 func defaultConfig() Config {
 	return Config{Agent: "none", AgentTimeout: 3600, WebPort: 8080, WebHost: "127.0.0.1",
-		Statuses: defaultStatuses, DoneStatuses: defaultDoneStatuses, IdeaStatuses: defaultIdeaStatuses}
+		VersionStamp: true,
+		Statuses:     defaultStatuses, DoneStatuses: defaultDoneStatuses, IdeaStatuses: defaultIdeaStatuses}
 }
 
 // statusesFor returns the status list that applies to a spec type: ideas
@@ -164,6 +166,8 @@ func loadConfig(root string) Config {
 			cfg.Editor = strings.Trim(v, `"'`)
 		case "persona":
 			cfg.Persona = strings.Trim(v, `"'`)
+		case "version_stamp":
+			cfg.VersionStamp = v != "false" && v != "no" && v != "0" && v != "off"
 		case "web_host":
 			cfg.WebHost = strings.Trim(v, `"'`)
 		case "web_port":
@@ -212,11 +216,11 @@ func unionStrings(a, b []string) []string {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_env: [%s]\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nviewer: %s\npersona: %s\nskills: [%s]\nskill_targets: [%s]\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]",
+	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_env: [%s]\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nviewer: %s\npersona: %s\nskills: [%s]\nskill_targets: [%s]\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]\nversion_stamp: %t",
 		c.Agent, c.AgentCmd, strings.Join(c.AgentEnv, ", "), c.AgentTimeout, c.WebHost, c.WebPort, c.editor(), c.Viewer, c.Persona,
 		strings.Join(c.Skills, ", "), strings.Join(c.SkillTargets, ", "),
 		strings.Join(c.Statuses, ", "), strings.Join(c.DoneStatuses, ", "),
-		strings.Join(c.IdeaStatuses, ", "), strings.Join(c.Verify, ", "))
+		strings.Join(c.IdeaStatuses, ", "), strings.Join(c.Verify, ", "), c.VersionStamp)
 }
 
 const globalConfigTemplate = `# Global defaults for all spec-managed repositories.
@@ -253,6 +257,10 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 # skills: [token-efficiency]   # see: spec skill
 # skill_targets: [.devin/skills, .claude/skills]   # install dirs (default: the configured agent's dir, else both)
 # skill_global_targets: [~/.claude/skills, ~/.config/devin/skills]   # user-level dirs for --global (default: agent's dir, else both)
+
+# Releases — a VERSION file opts into version stamping: spec commit
+# refreshes it and spec release tags v<stamp>; set false to manage it by hand
+# version_stamp: true
 
 # Viewer for spec view (default: built-in plain output; no $PAGER)
 # viewer: "glow --style dark {file}"   # {file} = path; absent = appended
@@ -292,6 +300,10 @@ const repoConfigTemplate = `version: 1
 # repo; repo-owned skills under .spec/skills/ need no entry here
 # skills: [review]             # see: spec skill
 # skill_targets: [.devin/skills, .claude/skills]   # install dirs (default: the configured agent's dir, else both)
+
+# Releases — a VERSION file opts into version stamping: spec commit
+# refreshes it and spec release tags v<stamp>; set false to manage it by hand
+# version_stamp: true
 
 # Viewer for spec view (default: built-in plain output; no $PAGER)
 # viewer: "glow --style dark {file}"   # {file} = path; absent = appended

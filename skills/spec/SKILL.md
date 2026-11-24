@@ -79,6 +79,13 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    message and pick the attestation from the staged diff). `feat:` —
    and anything unlabeled — means the push needs a `specs/` change.
    `SPEC_SKIP=1 git push` is the last-resort bypass, not a routine one.
+9. **Releases are stamped, not numbered.** A `VERSION` file at the repo
+   root opts the repo in: `spec commit` refreshes the
+   `<major>.<yy>.<mm>-build-<ddhhmm>` stamp on every commit, and
+   `spec release` (clean tree) stamps a VERSION-only `chore: bump`
+   commit, pushes, and tags `v<stamp>` — the tag drives the release
+   workflow. Bump the major by editing VERSION (`--major N` forces it);
+   `version_stamp: false` in config manages VERSION by hand.
 
 ## Rules
 
