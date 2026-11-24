@@ -5,7 +5,7 @@ id: FEAT-027
 status: implemented
 title: Secret facts and agent environment control
 type: feature
-verified: 313148990b1172827aaeb35634e46480a9c00b21
+verified: 99366a711074422fad86702d3ba9ed5be0d2b5bb
 ---
 
 # Secret facts and agent environment control
