@@ -34,7 +34,11 @@ Addresses: REQ-011
   repository header then `In flight:` entries — every spec that is not
   archived, not an inbox idea, not in a `done_statuses` status, and
   not `implemented` — sorted by configured status order (unknown
-  statuses last), then id, via `inFlightSpecs`. Empty queue prints
+  statuses last), then id, via `inFlightSpecs`. For non-feature
+  (record) types — adr, imported — `accepted` is additionally settled:
+  a proposed ADR awaits a decision, an accepted one is a settled
+  record, not in-flight work; accepted features stay in flight until
+  implemented. Empty queue prints
   `In flight: none`; otherwise the header carries the count. Columns:
   id, type, status, title.
 - **`spec status` is the other half**: aggregate counts only, no
@@ -47,8 +51,10 @@ Addresses: REQ-011
 ## Acceptance Criteria
 
 - [x] `spec ps` prints `In flight:` entries for each non-archived,
-  non-idea spec whose status is neither done nor `implemented`, sorted
-  by status order then id — and nothing else but the repo header
+  non-idea spec whose status is neither done nor `implemented` —
+  `accepted` counts as settled for record types (adr, imported), not
+  for features — sorted by status order then id; nothing else but the
+  repo header
 - [x] `In flight: none` when the queue is empty
 - [x] `spec status` is queue-free; `spec help ps` and completion treat
   `ps` as a first-class command

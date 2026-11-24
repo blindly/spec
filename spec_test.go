@@ -515,6 +515,11 @@ func TestStatusPs(t *testing.T) {
 	body := "# x\n\n## Summary\n\ns\n\n## Design\n\nd\n\n## Acceptance Criteria\n\n- [ ] x\n"
 	st.Create("feature", "active", body, map[string][]string{"status": {"accepted"}})
 	st.Create("feature", "shipped", body, map[string][]string{"status": {"implemented"}})
+	// records settle at accepted — only pending ones are in flight
+	adr := "# x\n\n## Context\n\nc\n\n## Decision\n\nd\n\n## Consequences\n\nq\n"
+	st.Create("adr", "settled-decision", adr, map[string][]string{"status": {"accepted"}})
+	st.Create("adr", "pending-decision", adr, map[string][]string{"status": {"proposed"}})
+	st.Create("imported", "imported-doc", body, map[string][]string{"status": {"accepted"}})
 	var buf bytes.Buffer
 	if code := run([]string{"ps"}, &buf, io.Discard); code != 0 {
 		t.Fatalf("spec ps: exit %d", code)
@@ -525,6 +530,12 @@ func TestStatusPs(t *testing.T) {
 	}
 	if !strings.Contains(out, "active") || strings.Contains(out, "shipped") {
 		t.Fatalf("in-flight should list accepted, not implemented:\n%s", out)
+	}
+	if !strings.Contains(out, "pending-decision") {
+		t.Fatalf("a proposed ADR is still in flight:\n%s", out)
+	}
+	if strings.Contains(out, "settled-decision") || strings.Contains(out, "imported-doc") {
+		t.Fatalf("accepted records are settled, not in flight:\n%s", out)
 	}
 	// status itself stays queue-free
 	buf.Reset()

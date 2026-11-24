@@ -663,7 +663,10 @@ func cmdPs(out, errOut io.Writer) error {
 }
 
 // inFlightSpecs returns non-idea, non-archived specs whose status is
-// neither done nor implemented, sorted by configured status order then id.
+// neither done nor settled, sorted by configured status order then id.
+// Settled means implemented for features — and accepted for record
+// types (adr, imported, …): a proposed ADR awaits a decision, an
+// accepted one is a settled record, not in-flight work.
 func inFlightSpecs(st Store, cfg Config) []Spec {
 	var flight []Spec
 	for _, s := range st.Specs() {
@@ -671,6 +674,9 @@ func inFlightSpecs(st Store, cfg Config) []Spec {
 			continue
 		}
 		if cfg.isDone(s.Status()) || s.Status() == "implemented" {
+			continue
+		}
+		if s.Type() != "feature" && s.Status() == "accepted" {
 			continue
 		}
 		flight = append(flight, s)
