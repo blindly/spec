@@ -116,8 +116,10 @@ Addresses: REQ-003, REQ-017
   target and `--library` diffs repo vs library — all in-process, no
   external diff tool
 - [x] `spec skill check` lints every library entry (SKILL.md present,
-  frontmatter name matches dir, description non-empty) as non-fatal
-  notes; `spec check` applies the same lint to the resolved set as WARN
+  `name:` flagged only when set-but-mismatched with the dir — the dir
+  is the identity and `name:` is optional — `description:` non-empty)
+  as non-fatal notes; `spec check` applies the same lint to the
+  resolved set as WARN
 - [x] `spec init` / repo `spec skill sync` register the repo in
   `~/.config/spec/repos`; `rm --library` names registered repos and the
   global list that will go orphaned; `push` notes the enabled-repo count

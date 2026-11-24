@@ -405,8 +405,10 @@ func skillDesc(dir string) string {
 }
 
 // lintSkillDir reports how a skill dir falls short of the SKILL.md
-// contract: missing file, missing or mismatched frontmatter name,
-// missing description. These are notes, never hard failures.
+// contract: missing file, frontmatter name present but not matching
+// the directory, missing description. name: is optional — the dir is
+// the identity; a set-but-different name is drift. Notes, never
+// hard failures.
 func lintSkillDir(name, dir string) []string {
 	data, err := os.ReadFile(filepath.Join(dir, "SKILL.md"))
 	if err != nil {
@@ -414,10 +416,7 @@ func lintSkillDir(name, dir string) []string {
 	}
 	meta, _ := parseFrontmatter(string(data))
 	var problems []string
-	switch n := metaGet(meta, "name", ""); {
-	case n == "":
-		problems = append(problems, "SKILL.md has no name:")
-	case n != name:
+	if n := metaGet(meta, "name", ""); n != "" && n != name {
 		problems = append(problems, fmt.Sprintf("SKILL.md name %q != dir %q", n, name))
 	}
 	if metaGet(meta, "description", "") == "" {
