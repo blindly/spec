@@ -298,10 +298,11 @@ var commandDocs = []commandDoc{
                                        one for this repo; view cats one (default: active) to stdout`},
 	{"status", `  spec status                        Summarize repository spec state`},
 	{"ps", `  spec ps                            List specs in flight (not yet done) — the queue, not the dashboard`},
-	{"commit", `  spec commit [-m msg] [--exempt R] [--agent]   Stage all and commit; adds a Spec-Exempt trailer
-                                       when the commit has no specs/ change (auto-attests when -m
-                                       is omitted); --agent asks the configured agent to write the
-                                       message (and the exempt reason) from the staged diff`},
+	{"commit", `  spec commit [-m msg] [--exempt R] [--agent]   Stage all and commit, conventional-commit
+                                       style; an uncovered commit needs a non-feat: subject or a
+                                       Spec-Exempt trailer (--exempt) or the push will fail;
+                                       --agent asks the configured agent to write the message
+                                       and pick the attestation from the staged diff`},
 	{"fact", `  spec fact [list|get <key>|set [--secret] <key> <value>|unset <key>|discover [--yes]]     Manage public and secret project facts`},
 	{"remind", `  spec remind [list|add <title> --every <7d|30d|weekly|monthly|quarterly|yearly> [--spec <id>]|done <id>|remove <id>]
                                        Manage recurring task reminders (.spec/reminders.yml)`},
