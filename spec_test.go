@@ -885,3 +885,46 @@ func TestSlugify(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+// FEAT-040: spec accept is the proposed/draft → accepted approval step.
+func TestSpecAccept(t *testing.T) {
+	st := setupRepo(t)
+	body := "# x\n\n## Summary\n\ns\n\n## Design\n\nd\n\n## Acceptance Criteria\n\n- [ ] x\n"
+	mk := func(title, status string) string {
+		s, err := st.Create("feature", title, body, map[string][]string{"status": {status}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s.ID()
+	}
+	draft, proposed, done := mk("a-draft", "draft"), mk("a-proposed", "proposed"), mk("a-done", "implemented")
+	idea, _ := st.Create("idea", "an-idea", "# x\n", nil)
+
+	var out bytes.Buffer
+	if err := cmdAccept(&out, []string{draft, proposed}); err != nil {
+		t.Fatalf("%v\n%s", err, out.String())
+	}
+	for _, id := range []string{draft, proposed} {
+		if got := st.Get(id).Status(); got != "accepted" {
+			t.Fatalf("%s not accepted: %s", id, got)
+		}
+	}
+
+	// per-id refusals → non-zero, others still processed
+	out.Reset()
+	if err := cmdAccept(&out, []string{"FEAT-999", done, idea.ID()}); err == nil {
+		t.Fatalf("want failure on refused ids:\n%s", out.String())
+	}
+	s := out.String()
+	for _, want := range []string{"no such spec", "can't accept a finished", "an idea"} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("missing refusal %q:\n%s", want, s)
+		}
+	}
+
+	// already accepted → note, not failure
+	out.Reset()
+	if err := cmdAccept(&out, []string{draft}); err != nil || !strings.Contains(out.String(), "already accepted") {
+		t.Fatalf("already-accepted should be a no-op note: %v\n%s", err, out.String())
+	}
+}

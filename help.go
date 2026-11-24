@@ -288,6 +288,8 @@ var commandDocs = []commandDoc{
 	{"edit", `  spec edit <id>                     Open a spec in your editor`},
 	{"refine", `  spec refine <id> [--force]         LLM agent improves an existing spec; for ideas, also
                                        suggests a type and offers to promote (--force: discarded ideas)`},
+	{"accept", `  spec accept <id>...              Mark specs accepted — the approval that lets
+                                       bare 'spec apply' (no ids) run them`},
 	{"apply", `  spec apply [flags] [id...]         Run agent to implement specs (no ids: all accepted, after confirmation)
                                        --print outputs prompts · --yes skips confirmation (and applies
                                        stale-verdict spec rewrites without prompting)

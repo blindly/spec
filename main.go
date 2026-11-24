@@ -49,6 +49,7 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 	"archive":   func(a []string, o, e io.Writer) error { return cmdArchive(o, a) },
 	"unarchive": func(a []string, o, e io.Writer) error { return cmdUnarchive(o, a) },
 	"promote":   func(a []string, o, e io.Writer) error { return cmdPromote(o, a) },
+	"accept":    func(a []string, o, e io.Writer) error { return cmdAccept(o, a) },
 	"drift":     func(a []string, o, e io.Writer) error { return cmdDrift(os.Stdin, o, e, a) },
 	"covers":    func(a []string, o, e io.Writer) error { return cmdCovers(o, a) },
 	"verified":  func(a []string, o, e io.Writer) error { return cmdVerified(o, a) },

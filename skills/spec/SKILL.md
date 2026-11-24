@@ -113,6 +113,9 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
 - `spec apply <id>` runs the configured agent on an accepted/proposed spec.
   With no ids it targets all accepted specs and asks first (`--yes` to skip,
   required when non-interactive). `spec apply --print` outputs the prompts.
+- `spec accept <id>…` marks specs accepted — the human approval bare
+  `spec apply` (no ids) consumes. Refine first, read the result, then
+  accept; acceptance isn't something the agent does to its own output.
 - `spec apply` succeeds only if the spec's status reaches `implemented` and
   `verify:` passes — so when applying a spec, set its status to
   `implemented` only once the work is really done.

@@ -1512,3 +1512,52 @@ func cmdDraftFeature(out, errOut io.Writer, title string) error {
 	}
 	return nil
 }
+
+// cmdAccept marks specs accepted — the human approval that lets bare
+// `spec apply` run them (FEAT-040). Per-id problems are reported and
+// skipped; the exit is non-zero naming the count.
+func cmdAccept(out io.Writer, ids []string) error {
+	if len(ids) == 0 {
+		return fmt.Errorf("usage: spec accept <id>...")
+	}
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
+	cfg := loadConfig(st.Root)
+	failed := 0
+	for _, id := range ids {
+		s := st.Get(id)
+		switch {
+		case s == nil:
+			fmt.Fprintf(out, "%s: no such spec\n", id)
+			failed++
+		case s.Archived:
+			fmt.Fprintf(out, "%s: archived — spec unarchive %s first\n", id, id)
+			failed++
+		case s.IsIdea():
+			fmt.Fprintf(out, "%s: an idea — spec promote %s <type> first\n", id, id)
+			failed++
+		case !cfg.validStatusFor(s.Type(), "accepted"):
+			fmt.Fprintf(out, "%s: %s specs have no 'accepted' status in this repo's config\n", id, s.Type())
+			failed++
+		case s.Status() == "accepted":
+			fmt.Fprintf(out, "%s: already accepted\n", id)
+		case cfg.isDone(s.Status()) || s.Status() == "implemented":
+			fmt.Fprintf(out, "%s: %s — can't accept a finished spec\n", id, s.Status())
+			failed++
+		default:
+			prev := s.Status()
+			if err := setSpecMeta(s, map[string][]string{"status": {"accepted"}}); err != nil {
+				fmt.Fprintf(out, "%s: %v\n", id, err)
+				failed++
+				continue
+			}
+			fmt.Fprintf(out, "%s: %s → accepted\n", id, prev)
+		}
+	}
+	if failed > 0 {
+		return fmt.Errorf("%d spec(s) not accepted", failed)
+	}
+	return nil
+}
