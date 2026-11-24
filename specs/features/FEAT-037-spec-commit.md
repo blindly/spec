@@ -5,7 +5,7 @@ id: FEAT-037
 status: implemented
 title: spec commit — staging, message, and spec attestation
 type: feature
-verified: 70bac3c085dfdf70c10c20bf361fd51ed63dc7e1
+verified: 313148990b1172827aaeb35634e46480a9c00b21
 ---
 
 # spec commit — staging, message, and spec attestation

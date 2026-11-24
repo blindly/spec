@@ -6,7 +6,7 @@ id: FEAT-039
 status: implemented
 title: VERSION stamping in spec commit and spec release
 type: feature
-verified: 70bac3c085dfdf70c10c20bf361fd51ed63dc7e1
+verified: 313148990b1172827aaeb35634e46480a9c00b21
 ---
 
 # FEAT-039: VERSION stamping in spec commit and `spec release`

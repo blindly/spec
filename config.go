@@ -25,7 +25,7 @@ type Config struct {
 	Persona      string   // name of a ~/.config/spec/personas/<name>.md used as the role when .spec/role.md is unset
 	VersionStamp bool     // spec commit refreshes VERSION (opt-in by the file's presence); spec release stamps + tags
 	Release      bool     // spec release allowed — VERSION opts into stamping, this opts into tagging
-	CommitAgent  bool     // spec commit asks the agent for the message by default (--no-agent overrides)
+	CommitAgent  bool     // spec commit asks a configured agent for the message by default (--no-agent or commit_agent: false disables)
 	Skills       []string // library skills (~/.config/spec/skills/<name>/) enabled for this repo
 	SkillTargets []string // agent skill dirs installed copies are generated into
 }
@@ -40,8 +40,8 @@ var (
 
 func defaultConfig() Config {
 	return Config{Agent: "none", AgentTimeout: 3600, WebPort: 8080, WebHost: "127.0.0.1",
-		VersionStamp: true,
-		Statuses:     defaultStatuses, DoneStatuses: defaultDoneStatuses, IdeaStatuses: defaultIdeaStatuses}
+		VersionStamp: true, CommitAgent: true,
+		Statuses: defaultStatuses, DoneStatuses: defaultDoneStatuses, IdeaStatuses: defaultIdeaStatuses}
 }
 
 // statusesFor returns the status list that applies to a spec type: ideas
@@ -171,7 +171,7 @@ func loadConfig(root string) Config {
 		case "version_stamp":
 			cfg.VersionStamp = v != "false" && v != "no" && v != "0" && v != "off"
 		case "commit_agent":
-			cfg.CommitAgent = v == "true" || v == "yes" || v == "1" || v == "on"
+			cfg.CommitAgent = v != "false" && v != "no" && v != "0" && v != "off"
 		case "web_host":
 			cfg.WebHost = strings.Trim(v, `"'`)
 		case "web_port":
@@ -239,7 +239,7 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 # agent_cmd: mycli --flag {prompt}   # {prompt} = prompt arg; {prompt-file} = temp file; absent = stdin
 # agent_env: [LANG, API_TOKEN=deploy_token]  # empty inherits the environment
 # agent_timeout: 3600   # seconds
-# commit_agent: true    # spec commit asks the agent for the message by default
+# commit_agent: false   # opt out of agent-written commit messages (default: on when an agent is configured)
 
 # Web
 # web_host: 127.0.0.1  # use 0.0.0.0 to expose on all interfaces
@@ -285,7 +285,7 @@ const repoConfigTemplate = `version: 1
 # agent_cmd: mycli --flag {prompt}   # {prompt} = prompt arg; {prompt-file} = temp file; absent = stdin
 # agent_env: [LANG, API_TOKEN=deploy_token]  # empty inherits the environment
 # agent_timeout: 3600   # seconds
-# commit_agent: true    # spec commit asks the agent for the message by default
+# commit_agent: false   # opt out of agent-written commit messages (default: on when an agent is configured)
 
 # Web
 # web_host: 127.0.0.1   # use 0.0.0.0 to expose on all interfaces

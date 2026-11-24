@@ -56,7 +56,10 @@ func cmdCommit(out, errOut io.Writer, args []string) error {
 			outside = true
 		}
 	}
-	wantAgent := (*useAgent || cfg.CommitAgent) && !*noAgent
+	// explicit --agent always engages (errors when unconfigured); the
+	// default engages only when an agent is actually configured, so
+	// agent-less repos stay offline silently
+	wantAgent := !*noAgent && (*useAgent || (cfg.CommitAgent && agentConfigured(cfg)))
 	m := *msg
 	switch {
 	case m != "":

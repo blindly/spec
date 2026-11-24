@@ -43,6 +43,13 @@ var knownAdapters = map[string][]string{
 // resolveAgent picks an agent per config. Returns (nil, nil) when no agent is
 // configured, and (nil, err) when one is configured but unusable — callers can
 // then warn or fail rather than silently degrading.
+// agentConfigured reports whether an agent is configured — agent_cmd or
+// a named agent. Used where the agent is a default (commit messages),
+// distinct from an explicit request which errors via resolveAgent.
+func agentConfigured(cfg Config) bool {
+	return cfg.AgentCmd != "" || (cfg.Agent != "" && cfg.Agent != "none")
+}
+
 func resolveAgent(cfg Config) (*agent, error) {
 	if cfg.AgentCmd != "" {
 		argv, err := splitArgs(cfg.AgentCmd)

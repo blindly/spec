@@ -301,10 +301,10 @@ var commandDocs = []commandDoc{
 	{"commit", `  spec commit [-m msg] [--exempt R] [--agent|--no-agent]   Stage all and commit, conventional-commit
                                        style; an uncovered commit needs a non-feat: subject or a
                                        Spec-Exempt trailer (--exempt) or the push will fail;
-                                       --agent asks the configured agent to write the message
-                                       and pick the attestation from the staged diff
-                                       (commit_agent: true makes that the default; --no-agent
-                                       overrides). Refreshes VERSION when the repo has one
+                                       a configured agent writes the message by default
+                                       (--agent = explicit form; --no-agent or
+                                       commit_agent: false uses the offline summary).
+                                       Refreshes VERSION when the repo has one
                                        (version_stamp: false opts out)`},
 	{"release", `  spec release [--major N]           Stamp VERSION, commit it alone, push, and tag
                                        v<stamp> — requires release: true in the repo

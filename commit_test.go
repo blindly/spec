@@ -296,8 +296,9 @@ func TestSpecRelease(t *testing.T) {
 	}
 }
 
-// FEAT-038: commit_agent: true makes the agent the default; --no-agent
-// opts a single commit back to the offline summary.
+// FEAT-038: a configured agent writes the message by default;
+// --no-agent opts a single commit back to the offline summary, and
+// commit_agent: false disables the default entirely.
 func TestSpecCommitAgentDefault(t *testing.T) {
 	st := setupRepo(t)
 	commit := gitInit(t, st)
@@ -305,11 +306,8 @@ func TestSpecCommitAgentDefault(t *testing.T) {
 	var out, errs bytes.Buffer
 
 	promptFile := fakeCommitAgent(t, st, "fix: handle nil map\n")
-	// fakeCommitAgent rewrote config — add the default-on key
-	cfg, _ := os.ReadFile(filepath.Join(st.Root, ".spec", "config.yml"))
-	writeFile(t, st, ".spec/config.yml", string(cfg)+"commit_agent: true\n")
 
-	// bare commit uses the agent when commit_agent is set
+	// bare commit uses the configured agent by default
 	writeFile(t, st, "foo.go", "package x\n")
 	if err := cmdCommit(&out, &errs, nil); err != nil {
 		t.Fatal(err)
@@ -329,5 +327,30 @@ func TestSpecCommitAgentDefault(t *testing.T) {
 	}
 	if m := lastCommitMsg(t, st); !strings.HasPrefix(m, "chore: update") {
 		t.Fatalf("--no-agent should use the summary:\n%s", m)
+	}
+
+	// commit_agent: false disables the default entirely
+	cfg, _ := os.ReadFile(filepath.Join(st.Root, ".spec", "config.yml"))
+	writeFile(t, st, ".spec/config.yml", string(cfg)+"commit_agent: false\n")
+	writeFile(t, st, "qux.go", "package x\n")
+	if err := cmdCommit(&out, &errs, nil); err != nil {
+		t.Fatal(err)
+	}
+	if m := lastCommitMsg(t, st); !strings.HasPrefix(m, "chore: update") {
+		t.Fatalf("commit_agent: false should use the summary:\n%s", m)
+	}
+
+	// no agent configured → silent offline summary even with the default on
+	st2 := setupRepo(t)
+	commit2 := gitInit(t, st2)
+	commit2("baseline")
+	writeFile(t, st2, "x.go", "package x\n")
+	out.Reset()
+	errs.Reset()
+	if err := cmdCommit(&out, &errs, nil); err != nil {
+		t.Fatal(err)
+	}
+	if m := lastCommitMsg(t, st2); !strings.HasPrefix(m, "chore: update") {
+		t.Fatalf("agent-less repo should use the summary:\n%s", m)
 	}
 }
