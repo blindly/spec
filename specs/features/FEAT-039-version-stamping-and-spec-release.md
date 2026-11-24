@@ -45,8 +45,10 @@ commit; on an otherwise-clean tree this yields a stamp-only commit — a
 bump without a release. `spec release` requires a clean tree (commit
 first) so the VERSION commit stays bookkeeping-only and auditable; the
 `chore:` subject self-attests spec-neutrality under FEAT-036 — no
-trailer needed. An existing `v<stamp>` tag errors rather than
-retagging; a failed tag push says how to retry.
+trailer needed. When HEAD already carries the fresh stamp (a `spec
+commit` in the same minute), no VERSION commit is made — release just
+tags HEAD. An existing `v<stamp>` tag errors rather than retagging; a
+failed tag push says how to retry.
 
 ## Acceptance Criteria
 
