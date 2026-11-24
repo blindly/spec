@@ -35,7 +35,7 @@ var completionTable = map[string]cmdComp{
 	"unarchive":  {args: []string{"spec-id"}},
 	"edit":       {args: []string{"spec-id"}},
 	"refine":     {flags: []string{"--force"}, args: []string{"spec-id"}},
-	"apply": {flags: []string{"--print", "--dry-run", "--run", "--force", "--yes", "-y", "--no-verify"},
+	"apply": {flags: []string{"--print", "--dry-run", "--run", "--force", "--yes", "-y", "--no-verify", "--no-review"},
 		args: []string{"spec-id"}},
 	"drift":    {flags: []string{"--review", "--yes"}, args: []string{"spec-id"}},
 	"covers":   {flags: []string{"--infer"}, args: []string{"spec-id"}},

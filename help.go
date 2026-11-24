@@ -289,8 +289,10 @@ var commandDocs = []commandDoc{
 	{"refine", `  spec refine <id> [--force]         LLM agent improves an existing spec; for ideas, also
                                        suggests a type and offers to promote (--force: discarded ideas)`},
 	{"apply", `  spec apply [flags] [id...]         Run agent to implement specs (no ids: all accepted, after confirmation)
-                                       --print outputs prompts · --yes skips confirmation
-                                       --no-verify skips verify · --force allows any status`},
+                                       --print outputs prompts · --yes skips confirmation (and applies
+                                       stale-verdict spec rewrites without prompting)
+                                       --no-verify skips verify · --no-review skips the post-apply
+                                       drift review of other affected specs · --force allows any status`},
 	{"role", `  spec role [edit|refine|adopt]      Show/edit/refine the effective role (.spec/role.md or persona);
                                        adopt copies the active persona into .spec/role.md`},
 	{"persona", `  spec persona [new|edit|refine <name>|use <name|none>|view [name]]   Manage the shared

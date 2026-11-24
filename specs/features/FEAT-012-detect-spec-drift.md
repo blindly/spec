@@ -104,8 +104,13 @@ Addresses: REQ-014
 
 - The apply prompt lists specs that already may be stale, with their covered
   files, so the agent can bring them up to date if its work touches them.
-- After the agent runs, spec warns about other system specs that cover files
-  this run changed, if their spec files weren't updated in the same run.
+- After the agent runs, spec reviews other system specs that cover files
+  this run changed but weren't updated in it — the check isn't optional:
+  each flagged spec goes through the same agent verdict as `drift
+  --review`, with `verified` stamps applied automatically. A stale verdict's
+  proposed rewrite still confirms interactively or applies under `--yes`;
+  `--no-review` skips the pass. The suggestion line that used to end the
+  run is gone — the review is the run.
 
 ### Web
 
@@ -126,7 +131,7 @@ Addresses: REQ-014
 - [x] `spec drift --review` continues past a spec whose agent call fails and exits non-zero naming the failures
 - [x] A file covered by ≥5 specs never triggers drift and isn't added by `covers --infer` or apply coverage tracking
 - [x] `spec check` warns about possibly-stale specs without failing
-- [x] The apply prompt lists possibly-stale specs, and after applying, spec warns about other specs covering files the run changed
+- [x] The apply prompt lists possibly-stale specs, and after applying, spec runs the drift review on other specs covering files the run changed (verified stamps automatic; rewrites confirm or apply under `--yes`; `--no-review` skips)
 - [x] `/system` shows a "may be stale" badge; the spec page lists changed files and commits
 - [x] Without git, drift reports that it's unavailable and nothing else breaks
 - [x] Tests use real git repos with fixed commit dates, and fake agents for apply and review

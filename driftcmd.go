@@ -236,9 +236,9 @@ func reviewDrift(in io.Reader, out, errOut io.Writer, st Store, cfg Config, g *g
 // changed into the applied spec's covers (when it reached implemented), and
 // warns about other system specs covering those files whose spec files the
 // run didn't update.
-func trackCoverage(out io.Writer, st Store, cfg Config, id string, changed []string, implemented bool) {
+func trackCoverage(out io.Writer, st Store, cfg Config, id string, changed []string, implemented bool) []string {
 	if len(changed) == 0 {
-		return
+		return nil
 	}
 	changedSet := map[string]bool{}
 	var code []string
@@ -249,7 +249,7 @@ func trackCoverage(out io.Writer, st Store, cfg Config, id string, changed []str
 		}
 	}
 	if len(code) == 0 {
-		return
+		return nil
 	}
 	if s := st.Get(id); s != nil && implemented {
 		covers := s.Field("covers")
@@ -288,9 +288,10 @@ func trackCoverage(out io.Writer, st Store, cfg Config, id string, changed []str
 		}
 	}
 	if len(others) > 0 {
-		fmt.Fprintf(out, "\nOther specs cover files this run changed but weren't updated — check they're still accurate:\n  %s\n  spec drift --review %s\n",
-			strings.Join(others, "\n  "), strings.Join(otherIDs, " "))
+		fmt.Fprintf(out, "\nOther specs cover files this run changed but weren't updated:\n  %s\n",
+			strings.Join(others, "\n  "))
 	}
+	return otherIDs
 }
 
 func cmdCovers(out io.Writer, args []string) error {

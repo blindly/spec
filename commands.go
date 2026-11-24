@@ -1248,6 +1248,7 @@ type applyOpts struct {
 	Force    bool // allow explicit ids with non-applyable status
 	Yes      bool // skip the confirmation for implicit (no-id) runs
 	NoVerify bool // skip verify commands after an agent run
+	NoReview bool // skip the post-apply drift review of other affected specs
 }
 
 // stdinIsTerminal reports whether stdin is interactive; a var so tests can
@@ -1351,6 +1352,7 @@ func cmdApply(in io.Reader, out, errOut io.Writer, ids []string, opts applyOpts)
 		ok          bool
 	}
 	var results []result
+	var affected []string
 	for _, s := range targets {
 		prompt := fmt.Sprintf(applyPromptFmt, s.ID(), s.Title(), s.Body, verifyNote, repoContext(st, 50))
 		fmt.Fprintf(out, "Applying %s via %s…\n", s.ID(), ag.name)
@@ -1358,7 +1360,7 @@ func cmdApply(in io.Reader, out, errOut io.Writer, ids []string, opts applyOpts)
 		_, runErr := ag.runLive(prompt, st.Root, cfg.AgentTimeout, out)
 		outcome, ok := applyOutcome(st, cfg, s.ID(), runErr, opts, out, errOut)
 		fmt.Fprintf(out, "\n%s: %s\n", s.ID(), outcome)
-		trackCoverage(out, st, cfg, s.ID(), changedSince(st.Root, snap), ok)
+		affected = append(affected, trackCoverage(out, st, cfg, s.ID(), changedSince(st.Root, snap), ok)...)
 		results = append(results, result{s.ID(), outcome, ok})
 	}
 	failed := 0
@@ -1371,6 +1373,31 @@ func cmdApply(in io.Reader, out, errOut io.Writer, ids []string, opts applyOpts)
 		fmt.Fprintln(out, "\nSummary:")
 		for _, r := range results {
 			fmt.Fprintf(out, "  %-10s %s\n", r.id, r.outcome)
+		}
+	}
+	// The drift check isn't optional: other specs covering files the run
+	// changed get reviewed against the diff. Verified stamping is
+	// automatic; a stale-verdict rewrite still confirms per drift
+	// --review's contract (or applies under --yes).
+	if !opts.NoReview && len(affected) > 0 {
+		if g := loadGit(st.Root); g != nil {
+			stale, _ := g.systemDrift(st, cfg)
+			want := map[string]bool{}
+			for _, id := range affected {
+				want[id] = true
+			}
+			var toReview []*driftInfo
+			for _, d := range stale {
+				if want[d.Spec.ID()] {
+					toReview = append(toReview, d)
+				}
+			}
+			if len(toReview) > 0 {
+				fmt.Fprintf(out, "\nReviewing %d spec(s) covering files this run changed…\n", len(toReview))
+				if err := reviewDrift(in, out, errOut, st, cfg, g, toReview, opts.Yes); err != nil {
+					fmt.Fprintf(errOut, "%v\n", err)
+				}
+			}
 		}
 	}
 	if failed > 0 {

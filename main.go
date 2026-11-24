@@ -101,6 +101,8 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 				opts.Yes = true
 			case "--no-verify":
 				opts.NoVerify = true
+			case "--no-review":
+				opts.NoReview = true
 			default:
 				if strings.HasPrefix(arg, "--") {
 					return fmt.Errorf("unknown flag %s", arg)
