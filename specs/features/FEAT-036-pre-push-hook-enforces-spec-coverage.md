@@ -29,12 +29,12 @@ Addresses: REQ-014
 
 ## Design
 
-- **Spec-managed, not committed.** The hook is embedded in the binary
-  (`prepush.go`) and written to `.git/hooks/pre-push` by
-  `ensurePrePushHook`, called from `syncSkills` — so `spec init`,
-  `spec skill sync`, and `spec update` all install or refresh it.
-  Nothing lives under version control; the clone's hook is regenerated
-  output like the skill installs.
+- **Spec-managed, not committed.** The hooks are embedded in the
+  binary (`prepush.go`) and written to `.git/hooks/` by
+  `ensureSpecHooks`, called from `syncSkills` — so `spec init`,
+  `spec skill sync`, and `spec update` all install or refresh them.
+  Nothing lives under version control; the clone's hooks are
+  regenerated output like the skill installs.
 - **Self-maintaining, non-destructive.** A `# managed by spec` marker
   distinguishes ours from a user's: foreign hooks are left alone with
   a note; stale managed hooks refresh; a current one is untouched.
@@ -60,10 +60,21 @@ Addresses: REQ-014
 - **Escape hatch.** `SPEC_SKIP=1 git push` skips the check entirely —
   last resort for spec-neutral bulk changes (typos, refactors,
   test-only sweeps), not a routine alternative to the trailer.
+- **Why pre-push, not pre-commit.** The rule is "behavior ships with
+  its spec in the same *push*" — a code commit followed by a spec
+  commit is a valid pair, and at commit time nothing can distinguish
+  "spec coming next" from "spec forgotten". Push is also the
+  publication boundary: local WIP commits legitimately lack specs.
+- **Advisory commit-msg hook.** A second managed hook warns (never
+  blocks — always exit 0) when a commit changes files outside
+  `specs/`/`.spec/` with no `specs/` path staged and no `Spec-Exempt:`
+  trailer in the message: the early nudge that a bare blocking hook
+  can't give without false positives. Enforcement stays at pre-push.
 - **Observable.** `spec status`/`spec ps` print
-  `Pre-push hook: installed|outdated|missing|foreign` (non-git repos
-  omit the line), and `spec check` WARNs on any unenforced state —
-  missing, outdated, or foreign hooks all mean the rule isn't active.
+  `Spec hooks: <name>: installed|outdated|missing|foreign` for each
+  managed hook (non-git repos omit the line), and `spec check` WARNs
+  on any unenforced state — missing, outdated, or foreign hooks all
+  mean the rule isn't active.
 
 ## Acceptance Criteria
 
@@ -72,9 +83,12 @@ Addresses: REQ-014
   failure names the offending commits and the trailer
 - [x] Pushes including a `specs/` change pass; spec-only pushes pass
 - [x] New-ref pushes are handled via `--not --remotes`
-- [x] `SPEC_SKIP=1` bypasses; foreign pre-push hooks are never
-  clobbered (noted instead); stale managed hooks refresh on sync
-- [x] `spec status`/`ps` report the hook state; `spec check` WARNs
+- [x] `SPEC_SKIP=1` bypasses; foreign hooks are never clobbered
+  (noted instead); stale managed hooks refresh on sync
+- [x] The `commit-msg` hook warns on spec-less code commits without a
+  trailer, exits 0 always, and stays quiet for covered or exempt
+  commits
+- [x] `spec status`/`ps` report each hook's state; `spec check` WARNs
   when the rule isn't enforced (missing, outdated, or foreign)
 - [x] `AGENTS.md` template and README document the behavior
 - [x] Tests cover install semantics and live enforcement via real

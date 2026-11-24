@@ -5,6 +5,7 @@ id: FEAT-037
 status: implemented
 title: spec commit — staging, message, and Spec-Exempt trailer
 type: feature
+verified: 4c35d667ab4067bad1fa73526ec12cb495938362
 ---
 
 # spec commit — staging, message, and Spec-Exempt trailer

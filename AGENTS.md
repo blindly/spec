@@ -14,7 +14,9 @@ This repository uses spec for spec-driven development.
 - Run spec drift to find specs whose covered code changed since they were
   last updated; fix them, or spec verified <id> if still accurate.
 - A spec-managed pre-push hook blocks pushes that change files outside
-  specs/ without a spec update. Commit through `spec commit`: it adds a
+  specs/ without a spec update; an advisory commit-msg hook warns at
+  commit time. Commit through `spec commit`: it adds a
   `Spec-Exempt: <reason>` trailer for defect fixes (--exempt, or auto
-  when it writes the message); `SPEC_SKIP=1 git push` is the last-resort
+  when it writes the message; `--agent` asks the configured agent to
+  write both); `SPEC_SKIP=1 git push` is the last-resort
   bypass.

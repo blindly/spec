@@ -11,36 +11,39 @@ import (
 	"testing"
 )
 
-// FEAT-036: the managed hook installs executable, refreshes when stale,
-// and never clobbers a foreign hook.
+// FEAT-036: the managed hooks install executable, refresh when stale,
+// and never clobber a foreign hook.
 func TestPrePushHookInstall(t *testing.T) {
 	st := setupRepo(t)
 	gitInit(t, st) // setupRepo ran before .git existed
 	var buf bytes.Buffer
-	ensurePrePushHook(st.Root, &buf)
-	hook := filepath.Join(st.Root, ".git", "hooks", "pre-push")
-	data, err := os.ReadFile(hook)
-	if err != nil {
-		t.Fatalf("hook not installed: %v", err)
-	}
-	if !strings.Contains(string(data), prePushMarker) {
-		t.Fatal("installed hook missing marker")
-	}
-	if fi, _ := os.Stat(hook); fi.Mode()&0o111 == 0 {
-		t.Fatal("hook not executable")
+	ensureSpecHooks(st.Root, &buf)
+	for _, h := range specHookScripts {
+		hook := filepath.Join(st.Root, ".git", "hooks", h.name)
+		data, err := os.ReadFile(hook)
+		if err != nil {
+			t.Fatalf("%s hook not installed: %v", h.name, err)
+		}
+		if !strings.Contains(string(data), specHookMarker) {
+			t.Fatalf("%s hook missing marker", h.name)
+		}
+		if fi, _ := os.Stat(hook); fi.Mode()&0o111 == 0 {
+			t.Fatalf("%s hook not executable", h.name)
+		}
 	}
 	// foreign hook left alone, noted
+	hook := filepath.Join(st.Root, ".git", "hooks", "pre-push")
 	custom := "#!/bin/sh\n# user's own hook\n"
 	os.WriteFile(hook, []byte(custom), 0o755)
 	buf.Reset()
-	ensurePrePushHook(st.Root, &buf)
-	data, _ = os.ReadFile(hook)
+	ensureSpecHooks(st.Root, &buf)
+	data, _ := os.ReadFile(hook)
 	if string(data) != custom || !strings.Contains(buf.String(), "foreign") {
 		t.Fatalf("foreign hook mishandled: %q", buf.String())
 	}
 	// stale managed hook refreshes
-	os.WriteFile(hook, []byte(prePushMarker+"\n# old\n"), 0o755)
-	ensurePrePushHook(st.Root, io.Discard)
+	os.WriteFile(hook, []byte(specHookMarker+"\n# old\n"), 0o755)
+	ensureSpecHooks(st.Root, io.Discard)
 	data, _ = os.ReadFile(hook)
 	if string(data) != prePushHook {
 		t.Fatal("stale managed hook not refreshed")
@@ -51,43 +54,86 @@ func TestPrePushHookInstall(t *testing.T) {
 func TestPrePushHookReporting(t *testing.T) {
 	st := setupRepo(t)
 	gitInit(t, st)
-	hook := filepath.Join(st.Root, ".git", "hooks", "pre-push")
+	hooksDir, _ := gitHooksDir(st.Root)
 
 	var out bytes.Buffer
 	cmdStatus(&out, io.Discard)
-	if !strings.Contains(out.String(), "Pre-push hook: missing") {
-		t.Fatalf("status should report missing hook:\n%s", out.String())
+	for _, want := range []string{"pre-push: missing", "commit-msg: missing"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("status should report %q:\n%s", want, out.String())
+		}
 	}
 	var check bytes.Buffer
 	cmdCheck(&check, io.Discard)
-	if !strings.Contains(check.String(), "WARN  pre-push hook missing") {
-		t.Fatalf("check should warn on missing hook:\n%s", check.String())
+	for _, want := range []string{"WARN  pre-push hook missing", "WARN  commit-msg hook missing"} {
+		if !strings.Contains(check.String(), want) {
+			t.Fatalf("check should warn %q:\n%s", want, check.String())
+		}
 	}
 
-	ensurePrePushHook(st.Root, io.Discard)
-	if got := prePushHookState(st.Root); got != "installed" {
-		t.Fatalf("installed hook reports %q", got)
-	}
+	ensureSpecHooks(st.Root, io.Discard)
 	out.Reset()
 	cmdStatus(&out, io.Discard)
-	if !strings.Contains(out.String(), "Pre-push hook: installed") {
-		t.Fatalf("status should report installed:\n%s", out.String())
+	if !strings.Contains(out.String(), "pre-push: installed") ||
+		!strings.Contains(out.String(), "commit-msg: installed") {
+		t.Fatalf("status should report both hooks installed:\n%s", out.String())
 	}
 	check.Reset()
 	if err := cmdCheck(&check, io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(check.String(), "pre-push") {
-		t.Fatalf("installed hook should not warn:\n%s", check.String())
+	if strings.Contains(check.String(), "hook") {
+		t.Fatalf("installed hooks should not warn:\n%s", check.String())
 	}
 
-	os.WriteFile(hook, []byte(prePushMarker+"\n# old\n"), 0o755)
-	if got := prePushHookState(st.Root); !strings.Contains(got, "outdated") {
+	hook := filepath.Join(hooksDir, "pre-push")
+	os.WriteFile(hook, []byte(specHookMarker+"\n# old\n"), 0o755)
+	if got := specHooksSummary(st.Root); !strings.Contains(got, "pre-push: outdated") {
 		t.Fatalf("stale hook reports %q", got)
 	}
 	os.WriteFile(hook, []byte("#!/bin/sh\n# mine\n"), 0o755)
-	if got := prePushHookState(st.Root); !strings.Contains(got, "foreign") {
+	if got := specHooksSummary(st.Root); !strings.Contains(got, "pre-push: foreign") {
 		t.Fatalf("foreign hook reports %q", got)
+	}
+}
+
+// FEAT-036: commit-msg warns (never blocks) on spec-less code commits;
+// silent for covered or exempt commits.
+func TestCommitMsgHookWarning(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash not installed")
+	}
+	st := setupRepo(t)
+	gitInit(t, st)
+	ensureSpecHooks(st.Root, io.Discard)
+	hook := filepath.Join(st.Root, ".git", "hooks", "commit-msg")
+	msg := filepath.Join(st.Root, ".git", "COMMIT_EDITMSG")
+
+	run := func(message string) string {
+		os.WriteFile(msg, []byte(message), 0o644)
+		cmd := exec.Command("bash", hook, msg)
+		cmd.Dir = st.Root
+		var errs bytes.Buffer
+		cmd.Stderr = &errs
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("advisory hook must always exit 0: %v", err)
+		}
+		return errs.String()
+	}
+
+	os.WriteFile(filepath.Join(st.Root, "foo.go"), []byte("package x\n"), 0o644)
+	exec.Command("git", "-C", st.Root, "add", "foo.go").Run()
+	if out := run("wip\n"); !strings.Contains(out, "Spec-Exempt") {
+		t.Fatalf("spec-less code commit should warn:\n%s", out)
+	}
+	if out := run("fix\n\nSpec-Exempt: restores documented behavior\n"); out != "" {
+		t.Fatalf("exempt commit should stay quiet:\n%s", out)
+	}
+	os.WriteFile(filepath.Join(st.Root, "specs", "features", "FEAT-001-x.md"),
+		[]byte("---\nid: FEAT-001\ntype: feature\nstatus: draft\n---\n# x\n"), 0o644)
+	exec.Command("git", "-C", st.Root, "add", "specs/").Run()
+	if out := run("add feature\n"); out != "" {
+		t.Fatalf("spec-covered commit should stay quiet:\n%s", out)
 	}
 }
 
@@ -100,7 +146,7 @@ func TestPrePushHookEnforcement(t *testing.T) {
 	st := setupRepo(t)
 	commit := gitInit(t, st)
 	var buf bytes.Buffer
-	ensurePrePushHook(st.Root, &buf)
+	ensureSpecHooks(st.Root, &buf)
 	hook := filepath.Join(st.Root, ".git", "hooks", "pre-push")
 	rev := func(ref string) string {
 		b, err := exec.Command("git", "-C", st.Root, "rev-parse", ref).Output()
