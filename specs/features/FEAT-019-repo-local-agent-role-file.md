@@ -5,7 +5,7 @@ id: FEAT-019
 status: implemented
 title: Repo-local agent role file
 type: feature
-verified: cbc841f0916fbfd44c8ca3369c829adb54a64fbb
+verified: 386db4a9145629ddfd9f91d66c21667c822c5072
 ---
 
 # Repo-local agent role file
