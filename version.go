@@ -91,11 +91,15 @@ func cmdRelease(out, errOut io.Writer, args []string) error {
 	if out2 := strings.TrimSpace(mustGit(st.Root, "rev-parse", "--verify", "--quiet", tag)); out2 != "" {
 		return fmt.Errorf("tag %s already exists", tag)
 	}
-	if out2, err := gitOut(st.Root, "add", "VERSION"); err != nil {
-		return fmt.Errorf("git add: %s", out2)
-	}
-	if out2, err := gitOut(st.Root, "commit", "-m", "chore: bump "+stamp, "--", "VERSION"); err != nil {
-		return fmt.Errorf("git commit: %s", out2)
+	// Commit VERSION only when the stamp actually changed — HEAD often
+	// already carries it (spec commit just stamped the same minute).
+	if _, err := gitOut(st.Root, "diff", "--quiet", "--", "VERSION"); err != nil {
+		if out2, err := gitOut(st.Root, "add", "VERSION"); err != nil {
+			return fmt.Errorf("git add: %s", out2)
+		}
+		if out2, err := gitOut(st.Root, "commit", "-m", "chore: bump "+stamp, "--", "VERSION"); err != nil {
+			return fmt.Errorf("git commit: %s", out2)
+		}
 	}
 	branch := strings.TrimSpace(mustGit(st.Root, "branch", "--show-current"))
 	if out2, err := gitOut(st.Root, "push", "origin", branch); err != nil {
