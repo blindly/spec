@@ -509,7 +509,7 @@ func TestStatusGroupsFinished(t *testing.T) {
 	}
 }
 
-// FEAT-035: ps = status + an In flight queue of specs not yet done.
+// FEAT-035: ps = the in-flight queue alone; status stays the dashboard.
 func TestStatusPs(t *testing.T) {
 	st := setupRepo(t)
 	body := "# x\n\n## Summary\n\ns\n\n## Design\n\nd\n\n## Acceptance Criteria\n\n- [ ] x\n"
@@ -520,8 +520,8 @@ func TestStatusPs(t *testing.T) {
 		t.Fatalf("spec ps: exit %d", code)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "Specs:") || !strings.Contains(out, "In flight:") {
-		t.Fatalf("ps should print status plus in-flight list:\n%s", out)
+	if strings.Contains(out, "Specs:") || !strings.Contains(out, "In flight:") {
+		t.Fatalf("ps should print the queue, not the dashboard:\n%s", out)
 	}
 	if !strings.Contains(out, "active") || strings.Contains(out, "shipped") {
 		t.Fatalf("in-flight should list accepted, not implemented:\n%s", out)

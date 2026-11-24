@@ -297,7 +297,7 @@ var commandDocs = []commandDoc{
                                        persona library (~/.config/spec/personas/); use selects
                                        one for this repo; view cats one (default: active) to stdout`},
 	{"status", `  spec status                        Summarize repository spec state`},
-	{"ps", `  spec ps                            Like status, plus an In flight list of specs not yet done`},
+	{"ps", `  spec ps                            List specs in flight (not yet done) — the queue, not the dashboard`},
 	{"commit", `  spec commit [-m msg] [--exempt R] [--agent]   Stage all and commit; adds a Spec-Exempt trailer
                                        when the commit has no specs/ change (auto-attests when -m
                                        is omitted); --agent asks the configured agent to write the
