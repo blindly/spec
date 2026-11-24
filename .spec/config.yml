@@ -22,3 +22,6 @@ verify: [go test ./..., go vet ./..., spec validate, spec check]
 # Editor for spec edit / spec config edit (falls back to $EDITOR, then vi)
 # editor: vim
 skills: [go-conventions]
+
+# Releases
+release: true

@@ -257,6 +257,14 @@ func TestSpecRelease(t *testing.T) {
 	run("remote", "add", "origin", remote)
 
 	var out, errs bytes.Buffer
+	// release is off until the repo opts in
+	if err := cmdRelease(&out, &errs, nil); err == nil || !strings.Contains(err.Error(), "release: true") {
+		t.Fatalf("want not-enabled refusal: %v", err)
+	}
+	cfg, _ := os.ReadFile(filepath.Join(st.Root, ".spec", "config.yml"))
+	writeFile(t, st, ".spec/config.yml", string(cfg)+"\nrelease: true\n")
+	commit("chore: enable release")
+
 	// dirty tree refuses — the release commit must be VERSION-only
 	writeFile(t, st, "a.txt", "uncommitted")
 	if err := cmdRelease(&out, &errs, nil); err == nil || !strings.Contains(err.Error(), "spec commit first") {

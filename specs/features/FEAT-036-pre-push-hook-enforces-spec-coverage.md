@@ -5,7 +5,7 @@ id: FEAT-036
 status: implemented
 title: spec-managed pre-push hook enforces spec coverage
 type: feature
-verified: b3fced235ce1edf8fbe429442664b7a7f1a5a9f2
+verified: 9fa806bbbdd79b457ada723259099e2b194d8228
 ---
 
 # spec-managed pre-push hook enforces spec coverage

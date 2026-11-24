@@ -24,7 +24,8 @@ taskfile — unavailable where invoke isn't wired, e.g. Windows).
   the commit
 - `spec release` produces a VERSION-only `chore: bump <stamp>` commit,
   pushes the branch, and pushes `v<stamp>`
-- Visible failure on a dirty tree, missing VERSION, or existing tag
+- Visible failure when `release: true` is unset, on a dirty tree, on
+  missing VERSION, or on an existing tag
 
 ## Design
 
@@ -39,6 +40,9 @@ it is always monotonic and needs no human input:
   the stored one (clock regression across machines/timezones).
 - `version_stamp: false` in `.spec/config.yml` opts a repo back out —
   for repos that have a VERSION file under a different scheme.
+- `release: true` in the repo's `.spec/config.yml` opts into releasing —
+  `spec release` refuses without it. The key is repo-only by design: a
+  global `release: true` would silently enable tagging everywhere.
 
 `spec commit` stamps before staging so the refresh rides the same
 commit; on an otherwise-clean tree this yields a stamp-only commit — a
@@ -57,7 +61,8 @@ failed tag push says how to retry.
 - [x] `spec release` produces a VERSION-only `chore: bump <stamp>`
   commit, pushes the branch, and pushes `v<stamp>`; `--major` forces
   the major
-- [x] `release` fails visibly on a dirty tree, a missing VERSION file,
-  or an existing tag — no silent re-tag
+- [x] `release` fails visibly when `release: true` is unset
+  (repo-only config key), on a dirty tree, a missing VERSION file, or
+  an existing tag — no silent re-tag
 - [x] Stamp format `<major>.<yy>.<mm>-build-<ddhhmm>` with the
   clock-regression major bump

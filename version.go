@@ -77,6 +77,9 @@ func cmdRelease(out, errOut io.Writer, args []string) error {
 	if err != nil {
 		return err
 	}
+	if !loadConfig(st.Root).Release {
+		return fmt.Errorf("release not enabled — set release: true in .spec/config.yml")
+	}
 	if dirty := strings.TrimSpace(mustGit(st.Root, "status", "--porcelain")); dirty != "" {
 		return fmt.Errorf("uncommitted changes — spec commit first")
 	}

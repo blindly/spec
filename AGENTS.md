@@ -22,4 +22,5 @@ This repository uses spec for spec-driven development.
   attestation; `SPEC_SKIP=1 git push` is the last-resort bypass.
 - A VERSION file opts the repo into release versioning: `spec commit`
   refreshes the stamp, and `spec release` stamps a VERSION-only commit,
-  pushes, and tags `v<stamp>`.
+  pushes, and tags `v<stamp>` — only where repo config sets
+  `release: true`.

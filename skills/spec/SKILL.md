@@ -85,7 +85,9 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    `spec release` (clean tree) stamps a VERSION-only `chore: bump`
    commit, pushes, and tags `v<stamp>` — the tag drives the release
    workflow. Bump the major by editing VERSION (`--major N` forces it);
-   `version_stamp: false` in config manages VERSION by hand.
+   `version_stamp: false` manages VERSION by hand, and `release: true`
+   in repo config is the second opt-in — without it `spec release`
+   refuses, so stamping never implies releasing.
 
 ## Rules
 

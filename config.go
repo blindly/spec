@@ -24,6 +24,7 @@ type Config struct {
 	Verify       []string // commands run by spec verify
 	Persona      string   // name of a ~/.config/spec/personas/<name>.md used as the role when .spec/role.md is unset
 	VersionStamp bool     // spec commit refreshes VERSION (opt-in by the file's presence); spec release stamps + tags
+	Release      bool     // spec release allowed — VERSION opts into stamping, this opts into tagging
 	Skills       []string // library skills (~/.config/spec/skills/<name>/) enabled for this repo
 	SkillTargets []string // agent skill dirs installed copies are generated into
 }
@@ -192,6 +193,10 @@ func loadConfig(root string) Config {
 		}
 	}
 	cfg.Skills = unionStrings(parseList(globalRaw["skills"]), parseList(repoRaw["skills"]))
+	// release is deliberately repo-only — a global release: true would
+	// silently enable tagging in every repo.
+	v := repoRaw["release"]
+	cfg.Release = v == "true" || v == "yes" || v == "1" || v == "on"
 	return cfg
 }
 
@@ -302,8 +307,9 @@ const repoConfigTemplate = `version: 1
 # skill_targets: [.devin/skills, .claude/skills]   # install dirs (default: the configured agent's dir, else both)
 
 # Releases — a VERSION file opts into version stamping: spec commit
-# refreshes it and spec release tags v<stamp>; set false to manage it by hand
+# refreshes it; set false to manage it by hand
 # version_stamp: true
+# release: false            # spec release requires this — tags v<stamp> on release
 
 # Viewer for spec view (default: built-in plain output; no $PAGER)
 # viewer: "glow --style dark {file}"   # {file} = path; absent = appended

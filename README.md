@@ -38,7 +38,7 @@ go build -o spec .
 | `spec role [edit\|refine]` | Print, edit, or improve the repo-local `.spec/role.md` development persona (refine requires an agent) |
 | `spec status` | Summarize repo spec state (counts, coverage, agent, spec-hook state); `spec ps` prints just the `In flight:` queue of specs not yet done |
 | `spec commit [-m msg] [--exempt R] [--agent]` | Stage all and commit, conventional-commit style; an uncovered commit needs attestation — a non-`feat:` subject or a `Spec-Exempt:` trailer (`--exempt` adds it) — or it warns the push will fail; `--agent` asks the configured agent to write the message and pick the attestation from the staged diff; refreshes `VERSION` when the repo has one (`version_stamp: false` opts out) |
-| `spec release [--major N]` | Stamp `VERSION`, commit it alone as `chore: bump <stamp>`, push, and tag `v<stamp>` — the tag triggers the release workflow |
+| `spec release [--major N]` | Stamp `VERSION`, commit it alone as `chore: bump <stamp>`, push, and tag `v<stamp>` — requires `release: true` in repo config; the tag triggers the release workflow |
 | `spec fact [list\|get\|set\|unset\|discover [--yes]]` | Manage public and secret project facts (`set --secret <key> <value>`) |
 | `spec remind [list\|add <title> --every <period> [--spec <id>]\|done <id>\|remove <id>]` | Track recurring obligations in `.spec/reminders.yml` (`--every`: `7d`, `30d`, … or `weekly`/`monthly`/`quarterly`/`yearly`); `spec status`/`spec check` and agent prompts surface due items |
 | `spec check` | Audit fact and secret references, enforce the secrets file ignore rule, fail on stale/missing skill installs, and warn about possible leaks and drift |
