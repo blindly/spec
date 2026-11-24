@@ -61,6 +61,13 @@ as symlinks to their source, so "current" means the link resolves — the
 byte-compare staleness model above applies to copied installs only
 (the embedded built-in and the link-failure fallback).
 
+Fork protection (FEAT-033/034) later made plain `sync` *report* a
+differing copy as `stale` rather than overwrite it, requiring
+`--force` — except the built-in `spec` skill: its only possible form
+is a copy of the embedded source (no source dir exists to fork from),
+so "stale" there always means "written by an older binary" and sync
+overwrites it unconditionally, same as the managed git hooks.
+
 ## Acceptance Criteria
 
 - [x] `spec skill` prints per-location status (current/stale/missing)

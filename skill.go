@@ -605,7 +605,11 @@ func checkSkillInstalls(st Store, out io.Writer) int {
 				fmt.Fprintf(out, "WARN  %s installed as copy — 'spec skill sync' upgrades it to a link\n", dst)
 			case "stale":
 				problems++
-				fmt.Fprintf(out, "FAIL  %s stale (differs from source; 'spec skill sync --force' to overwrite)\n", dst)
+				fix := "'spec skill sync --force' to overwrite"
+				if src.kind == "built-in" {
+					fix = "'spec skill sync' repairs"
+				}
+				fmt.Fprintf(out, "FAIL  %s stale (differs from source; %s)\n", dst, fix)
 			default:
 				problems++
 				fmt.Fprintf(out, "FAIL  %s %s — run 'spec skill sync'\n", dst, status)
@@ -653,7 +657,10 @@ func syncSkills(st Store, cfg Config, targets []string, force bool, out io.Write
 			status := skillInstallStatus(st.Root, dst, src, srcFiles)
 			switch {
 			case status == "current":
-			case status == "stale" && !force:
+			// a stale copy might be a user fork — but built-in installs
+			// are generated output (embedded source, no dir to fork),
+			// so staleness just means an older binary wrote it
+			case status == "stale" && !force && src.kind != "built-in":
 				bad++
 				fmt.Fprintf(out, "%-8s %s (differs from source; sync --force to overwrite)\n", "stale", dst)
 				continue

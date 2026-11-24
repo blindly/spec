@@ -259,6 +259,29 @@ func TestSkillSyncClobberProtection(t *testing.T) {
 	}
 }
 
+// A differing built-in install is an older binary's work, not a user
+// fork — the embedded skill has no source dir to fork. Plain sync
+// overwrites it without --force (FEAT-025); clobber protection stays
+// for skills with real source dirs.
+func TestSkillSyncBuiltInAlwaysOverwrites(t *testing.T) {
+	st := setupRepo(t)
+	cfg := loadConfig(st.Root)
+	var out bytes.Buffer
+	if _, err := syncSkills(st, cfg, skillTargets(cfg), false, &out); err != nil {
+		t.Fatal(err)
+	}
+	installed := filepath.Join(st.Root, ".devin", "skills", "spec", "SKILL.md")
+	os.WriteFile(installed, []byte("written by an older binary"), 0o644)
+	out.Reset()
+	bad, err := syncSkills(st, cfg, skillTargets(cfg), false, &out)
+	if err != nil || bad != 0 {
+		t.Fatalf("stale built-in should auto-repair: bad=%d err=%v\n%s", bad, err, out.String())
+	}
+	if data, _ := os.ReadFile(installed); string(data) == "written by an older binary" {
+		t.Fatal("stale built-in install not overwritten")
+	}
+}
+
 func TestSkillOrphaned(t *testing.T) {
 	st := setupRepo(t)
 	writeLibrarySkill(t, "review", simpleSkill("review", "shared"))
