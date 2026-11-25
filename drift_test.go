@@ -32,6 +32,10 @@ func gitInit(t *testing.T, st Store) func(msg string) {
 		}
 	}
 	run(nil, "init", "-q")
+	// repo-local identity: spec commit/release run plain `git commit`
+	// under ambient config — CI has no global gitconfig to borrow
+	run(nil, "config", "user.name", "t")
+	run(nil, "config", "user.email", "t@t")
 	return func(msg string) {
 		t.Helper()
 		n++
