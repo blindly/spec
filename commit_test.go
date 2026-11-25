@@ -354,3 +354,67 @@ func TestSpecCommitAgentDefault(t *testing.T) {
 		t.Fatalf("agent-less repo should use the summary:\n%s", m)
 	}
 }
+
+// FEAT-041: pre_commit: checks gate spec commit before staging.
+func TestSpecCommitPrecheck(t *testing.T) {
+	st := setupRepo(t)
+	commit := gitInit(t, st)
+	commit("baseline")
+	var out, errs bytes.Buffer
+
+	// failing check → aborts before anything is staged or committed
+	writeFile(t, st, ".spec/config.yml", "pre_commit: [false]\n")
+	writeFile(t, st, "foo.go", "package x\n")
+	if err := cmdCommit(&out, &errs, []string{"-m", "fix: x"}); err == nil {
+		t.Fatal("failing pre_commit check must abort the commit")
+	}
+	if m := lastCommitMsg(t, st); m == "fix: x" {
+		t.Fatal("commit went through despite failing check")
+	}
+	// --no-check bypasses for one commit
+	out.Reset()
+	if err := cmdCommit(&out, &errs, []string{"-m", "fix: x", "--no-check"}); err != nil {
+		t.Fatalf("--no-check should commit: %v\n%s", err, errs.String())
+	}
+
+	// passing checks run and the commit proceeds
+	writeFile(t, st, ".spec/config.yml", "pre_commit: [true]\n")
+	writeFile(t, st, "bar.go", "package x\n")
+	out.Reset()
+	if err := cmdCommit(&out, &errs, []string{"-m", "fix: y"}); err != nil {
+		t.Fatalf("passing pre_commit check should commit: %v\n%s", err, errs.String())
+	}
+	if !strings.Contains(out.String(), "PASS  true") {
+		t.Fatalf("want check output:\n%s", out.String())
+	}
+
+	// --verify also runs the verify: list
+	writeFile(t, st, ".spec/config.yml", "pre_commit: [true]\nverify: [false]\n")
+	writeFile(t, st, "baz.go", "package x\n")
+	if err := cmdCommit(&out, io.Discard, []string{"-m", "fix: z", "--verify"}); err == nil {
+		t.Fatal("--verify with a failing verify cmd must abort")
+	}
+}
+
+// FEAT-041: spec precheck runs the list standalone — the hook's entry point.
+func TestPrecheck(t *testing.T) {
+	st := setupRepo(t)
+	commit := gitInit(t, st)
+	commit("baseline")
+	var out bytes.Buffer
+
+	// unconfigured → friendly no-op
+	if err := cmdPrecheck(&out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "No pre-commit checks") {
+		t.Fatalf("want the unconfigured message:\n%s", out.String())
+	}
+
+	// failing check → non-zero
+	writeFile(t, st, ".spec/config.yml", "pre_commit: [false]\n")
+	out.Reset()
+	if err := cmdPrecheck(&out, io.Discard); err == nil {
+		t.Fatal("failing check must exit non-zero")
+	}
+}

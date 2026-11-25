@@ -81,9 +81,9 @@ var completionTable = map[string]cmdComp{
 	// no completions beyond the command name — listed so the table
 	// provably covers every command
 	"init": {}, "bootstrap": {}, "analyze": {}, "validate": {}, "trace": {},
-	"status": {}, "ps": {}, "check": {}, "verify": {}, "idea": {}, "search": {},
+	"status": {}, "ps": {}, "check": {}, "verify": {}, "precheck": {}, "idea": {}, "search": {},
 	"accept":  {args: []string{"spec-id"}},
-	"commit":  {flags: []string{"-m", "--exempt", "--agent", "--no-agent"}},
+	"commit":  {flags: []string{"-m", "--exempt", "--agent", "--no-agent", "--no-check", "--verify"}},
 	"release": {flags: []string{"--major"}},
 	"update":  {},
 }

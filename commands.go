@@ -888,20 +888,42 @@ func cmdVerify(out, errOut io.Writer) error {
 	return runVerify(st.Root, cfg, out, errOut)
 }
 
-// runVerify runs every cfg.Verify command in root; all run even if one
-// fails. Commands are split with splitArgs and all are parsed before any
-// runs, so a quoting error runs nothing.
+// runVerify runs the verify: command list (FEAT-037 uses it, as do apply
+// and `spec commit --verify`). Thin wrapper over runChecks.
 func runVerify(root string, cfg Config, out, errOut io.Writer) error {
-	argvs := make([][]string, len(cfg.Verify))
-	for i, check := range cfg.Verify {
+	return runChecks(root, cfg, cfg.Verify, out, errOut)
+}
+
+// cmdPrecheck runs the pre_commit: list standalone (FEAT-041) — the entry
+// point the pre-commit hook calls, and a way to test checks without
+// committing.
+func cmdPrecheck(out, errOut io.Writer) error {
+	st, err := mustStore()
+	if err != nil {
+		return err
+	}
+	cfg := loadConfig(st.Root)
+	if len(cfg.PreCommit) == 0 {
+		fmt.Fprintln(out, "No pre-commit checks configured (set `pre_commit: [cmd, ...]` in config).")
+		return nil
+	}
+	return runChecks(st.Root, cfg, cfg.PreCommit, out, errOut)
+}
+
+// runChecks runs every command in root; all run even if one fails.
+// Commands are split with splitArgs and all are parsed before any runs,
+// so a quoting error runs nothing.
+func runChecks(root string, cfg Config, checks []string, out, errOut io.Writer) error {
+	argvs := make([][]string, len(checks))
+	for i, check := range checks {
 		argv, err := splitArgs(check)
 		if err != nil {
-			return fmt.Errorf("verify: %w", err)
+			return fmt.Errorf("check %q: %w", check, err)
 		}
 		argvs[i] = argv
 	}
 	failed := 0
-	for i, check := range cfg.Verify {
+	for i, check := range checks {
 		argv := argvs[i]
 		if len(argv) == 0 {
 			continue

@@ -302,13 +302,16 @@ var commandDocs = []commandDoc{
                                        one for this repo; view cats one (default: active) to stdout`},
 	{"status", `  spec status                        Summarize repository spec state`},
 	{"ps", `  spec ps                            List specs in flight (not yet done) — the queue, not the dashboard`},
-	{"commit", `  spec commit [-m msg] [--exempt R] [--agent|--no-agent]   Stage all and commit, conventional-commit
+	{"commit", `  spec commit [-m msg] [--exempt R] [--agent|--no-agent] [--no-check] [--verify]
+                                       Stage all and commit, conventional-commit
                                        style; an uncovered commit needs a non-feat: subject or a
                                        Spec-Exempt trailer (--exempt) or the push will fail;
                                        a configured agent writes the message by default
                                        (--agent = explicit form; --no-agent or
                                        commit_agent: false uses the offline summary).
-                                       Refreshes VERSION when the repo has one
+                                       Runs pre_commit: checks first (--no-check skips;
+                                       --verify also runs the verify: list). Refreshes
+                                       VERSION when the repo has one
                                        (version_stamp: false opts out)`},
 	{"release", `  spec release [--major N]           Stamp VERSION, commit it alone, push, and tag
                                        v<stamp> — requires release: true in the repo
@@ -335,6 +338,8 @@ var commandDocs = []commandDoc{
                                        --library: into the library; in-repo sources are moved)
   spec skill check|sync [--force]       Verify / regenerate installs — links to the source (--global: user dirs)`},
 	{"verify", `  spec verify                        Run configured verification commands`},
+	{"precheck", `  spec precheck                      Run configured pre_commit checks (what the
+                                       pre-commit hook and spec commit run)`},
 	{"config", `  spec config                        Show effective configuration
   spec config init [global|repo] [--force]   Write config template (--force regenerates)
   spec config edit [global|repo]     Open config file in $EDITOR (or editor: key)`},

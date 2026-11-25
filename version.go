@@ -100,7 +100,7 @@ func cmdRelease(out, errOut io.Writer, args []string) error {
 		if out2, err := gitOut(st.Root, "add", "VERSION"); err != nil {
 			return fmt.Errorf("git add: %s", out2)
 		}
-		if out2, err := gitOut(st.Root, "commit", "-m", "chore: bump "+stamp, "--", "VERSION"); err != nil {
+		if out2, err := gitOut(st.Root, "commit", "--no-verify", "-m", "chore: bump "+stamp, "--", "VERSION"); err != nil {
 			return fmt.Errorf("git commit: %s", out2)
 		}
 	}

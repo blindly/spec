@@ -73,7 +73,9 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    `verified`, not decoupled.
 8. **Pushes enforce it.** A spec-managed `pre-push` hook rejects pushes that
    change files outside `specs/` without a spec update; a `commit-msg`
-   hook warns earlier, at commit time (advisory only — never blocks).
+   hook warns earlier, at commit time (advisory only — never blocks);
+   a `pre-commit` hook runs the repo's `pre_commit:` checks (lint,
+   format — `spec precheck` runs them standalone; `SPEC_SKIP=1` bypasses).
    Commit through
    `spec commit` — use conventional-commit subjects (`feat:`, `fix:`,
    `docs:`, `chore:`, …). The hook accepts a non-`feat:` prefix or a

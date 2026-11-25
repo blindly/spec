@@ -21,6 +21,8 @@ func cmdCommit(out, errOut io.Writer, args []string) error {
 	exempt := fs.String("exempt", "", "Spec-Exempt trailer reason")
 	useAgent := fs.Bool("agent", false, "ask the configured agent to write the message")
 	noAgent := fs.Bool("no-agent", false, "skip the agent even when commit_agent is set")
+	noCheck := fs.Bool("no-check", false, "skip the configured pre_commit checks for this commit")
+	runVerifyToo := fs.Bool("verify", false, "also run the configured verify commands before committing")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -28,10 +30,22 @@ func cmdCommit(out, errOut io.Writer, args []string) error {
 	if err != nil {
 		return err
 	}
+	cfg := loadConfig(st.Root)
+	// FEAT-041: pre_commit checks gate the commit — run before stamping or
+	// staging so a failure leaves the tree untouched.
+	if !*noCheck && len(cfg.PreCommit) > 0 {
+		if err := runChecks(st.Root, cfg, cfg.PreCommit, out, errOut); err != nil {
+			return fmt.Errorf("pre-commit checks failed — fix, or --no-check to skip")
+		}
+	}
+	if *runVerifyToo && len(cfg.Verify) > 0 {
+		if err := runChecks(st.Root, cfg, cfg.Verify, out, errOut); err != nil {
+			return fmt.Errorf("verify checks failed")
+		}
+	}
 	// A VERSION file opts the repo into stamped releases — refresh it so
 	// every commit carries a fresh build stamp (version_stamp: false in
 	// config opts back out).
-	cfg := loadConfig(st.Root)
 	if cfg.VersionStamp {
 		if _, err := stampVersion(st.Root, 0); err != nil {
 			return fmt.Errorf("VERSION: %w", err)
@@ -90,7 +104,9 @@ func cmdCommit(out, errOut io.Writer, args []string) error {
 		fmt.Fprintln(errOut, "      the push. Re-commit with --exempt <reason>, a non-feat: prefix,")
 		fmt.Fprintln(errOut, "      or include a spec.")
 	}
-	res, err := gitOut(st.Root, "commit", "-m", m)
+	// --no-verify: spec commit already ran the pre_commit checks and its
+	// own coverage gate — the hooks exist for the plain-git bypass path.
+	res, err := gitOut(st.Root, "commit", "--no-verify", "-m", m)
 	fmt.Fprint(out, res)
 	return err
 }

@@ -14,7 +14,7 @@ go build -o spec .
 
 | Command | Description |
 | --- | --- |
-| `spec init` | Initialize spec management in a repository (seeds `AGENTS.md`, `CLAUDE.md`, installs the resolved skills — built-in `spec` plus any global `skills:` baseline — into the agent skill dirs, and installs spec hooks: `pre-push` requires a `specs/` change in any push that touches other files — attested per commit by a non-`feat:` conventional-commit subject or a `Spec-Exempt: <reason>` trailer; `SPEC_SKIP=1 git push` is the bypass) |
+| `spec init` | Initialize spec management in a repository (seeds `AGENTS.md`, `CLAUDE.md`, installs the resolved skills — built-in `spec` plus any global `skills:` baseline — into the agent skill dirs, and installs spec hooks: `pre-commit` runs the repo's `pre_commit:` checks; `pre-push` requires a `specs/` change in any push that touches other files — attested per commit by a non-`feat:` conventional-commit subject or a `Spec-Exempt: <reason>` trailer; `SPEC_SKIP=1 git push` is the bypass) |
 | `spec idea <title>` | Capture an untyped idea in the inbox (`specs/inbox/`) — decide the type later |
 | `spec inbox [--all] [--paths]` | List inbox ideas (id, status, suggested type, title, path); `--all` includes discarded and archived |
 | `spec promote <IDEA-id> [project\|feature\|adr] [--force]` | Turn an idea into a spec (defaults to its suggested type); the idea's notes go into the first section, `depends_on` references are updated, and the idea file is deleted |
@@ -38,7 +38,7 @@ go build -o spec .
 | `spec apply [--print\|--yes\|--no-verify\|--no-review\|--force] [id…]` | Run the configured agent to implement specs. Named ids may be accepted or proposed; with no ids, all accepted specs after a confirmation (`--yes` skips it and applies stale-verdict spec rewrites). Success means the spec reached `implemented` and `verify:` passed (`--no-verify` skips it). Afterwards, specs covering changed files but not updated get a drift review (`--no-review` skips). `--print` outputs the prompt(s) |
 | `spec role [edit\|refine]` | Print, edit, or improve the repo-local `.spec/role.md` development persona (refine requires an agent) |
 | `spec status` | Summarize repo spec state (counts, coverage, agent, spec-hook state); `spec ps` prints just the `In flight:` queue of specs not yet done |
-| `spec commit [-m msg] [--exempt R] [--agent\|--no-agent]` | Stage all and commit, conventional-commit style; an uncovered commit needs attestation — a non-`feat:` subject or a `Spec-Exempt:` trailer (`--exempt` adds it) — or it warns the push will fail; `--agent` asks the configured agent to write the message and pick the attestation from the staged diff (a configured agent is the default; `commit_agent: false` or `--no-agent` overrides); refreshes `VERSION` when the repo has one (`version_stamp: false` opts out) |
+| `spec commit [-m msg] [--exempt R] [--agent\|--no-agent] [--no-check] [--verify]` | Stage all and commit, conventional-commit style; an uncovered commit needs attestation — a non-`feat:` subject or a `Spec-Exempt:` trailer (`--exempt` adds it) — or it warns the push will fail; `--agent` asks the configured agent to write the message and pick the attestation from the staged diff (a configured agent is the default; `commit_agent: false` or `--no-agent` overrides); runs the repo's `pre_commit:` checks first (`--no-check` skips; `--verify` also runs the `verify:` list); refreshes `VERSION` when the repo has one (`version_stamp: false` opts out) |
 | `spec release [--major N]` | Stamp `VERSION`, commit it alone as `chore: bump <stamp>`, push, and tag `v<stamp>` — requires `release: true` in repo config; the tag triggers the release workflow |
 | `spec fact [list\|get\|set\|unset\|discover [--yes]]` | Manage public and secret project facts (`set --secret <key> <value>`) |
 | `spec remind [list\|add <title> --every <period> [--spec <id>]\|done <id>\|remove <id>]` | Track recurring obligations in `.spec/reminders.yml` (`--every`: `7d`, `30d`, … or `weekly`/`monthly`/`quarterly`/`yearly`); `spec status`/`spec check` and agent prompts surface due items |
@@ -52,10 +52,11 @@ go build -o spec .
 | `spec skill adopt\|push <name>` | `adopt` forks a managed skill into `.spec/skills/`; `push` publishes a repo skill to the library (`--force` overwrites a differing shared copy) |
 | `spec skill new\|edit\|view\|refine <name>` | Manage skills — `--library` targets the library file, `--local` forks to `.spec/skills/` first (refine is repo-blind for shared skills, repo-aware for repo skills); `new --no-edit` scaffolds without opening `$EDITOR` (also skipped when stdin isn't a terminal) |
 | `spec skill import <name\|path\|url> [name] [--library]` | Copy a skill dir from the usual agent skill dirs, an explicit path, a spec repo root (`.spec/skills/`), or a git URL into `.spec/skills/` (or the library) |
-| `spec skill check\|sync [--force] [--global]` | Check exits non-zero on missing/stale installs and notes foreign dirs in the targets (advisory); `sync` materializes them — symlinks to the resolved source (`skill_targets:`, else the configured agent's dir; the embedded built-in and link-failure fallback stay file copies); repo syncs also ensure `.gitignore` entries, `AGENTS.md`/`CLAUDE.md` pointers, and the spec hooks (`pre-push` enforcement, advisory `commit-msg` nudge) exist. `--global` covers the user-level skill dirs |
+| `spec skill check\|sync [--force] [--global]` | Check exits non-zero on missing/stale installs and notes foreign dirs in the targets (advisory); `sync` materializes them — symlinks to the resolved source (`skill_targets:`, else the configured agent's dir; the embedded built-in and link-failure fallback stay file copies); repo syncs also ensure `.gitignore` entries, `AGENTS.md`/`CLAUDE.md` pointers, and the spec hooks (`pre-commit` check runner, `pre-push` enforcement, advisory `commit-msg` nudge) exist. `--global` covers the user-level skill dirs |
 | `SPEC_TRACE=1 spec …` | Print every git command spec runs, with its duration, to stderr — for diagnosing slow drift checks or `/system` loads on a given machine |
 | `spec verified <id>…` | Stamp `verified: <HEAD>` — the spec was checked and is accurate; clears drift until covered code changes again |
 | `spec verify` | Run configured `verify: [...]` commands (tests, validate, check) |
+| `spec precheck` | Run configured `pre_commit: [...]` checks standalone — what `spec commit` and the `pre-commit` hook run; keep them cheap (lint, format, typecheck) |
 | `spec config` | Show effective configuration and resolved agent |
 | `spec config init [global\|repo] [--force]` | Write config template with all options; `--force` regenerates |
 | `spec web [--port N]` | Local web UI with three views: **inbox** (front page) to capture/promote/discard ideas, **board** of refined ideas ("ready") and work in progress by status, and **system** — implemented specs and accepted ADRs, the living documentation. Plus an archive list, create, edit body/status, README/agent docs (default :8080) |
@@ -86,7 +87,8 @@ web_port: 8080         # default port for `spec web` (--port overrides)
 statuses: [draft, proposed, accepted, implemented, deprecated, rejected]
 done_statuses: [deprecated, rejected]   # no longer valid: hidden on the web board (?all=1 shows them); implemented specs stay visible
 idea_statuses: [new, refined, discarded]   # lifecycle for inbox ideas (separate from statuses)
-verify: [go test ./..., spec validate, spec check]   # run by `spec verify` and after `spec apply`
+verify: [go test ./..., spec validate, spec check]   # run by `spec verify`, after `spec apply`, `spec commit --verify`
+pre_commit: [ruff check, biome check]   # fast checks run by `spec commit` and the pre-commit hook
 editor: vim            # falls back to $EDITOR, then vi
 viewer: "glow --style dark {file}" # optional; default is built-in plain output
 ```
