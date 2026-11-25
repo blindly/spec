@@ -155,7 +155,7 @@ func TestCompleteOutsideRepo(t *testing.T) {
 // spec completion <shell> --install writes to the shell's user dir.
 func TestCompletionInstall(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("HOME", dir)
+	setHome(t, dir)
 	var out bytes.Buffer
 	if err := cmdCompletion(&out, io.Discard, []string{"fish", "--install"}); err != nil {
 		t.Fatal(err)

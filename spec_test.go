@@ -93,6 +93,16 @@ func setupRepo(t *testing.T) Store {
 	return Store{Root: dir}
 }
 
+// setHome points both $HOME (unix) and %USERPROFILE% (Windows) at dir —
+// os.UserHomeDir ignores HOME on Windows.
+func setHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+	t.Setenv("HOMEDRIVE", "")
+	t.Setenv("HOMEPATH", "")
+}
+
 func TestInitAndNew(t *testing.T) {
 	st := setupRepo(t)
 	for _, p := range []string{

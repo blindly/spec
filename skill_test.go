@@ -282,7 +282,7 @@ func TestSkillSyncBuiltInAlwaysOverwrites(t *testing.T) {
 	}
 
 	// same repair on the --global path (user-level agent dirs)
-	t.Setenv("HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	writeGlobalConfig(t, "agent: claude\n")
 	home, _ := os.UserHomeDir()
 	gdst := filepath.Join(home, ".claude", "skills", "spec")
@@ -465,7 +465,7 @@ func TestSkillUnuseGlobalRefuses(t *testing.T) {
 
 func TestSkillUseUnuseGlobal(t *testing.T) {
 	setupRepo(t)
-	t.Setenv("HOME", t.TempDir()) // --global targets live under UserHomeDir
+	setHome(t, t.TempDir()) // --global targets live under UserHomeDir
 	writeLibrarySkill(t, "alpha", simpleSkill("alpha", "A"))
 	writeGlobalConfig(t, "agent: claude\n")
 
@@ -560,7 +560,7 @@ func TestSkillImportMovesRepoSource(t *testing.T) {
 func TestSkillImportKeepsHomeSource(t *testing.T) {
 	st := setupRepo(t)
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	dir := filepath.Join(home, ".claude", "skills", "toolkit")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
@@ -635,7 +635,7 @@ func TestSkillImportAllDivergingSkipped(t *testing.T) {
 func TestSkillImportLibraryOutsideRepo(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".xdg"))
-	t.Setenv("HOME", dir)
+	setHome(t, dir)
 	old, _ := os.Getwd()
 	os.Chdir(dir)
 	t.Cleanup(func() { os.Chdir(old) })
@@ -1138,7 +1138,7 @@ func TestSkillImportGitURL(t *testing.T) {
 func TestSkillGlobalTargets(t *testing.T) {
 	setupRepo(t)
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	writeLibrarySkill(t, "alpha", simpleSkill("alpha", "A"))
 	writeGlobalConfig(t, "skills: [alpha]\nskill_global_targets: [~/xskills, "+filepath.Join(home, "abs-skills")+"]\n")
 

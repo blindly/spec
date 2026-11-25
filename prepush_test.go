@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -27,7 +28,7 @@ func TestPrePushHookInstall(t *testing.T) {
 		if !strings.Contains(string(data), specHookMarker) {
 			t.Fatalf("%s hook missing marker", h.name)
 		}
-		if fi, _ := os.Stat(hook); fi.Mode()&0o111 == 0 {
+		if fi, _ := os.Stat(hook); fi.Mode()&0o111 == 0 && runtime.GOOS != "windows" {
 			t.Fatalf("%s hook not executable", h.name)
 		}
 	}

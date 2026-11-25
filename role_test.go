@@ -12,7 +12,7 @@ import (
 func TestRoleLoadingAndContext(t *testing.T) {
 	st := setupRepo(t)
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	t.Setenv("XDG_CONFIG_HOME", home)
 	if err := os.MkdirAll(filepath.Join(home, "spec"), 0755); err != nil {
 		t.Fatal(err)
