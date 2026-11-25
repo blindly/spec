@@ -55,5 +55,6 @@ Addresses: REQ-016, REQ-017
 ## Acceptance Criteria
 
 - [x] `spec update` runs `spec skill sync` (repo, when in one) and `spec skill sync --global` via the new binary; failures are notes, not errors
+- [x] `spec update` picks the most recent release carrying the platform asset — a broken/incomplete release (empty asset list, e.g. a tag that failed the VERSION check) is skipped with a note, never strands updates; an explicit `--version`-style tag request stays strict; drafts and prereleases are never selected
 - [x] `spec check` fails on missing/stale/orphaned installs with a sync hint, warns on copied, passes when all current
 - [x] Tests cover the check audit statuses (FAIL and WARN cases)

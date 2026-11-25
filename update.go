@@ -26,8 +26,10 @@ type releaseAsset struct {
 }
 
 type releaseInfo struct {
-	Tag    string         `json:"tag_name"`
-	Assets []releaseAsset `json:"assets"`
+	Tag        string         `json:"tag_name"`
+	Draft      bool           `json:"draft"`
+	Prerelease bool           `json:"prerelease"`
+	Assets     []releaseAsset `json:"assets"`
 }
 
 func fetchURL(ctx context.Context, url string) ([]byte, error) {
@@ -47,23 +49,47 @@ func fetchURL(ctx context.Context, url string) ([]byte, error) {
 	return io.ReadAll(io.LimitReader(resp.Body, 100<<20))
 }
 
-func releaseTag(ctx context.Context, requested string) (*releaseInfo, error) {
-	url := releasesAPI + "/latest"
+// releaseTag resolves the target release. An explicit tag is strict —
+// that release or an error. The default path walks recent releases
+// newest→oldest and picks the first that carries the platform asset, so
+// a broken/incomplete release can't strand updates; skipped tags are
+// returned for reporting.
+func releaseTag(ctx context.Context, requested, asset string) (*releaseInfo, []string, error) {
 	if requested != "" {
-		url = releasesAPI + "/tags/" + requested
+		body, err := fetchURL(ctx, releasesAPI+"/tags/"+requested)
+		if err != nil {
+			return nil, nil, err
+		}
+		var rel releaseInfo
+		if err := json.Unmarshal(body, &rel); err != nil {
+			return nil, nil, err
+		}
+		if rel.Tag == "" {
+			return nil, nil, fmt.Errorf("release response has no tag")
+		}
+		return &rel, nil, nil
 	}
-	body, err := fetchURL(ctx, url)
+	body, err := fetchURL(ctx, releasesAPI+"?per_page=15")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	var rel releaseInfo
-	if err := json.Unmarshal(body, &rel); err != nil {
-		return nil, err
+	var rels []releaseInfo
+	if err := json.Unmarshal(body, &rels); err != nil {
+		return nil, nil, err
 	}
-	if rel.Tag == "" {
-		return nil, fmt.Errorf("release response has no tag")
+	var skipped []string
+	for i := range rels {
+		rel := &rels[i]
+		if rel.Tag == "" || rel.Draft || rel.Prerelease {
+			continue
+		}
+		if findAsset(rel, asset) == nil {
+			skipped = append(skipped, rel.Tag)
+			continue
+		}
+		return rel, skipped, nil
 	}
-	return &rel, nil
+	return nil, skipped, fmt.Errorf("no recent release carries asset %s", asset)
 }
 
 func findAsset(rel *releaseInfo, name string) *releaseAsset {
@@ -77,20 +103,23 @@ func findAsset(rel *releaseInfo, name string) *releaseAsset {
 
 func cmdUpdate(out, errOut io.Writer, requested string) error {
 	ctx := context.Background()
-	rel, err := releaseTag(ctx, requested)
+	name := "spec-" + runtime.GOOS + "-" + runtime.GOARCH
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	rel, skipped, err := releaseTag(ctx, requested, name)
 	if err != nil {
 		return err
 	}
 	fmt.Fprintln(out, "Latest release:", rel.Tag)
+	for _, tag := range skipped {
+		fmt.Fprintf(errOut, "note: skipped %s — no %s asset (incomplete release)\n", tag, name)
+	}
 	if version == "dev" {
 		fmt.Fprintln(errOut, "note: this is a dev build; installing release over it")
 	} else if "v"+version == rel.Tag {
 		fmt.Fprintln(out, "Already up to date.")
 		return nil
-	}
-	name := "spec-" + runtime.GOOS + "-" + runtime.GOARCH
-	if runtime.GOOS == "windows" {
-		name += ".exe"
 	}
 	bin := findAsset(rel, name)
 	if bin == nil {

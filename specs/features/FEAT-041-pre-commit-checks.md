@@ -44,5 +44,5 @@ can additionally run on demand with `--verify`.
 - [x] `--no-check` skips `pre_commit` for one commit
 - [x] `--verify` additionally runs the `verify:` list
 - [x] `spec precheck` runs the list standalone; exit non-zero on failure; friendly message when unconfigured
-- [x] The managed `pre-commit` hook execs `spec precheck`, warns and passes when `spec` is not on PATH, and never clobbers a foreign hook
+- [x] The managed `pre-commit` hook execs `spec precheck`, warns and passes when `spec` is not on PATH **or predates the `precheck` command** (version-tolerant — an old binary must not block commits), and never clobbers a foreign hook
 - [x] `pre_commit` parses merged-config like `verify:` (argv lists, no shell)

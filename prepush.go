@@ -129,6 +129,12 @@ command -v spec >/dev/null 2>&1 || {
     echo "note: spec not on PATH — skipping pre_commit checks" >&2
     exit 0
 }
+# version-tolerant: an installed binary older than the precheck command
+# must not block commits — only binaries that know the command gate
+spec help 2>/dev/null | grep -q 'spec precheck' || {
+    echo "note: installed spec predates 'precheck' — skipping pre_commit checks" >&2
+    exit 0
+}
 spec precheck
 `
 
