@@ -75,7 +75,12 @@ func TestWriteFileAtomic(t *testing.T) {
 
 func setupRepo(t *testing.T) Store {
 	t.Helper()
-	dir := t.TempDir()
+	// canonicalize: macOS tempdirs live under a symlinked /var — git and
+	// getwd report resolved paths, so tests comparing them must too
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".xdg"))
 	old, _ := os.Getwd()
 	if err := os.Chdir(dir); err != nil {

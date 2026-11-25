@@ -363,7 +363,7 @@ func TestSpecCommitPrecheck(t *testing.T) {
 	var out, errs bytes.Buffer
 
 	// failing check → aborts before anything is staged or committed
-	writeFile(t, st, ".spec/config.yml", "pre_commit: [false]\n")
+	writeFile(t, st, ".spec/config.yml", "pre_commit: [git badcommand]\n")
 	writeFile(t, st, "foo.go", "package x\n")
 	if err := cmdCommit(&out, &errs, []string{"-m", "fix: x"}); err == nil {
 		t.Fatal("failing pre_commit check must abort the commit")
@@ -378,18 +378,18 @@ func TestSpecCommitPrecheck(t *testing.T) {
 	}
 
 	// passing checks run and the commit proceeds
-	writeFile(t, st, ".spec/config.yml", "pre_commit: [true]\n")
+	writeFile(t, st, ".spec/config.yml", "pre_commit: [git version]\n")
 	writeFile(t, st, "bar.go", "package x\n")
 	out.Reset()
 	if err := cmdCommit(&out, &errs, []string{"-m", "fix: y"}); err != nil {
 		t.Fatalf("passing pre_commit check should commit: %v\n%s", err, errs.String())
 	}
-	if !strings.Contains(out.String(), "PASS  true") {
+	if !strings.Contains(out.String(), "PASS  git version") {
 		t.Fatalf("want check output:\n%s", out.String())
 	}
 
 	// --verify also runs the verify: list
-	writeFile(t, st, ".spec/config.yml", "pre_commit: [true]\nverify: [false]\n")
+	writeFile(t, st, ".spec/config.yml", "pre_commit: [git version]\nverify: [git badcommand]\n")
 	writeFile(t, st, "baz.go", "package x\n")
 	if err := cmdCommit(&out, io.Discard, []string{"-m", "fix: z", "--verify"}); err == nil {
 		t.Fatal("--verify with a failing verify cmd must abort")
@@ -412,7 +412,7 @@ func TestPrecheck(t *testing.T) {
 	}
 
 	// failing check → non-zero
-	writeFile(t, st, ".spec/config.yml", "pre_commit: [false]\n")
+	writeFile(t, st, ".spec/config.yml", "pre_commit: [git badcommand]\n")
 	out.Reset()
 	if err := cmdPrecheck(&out, io.Discard); err == nil {
 		t.Fatal("failing check must exit non-zero")
