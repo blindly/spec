@@ -123,6 +123,7 @@ Addresses: REQ-014
 - [x] `covers` entries match exact paths, directories (trailing `/`), and globs
 - [x] `spec apply` records the code files the agent changed in the applied spec's `covers`
 - [x] `spec covers --infer` fills `covers` from the commits that touched each spec, excluding docs, specs, and tests
+- [x] `covers` is descriptive, not a recent-change log — the review prompt and agent docs forbid removing entries to silence a flag; an accurate spec gets `verified`, not decoupled
 - [x] A system spec is flagged when a covered file changes in a later commit, or has uncommitted changes
 - [x] A spec isn't flagged when it was updated in the same or a later commit, or has uncommitted edits
 - [x] `spec verified` clears the flag until covered files change again

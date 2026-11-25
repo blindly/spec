@@ -108,6 +108,9 @@ Files this spec covers changed since the spec was last updated. Diff since then:
 
 Decide whether the spec is still accurate. Only behavior the spec actually
 describes matters — unrelated changes to the same files don't make it stale.
+Never "fix" drift by removing files from the spec's covers: — coverage lists
+what the spec describes, not what changed recently; shrinking it silences
+future drift checks for that file.
 
 Reply in exactly this format:
 VERDICT: accurate|stale

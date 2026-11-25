@@ -68,6 +68,9 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    changed since they were last updated. Before finishing, fix any your work
    made stale; if a flagged spec is still accurate, `spec verified <id>`.
    Commit spec updates together with the code they describe.
+   **Never shrink `covers:` to silence a flag** — coverage lists what the
+   spec *describes*, not what changed lately; an accurate spec gets
+   `verified`, not decoupled.
 8. **Pushes enforce it.** A spec-managed `pre-push` hook rejects pushes that
    change files outside `specs/` without a spec update; a `commit-msg`
    hook warns earlier, at commit time (advisory only — never blocks).

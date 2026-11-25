@@ -52,7 +52,8 @@ result:
 - With multiple targets, `apply` continues after a failure, then prints a
   summary line per spec.
 - Exit code is 0 only if every target is reported as implemented
-  (including the timed-out-after-finishing case).
+  (including the timed-out-after-finishing case); the failure error names
+  the ids that didn't make it.
 - Replace the unconditional "`<id>` done" message.
 
 ## Acceptance Criteria

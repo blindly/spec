@@ -1401,7 +1401,13 @@ func cmdApply(in io.Reader, out, errOut io.Writer, ids []string, opts applyOpts)
 		}
 	}
 	if failed > 0 {
-		return fmt.Errorf("%d of %d spec(s) not implemented", failed, len(results))
+		var ids []string
+		for _, r := range results {
+			if !r.ok {
+				ids = append(ids, r.id)
+			}
+		}
+		return fmt.Errorf("%d of %d spec(s) not implemented: %s", failed, len(results), strings.Join(ids, ", "))
 	}
 	return nil
 }
