@@ -77,7 +77,8 @@ func cmdRelease(out, errOut io.Writer, args []string) error {
 	if err != nil {
 		return err
 	}
-	if !loadConfig(st.Root).Release {
+	cfg := loadConfig(st.Root)
+	if !cfg.Release {
 		return fmt.Errorf("release not enabled — set release: true in .spec/config.yml")
 	}
 	if dirty := strings.TrimSpace(mustGit(st.Root, "status", "--porcelain")); dirty != "" {
@@ -105,15 +106,23 @@ func cmdRelease(out, errOut io.Writer, args []string) error {
 		}
 	}
 	branch := strings.TrimSpace(mustGit(st.Root, "branch", "--show-current"))
-	if out2, err := gitOut(st.Root, "push", "origin", branch); err != nil {
-		return fmt.Errorf("git push: %s", out2)
+	push, err := pushArgv(cfg.PushCommand, branch)
+	if err != nil {
+		return err
+	}
+	if err := runArgv(st.Root, push, errOut); err != nil {
+		return err
 	}
 	if out2, err := gitOut(st.Root, "tag", tag); err != nil {
 		return fmt.Errorf("git tag: %s", out2)
 	}
-	if out2, err := gitOut(st.Root, "push", "origin", tag); err != nil {
-		fmt.Fprintf(errOut, "warning: tag %s created locally but push failed: %s", tag, out2)
-		return fmt.Errorf("tag push failed — retry with: git push origin %s", tag)
+	pushTag, err := pushArgv(cfg.PushCommand, tag)
+	if err != nil {
+		return err
+	}
+	if err := runArgv(st.Root, pushTag, errOut); err != nil {
+		fmt.Fprintf(errOut, "warning: tag %s created locally but push failed: %v", tag, err)
+		return fmt.Errorf("tag push failed — retry the push manually")
 	}
 	fmt.Fprintf(out, "released %s\n", tag)
 	return nil

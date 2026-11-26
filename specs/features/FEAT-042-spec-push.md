@@ -33,6 +33,11 @@ git-bash requirement, identical semantics on Windows.
   same guidance the hook prints.
 - On pass, `git push origin <current-branch>`; detached HEAD or no
   remote is a clear error.
+- `push_command:` in config replaces the push invocation for `spec push`
+  and `spec release` (branch and tag pushes alike) — argv template, no
+  shell, `{ref}`/`{branch}` expand to the ref being pushed. The gate
+  reads the remote out of `git push <remote> ...` templates; anything
+  else falls back to checking commits not on any remote.
 
 ## Acceptance Criteria
 
@@ -41,3 +46,4 @@ git-bash requirement, identical semantics on Windows.
 - [x] An uncovered push with unattested commits refuses, naming them; `SPEC_SKIP=1` bypasses
 - [x] The check runs without any installed git hook (works in repos where hooks are absent or bash is unavailable)
 - [x] Detached HEAD and missing origin produce clear errors
+- [x] `push_command: git push <remote> {ref}` redirects both `spec push` and `spec release` pushes; `{ref}`/`{branch}` expand to the pushed ref

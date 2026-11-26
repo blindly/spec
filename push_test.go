@@ -66,4 +66,20 @@ func TestSpecPush(t *testing.T) {
 	if err := cmdPush(&out, io.Discard); err != nil {
 		t.Fatalf("non-feat: prefix attests: %v", err)
 	}
+
+	// push_command redirects the push — {ref} expands to the branch
+	backup := filepath.Join(t.TempDir(), "b.git")
+	run("init", "--bare", backup)
+	run("remote", "add", "backup", backup)
+	writeFile(t, st, ".spec/config.yml", "push_command: git push backup {ref}\n")
+	writeFile(t, st, "specs/features/FEAT-009-x.md",
+		"---\nid: FEAT-009\ntype: feature\nstatus: draft\n---\n# y\n")
+	commit("chore: another")
+	if err := cmdPush(&out, io.Discard); err != nil {
+		t.Fatalf("push_command should redirect: %v", err)
+	}
+	got := strings.TrimSpace(mustGit(st.Root, "ls-remote", "backup", "HEAD"))
+	if got == "" {
+		t.Fatal("push_command target did not receive the branch")
+	}
 }
