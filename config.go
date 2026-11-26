@@ -155,8 +155,6 @@ func loadConfig(root string) Config {
 			cfg.Agent = strings.Trim(v, `"'`)
 		case "agent_cmd":
 			cfg.AgentCmd = unquote(v)
-		case "push_command":
-			cfg.PushCommand = unquote(v)
 		case "agent_env":
 			cfg.AgentEnv = parseList(v)
 			if v != "" && (!strings.HasPrefix(v, "[") || !strings.HasSuffix(v, "]")) {
@@ -206,6 +204,10 @@ func loadConfig(root string) Config {
 	// silently enable tagging in every repo.
 	v := repoRaw["release"]
 	cfg.Release = v == "true" || v == "yes" || v == "1" || v == "on"
+	// push_command is repo-only for the same reason — the push target is
+	// clone-specific state; a global template could redirect every repo's
+	// pushes at once.
+	cfg.PushCommand = unquote(repoRaw["push_command"])
 	return cfg
 }
 
@@ -262,11 +264,6 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 # Pre-commit — fast checks run by spec commit and the pre-commit hook
 # (keep them cheap; the full suite stays in verify:)
 # pre_commit: [ruff check, biome check, tsc --noEmit]
-
-# Push — spec push and spec release run this instead of git push origin
-# <ref>; {branch} = current branch, {ref} = the ref being pushed.
-# Unparseable commands make the coverage gate check commits not on any remote.
-# push_command: git push gitea {branch}
 
 # Editor for spec edit / spec config edit (falls back to $EDITOR, then vi)
 # editor: vim
