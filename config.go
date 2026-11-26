@@ -150,68 +150,103 @@ func loadConfig(root string) Config {
 	for k, v := range repoRaw {
 		raw[k] = v
 	}
-	for k, v := range raw {
-		switch k {
-		case "agent":
-			cfg.Agent = strings.Trim(v, `"'`)
-		case "agent_cmd":
-			cfg.AgentCmd = unquote(v)
-		case "agent_env":
-			cfg.AgentEnv = parseList(v)
-			if v != "" && (!strings.HasPrefix(v, "[") || !strings.HasSuffix(v, "]")) {
-				cfg.AgentEnv = []string{""} // reject malformed lists before launching an agent
-			}
-		case "agent_timeout":
-			if n, err := strconv.Atoi(v); err == nil && n > 0 {
-				cfg.AgentTimeout = n
-			}
-		case "viewer":
-			cfg.Viewer = unquote(v)
-		case "editor":
-			cfg.Editor = strings.Trim(v, `"'`)
-		case "persona":
-			cfg.Persona = strings.Trim(v, `"'`)
-		case "version_stamp":
-			cfg.VersionStamp = v != "false" && v != "no" && v != "0" && v != "off"
-		case "commit_agent":
-			cfg.CommitAgent = v != "false" && v != "no" && v != "0" && v != "off"
-		case "web_host":
-			cfg.WebHost = strings.Trim(v, `"'`)
-		case "web_port":
-			if n, err := strconv.Atoi(v); err == nil && n > 0 {
-				cfg.WebPort = n
-			}
-		case "statuses", "verify", "pre_commit", "done_statuses", "idea_statuses", "skill_targets":
-			if list := parseList(v); len(list) > 0 {
-				switch k {
-				case "statuses":
-					cfg.Statuses = list
-				case "done_statuses":
-					cfg.DoneStatuses = list
-				case "idea_statuses":
-					cfg.IdeaStatuses = list
-				case "skill_targets":
-					cfg.SkillTargets = list
-				case "pre_commit":
-					cfg.PreCommit = list
-				default:
-					cfg.Verify = list
-				}
-			}
+	for _, k := range configKeys {
+		if k.set == nil {
+			continue // applied elsewhere (skills union, skill_global_targets)
+		}
+		src := raw
+		if k.repoOnly {
+			src = repoRaw
+		}
+		if v, ok := src[k.name]; ok {
+			k.set(&cfg, v)
 		}
 	}
 	cfg.Skills = unionStrings(parseList(globalRaw["skills"]), parseList(repoRaw["skills"]))
-	// release is deliberately repo-only — a global release: true would
-	// silently enable tagging in every repo.
-	v := repoRaw["release"]
-	cfg.Release = v == "true" || v == "yes" || v == "1" || v == "on"
-	// push_command is repo-only for the same reason — the push target is
-	// clone-specific state; a global template could redirect every repo's
-	// pushes at once.
-	cfg.PushCommand = unquote(repoRaw["push_command"])
-	v = repoRaw["push_on_commit"]
-	cfg.PushOnCommit = v == "true" || v == "yes" || v == "1" || v == "on"
 	return cfg
+}
+
+// configKey is one supported config.yml key: its merge scope, a one-line
+// doc for `spec config keys`, and the setter loadConfig applies when the
+// key is present. The registry drives both parsing and documentation so
+// a key can't exist in one place without the other (FEAT-043).
+type configKey struct {
+	name     string
+	scope    string // global+repo | repo | global | union — shown by spec config keys
+	repoOnly bool   // read only from the repo file — a global value is ignored
+	doc      string
+	set      func(*Config, string) // nil = documented here, applied elsewhere
+}
+
+func truthy(v string) bool { return v == "true" || v == "yes" || v == "1" || v == "on" }
+func notFalsey(v string) bool {
+	return v != "false" && v != "no" && v != "0" && v != "off"
+}
+
+func listSetter(get func(*Config) *[]string) func(*Config, string) {
+	return func(c *Config, v string) {
+		if list := parseList(v); len(list) > 0 {
+			*get(c) = list
+		}
+	}
+}
+
+var configKeys = []configKey{
+	{"agent", "global+repo", false, "agent adapter — none|claude|devin|gemini|codex|aider|opencode|amp|cline|vibe",
+		func(c *Config, v string) { c.Agent = strings.Trim(v, `"'`) }},
+	{"agent_cmd", "global+repo", false, "custom agent argv — {prompt}=arg, {prompt-file}=temp file, absent=stdin",
+		func(c *Config, v string) { c.AgentCmd = unquote(v) }},
+	{"agent_env", "global+repo", false, "env for the agent — bare NAME passes through, NAME=secret_key grants a secret; empty list inherits all",
+		func(c *Config, v string) {
+			c.AgentEnv = parseList(v)
+			if v != "" && (!strings.HasPrefix(v, "[") || !strings.HasSuffix(v, "]")) {
+				c.AgentEnv = []string{""} // reject malformed lists before launching an agent
+			}
+		}},
+	{"agent_timeout", "global+repo", false, "agent subprocess timeout, seconds",
+		func(c *Config, v string) {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				c.AgentTimeout = n
+			}
+		}},
+	{"statuses", "global+repo", false, "valid spec statuses",
+		listSetter(func(c *Config) *[]string { return &c.Statuses })},
+	{"done_statuses", "global+repo", false, "statuses counting as finished (hidden on the web board)",
+		listSetter(func(c *Config) *[]string { return &c.DoneStatuses })},
+	{"idea_statuses", "global+repo", false, "inbox idea lifecycle statuses",
+		listSetter(func(c *Config) *[]string { return &c.IdeaStatuses })},
+	{"verify", "global+repo", false, "checks run by spec verify, after spec apply, spec commit --verify",
+		listSetter(func(c *Config) *[]string { return &c.Verify })},
+	{"pre_commit", "global+repo", false, "fast checks run by spec commit, spec precheck, the pre-commit hook",
+		listSetter(func(c *Config) *[]string { return &c.PreCommit })},
+	{"skill_targets", "global+repo", false, "repo dirs skills install into (default: the agent's dir, else .devin/skills+.claude/skills)",
+		listSetter(func(c *Config) *[]string { return &c.SkillTargets })},
+	{"skills", "union", false, "library skills enabled — global baseline ∪ repo list", nil},
+	{"persona", "global+repo", false, "persona from ~/.config/spec/personas/ used as this repo's role",
+		func(c *Config, v string) { c.Persona = strings.Trim(v, `"'`) }},
+	{"commit_agent", "global+repo", false, "agent writes spec commit messages by default",
+		func(c *Config, v string) { c.CommitAgent = notFalsey(v) }},
+	{"version_stamp", "global+repo", false, "spec commit refreshes VERSION when the repo has one",
+		func(c *Config, v string) { c.VersionStamp = notFalsey(v) }},
+	{"web_host", "global+repo", false, "spec web bind address",
+		func(c *Config, v string) { c.WebHost = strings.Trim(v, `"'`) }},
+	{"web_port", "global+repo", false, "spec web port",
+		func(c *Config, v string) {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				c.WebPort = n
+			}
+		}},
+	{"editor", "global+repo", false, "editor for spec edit / spec config edit ($EDITOR fallback)",
+		func(c *Config, v string) { c.Editor = strings.Trim(v, `"'`) }},
+	{"viewer", "global+repo", false, "spec view renderer — {file} placeholder; built-in plain output default",
+		func(c *Config, v string) { c.Viewer = unquote(v) }},
+	{"release", "repo", true, "allow spec release to tag+push (repo only — global would tag every repo)",
+		func(c *Config, v string) { c.Release = truthy(v) }},
+	{"push_command", "repo", true, "push argv template for spec push/spec release — {ref}/{branch} expand (repo only)",
+		func(c *Config, v string) { c.PushCommand = unquote(v) }},
+	{"push_on_commit", "repo", true, "spec commit pushes (via spec push) after each commit (repo only)",
+		func(c *Config, v string) { c.PushOnCommit = truthy(v) }},
+	{"skill_global_targets", "global", false, "user-level skill install dirs for --global (default: agent's dir, else both) — parsed in skill.go", nil},
 }
 
 // repoConfigPath is the repo's .spec/config.yml.

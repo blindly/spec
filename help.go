@@ -347,7 +347,8 @@ var commandDocs = []commandDoc{
                                        pre-commit hook and spec commit run)`},
 	{"config", `  spec config                        Show effective configuration
   spec config init [global|repo] [--force]   Write config template (--force regenerates)
-  spec config edit [global|repo]     Open config file in $EDITOR (or editor: key)`},
+  spec config edit [global|repo]     Open config file in $EDITOR (or editor: key)
+  spec config keys                   List all supported config keys (scope + description)`},
 	{"web", `  spec web [--port N] [--host ADDR]   Web interface (defaults: web_port/web_host from config)`},
 	{"update", `  spec update [tag]                  Self-update to a release (default: latest)`},
 	{"version", `  spec version                       Print version`},

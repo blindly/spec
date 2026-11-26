@@ -29,6 +29,25 @@ func TestEveryDocumentedCommandDispatches(t *testing.T) {
 	}
 }
 
+// spec config keys lists every supported key; each parsed key also shows
+// its effective value in `spec config` output (skill_global_targets is
+// global-only — parsed in skill.go, documented in keys, not a Config field).
+func TestConfigKeysListing(t *testing.T) {
+	var out bytes.Buffer
+	if err := cmdConfig(&out, io.Discard, []string{"keys"}); err != nil {
+		t.Fatal(err)
+	}
+	dump := loadConfig("").String()
+	for _, k := range configKeys {
+		if !strings.Contains(out.String(), k.name) {
+			t.Errorf("spec config keys output missing %q", k.name)
+		}
+		if k.set != nil && !strings.Contains(dump, k.name+":") {
+			t.Errorf("spec config value dump missing %q", k.name)
+		}
+	}
+}
+
 func TestFrontmatterRoundTrip(t *testing.T) {
 	meta := map[string][]string{
 		"id":         {"FEAT-001"},

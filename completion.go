@@ -68,7 +68,7 @@ var completionTable = map[string]cmdComp{
 	},
 	"role": {subs: []string{"edit", "refine", "adopt"}},
 	"config": {
-		subs:     []string{"init", "edit"},
+		subs:     []string{"init", "edit", "keys"},
 		subArgs:  map[string][]string{"init": {"config-scope"}, "edit": {"config-scope"}},
 		subFlags: map[string][]string{"init": {"--force"}},
 	},

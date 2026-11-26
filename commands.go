@@ -478,6 +478,14 @@ func cmdConfig(out, errOut io.Writer, args []string) error {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			return cmd.Run()
+		case "keys":
+			fmt.Fprintf(out, "%-22s %-11s %s\n", "key", "scope", "description")
+			for _, k := range configKeys {
+				fmt.Fprintf(out, "%-22s %-11s %s\n", k.name, k.scope, k.doc)
+			}
+			return nil
+		default:
+			return fmt.Errorf("usage: spec config [init|edit|keys] [global|repo]")
 		}
 	}
 	st, err := mustStore()
