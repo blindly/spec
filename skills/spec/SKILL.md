@@ -76,6 +76,8 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    hook warns earlier, at commit time (advisory only — never blocks);
    a `pre-commit` hook runs the repo's `pre_commit:` checks (lint,
    format — `spec precheck` runs them standalone; `SPEC_SKIP=1` bypasses).
+   `spec push` pushes the branch after running the same coverage gate
+   in-process — no hook or bash needed.
    Commit through
    `spec commit` — use conventional-commit subjects (`feat:`, `fix:`,
    `docs:`, `chore:`, …). The hook accepts a non-`feat:` prefix or a

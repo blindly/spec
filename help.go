@@ -313,6 +313,9 @@ var commandDocs = []commandDoc{
                                        --verify also runs the verify: list). Refreshes
                                        VERSION when the repo has one
                                        (version_stamp: false opts out)`},
+	{"push", `  spec push                          Push the current branch to origin — runs the
+                                       spec-coverage gate in-process first (same rule
+                                       as the pre-push hook; SPEC_SKIP=1 bypasses)`},
 	{"release", `  spec release [--major N]           Stamp VERSION, commit it alone, push, and tag
                                        v<stamp> — requires release: true in the repo
                                        config; the tag triggers the release workflow`},

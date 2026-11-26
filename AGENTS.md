@@ -18,7 +18,8 @@ This repository uses spec for spec-driven development.
 - A spec-managed pre-push hook blocks pushes that change files outside
   specs/ without a spec update; an advisory commit-msg hook warns at
   commit time, and a pre-commit hook runs the repo's configured
-  pre_commit checks (spec precheck tests them). Commit through `spec commit` with conventional-commit
+  pre_commit checks (spec precheck tests them). spec push runs the
+  same gate in-process before pushing. Commit through `spec commit` with conventional-commit
   subjects: a non-feat: prefix (fix:, docs:, chore:, ...) or a
   `Spec-Exempt: <reason>` trailer (--exempt) attests spec-neutral work;
   --agent asks the configured agent to write the message and pick the
