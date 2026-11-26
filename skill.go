@@ -792,7 +792,8 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 				fmt.Fprintf(out, "  %-*s %s\n", w, n, skillDesc(librarySkillDir(n)))
 			}
 		}
-		fmt.Fprintln(out, "\nstatuses: current · copied · relink · stale · missing — 'spec skill sync' repairs")
+		fmt.Fprintln(out, "\ninstall state vs source — current: matches · copied: matching copy, upgradeable to a link ·")
+		fmt.Fprintln(out, "relink: link to the wrong source · stale: differs · missing: absent — 'spec skill sync' repairs")
 		// foreign dirs: installed by other means or left behind — sync
 		// removes generated leftovers, the rest is just reported
 		resolvedSet := stringSet(names)

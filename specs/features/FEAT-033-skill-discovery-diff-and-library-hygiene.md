@@ -5,6 +5,7 @@ id: FEAT-033
 status: implemented
 title: Skill discovery, diff, and library hygiene
 type: feature
+verified: 4389a5e811a62022ff1b93dda1baf2c23456eb6b
 ---
 
 # Skill discovery, diff, and library hygiene
@@ -132,4 +133,3 @@ Addresses: REQ-003, REQ-017
   records the URL-import network exception
 - [x] Tests cover the new commands, lint, registry warnings, repo-root
   import, and `skill_global_targets:`
-

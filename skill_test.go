@@ -366,7 +366,7 @@ func TestSkillAvailableListed(t *testing.T) {
 		t.Fatalf("available skill not listed:\n%s", got)
 	}
 	// the listing is self-describing: groups, descriptions, legend
-	if !strings.Contains(got, "enabled\n") || !strings.Contains(got, "statuses:") || !strings.Contains(got, "test") {
+	if !strings.Contains(got, "enabled\n") || !strings.Contains(got, "install state") || !strings.Contains(got, "test") {
 		t.Fatalf("missing sections/description/legend:\n%s", got)
 	}
 }
