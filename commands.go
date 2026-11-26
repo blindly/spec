@@ -649,12 +649,14 @@ var reqPattern = regexp.MustCompile(`REQ-\d+`)
 
 func cmdStatus(out, errOut io.Writer) error { return statusReport(out, errOut) }
 
-// gitStatusSummary builds the Git block for spec status: a headline
-// (branch · remote URL) and a state line (clean · up to date with
-// origin/master). "", "" when root isn't a git worktree.
-func gitStatusSummary(root string) (string, string) {
+// gitStatusLines builds the Git block for spec status: a headline
+// (branch · remote URL), a state line (clean · up to date with
+// origin/master), then — when dirty — the changed file list and, when
+// `sem` is on PATH, its semantic diff (the same tool `inv status` runs).
+// nil when root isn't a git worktree.
+func gitStatusLines(root string) []string {
 	if _, err := gitOut(root, "rev-parse", "--git-dir"); err != nil {
-		return "", ""
+		return nil
 	}
 	head := strings.TrimSpace(mustGit(root, "branch", "--show-current"))
 	if head == "" {
@@ -663,21 +665,34 @@ func gitStatusSummary(root string) (string, string) {
 	if url := strings.TrimSpace(mustGit(root, "remote", "get-url", "origin")); url != "" {
 		head += " — " + url
 	}
-	var parts []string
-	dirty := 0
+	var files []string
 	for _, l := range strings.Split(mustGit(root, "status", "--porcelain"), "\n") {
 		if l != "" {
-			dirty++
+			files = append(files, l)
 		}
 	}
-	if dirty == 0 {
+	var parts []string
+	if len(files) == 0 {
 		parts = append(parts, "clean")
 	} else {
 		noun := "files"
-		if dirty == 1 {
+		if len(files) == 1 {
 			noun = "file"
 		}
-		parts = append(parts, fmt.Sprintf("%d uncommitted %s", dirty, noun))
+		diff := fmt.Sprintf("%d uncommitted %s", len(files), noun)
+		// +adds -dels across staged+unstaged changes vs HEAD
+		var adds, dels int
+		for _, l := range strings.Split(mustGit(root, "diff", "HEAD", "--numstat"), "\n") {
+			var a, d int
+			if _, err := fmt.Sscanf(l, "%d %d", &a, &d); err == nil {
+				adds += a
+				dels += d
+			}
+		}
+		if adds+dels > 0 {
+			diff += fmt.Sprintf(" (+%d -%d)", adds, dels)
+		}
+		parts = append(parts, diff)
 	}
 	if upstream := strings.TrimSpace(mustGit(root, "rev-parse", "--abbrev-ref", "@{upstream}")); upstream != "" {
 		// left-right count: <upstream-only>\t<HEAD-only>
@@ -702,8 +717,30 @@ func gitStatusSummary(root string) (string, string) {
 	} else {
 		parts = append(parts, "no upstream — nothing to push")
 	}
-	return head, strings.Join(parts, " · ")
+	lines := []string{head, strings.Join(parts, " · ")}
+	const fileCap = 12
+	for i, f := range files {
+		if i == fileCap {
+			lines = append(lines, fmt.Sprintf("… +%d more", len(files)-fileCap))
+			break
+		}
+		lines = append(lines, f)
+	}
+	// sem: the semantic diff `inv status` shows — same PATH detection
+	if len(files) > 0 {
+		if sem, err := exec.LookPath("sem"); err == nil {
+			cmd := exec.Command(sem)
+			cmd.Dir = root
+			if b, err := cmd.Output(); err == nil {
+				out := ansiRe.ReplaceAllString(string(b), "")
+				lines = append(lines, strings.Split(strings.TrimRight(out, "\n"), "\n")...)
+			}
+		}
+	}
+	return lines
 }
+
+var ansiRe = regexp.MustCompile("\x1b\\[[0-9;]*m")
 
 // cmdPs lists specs still in flight — the queue, not the dashboard
 // (FEAT-035). Sorted by configured status order, then id.
@@ -797,8 +834,11 @@ func statusReport(out, errOut io.Writer) error {
 	if _, source := roleFor(st, cfg); source != "" {
 		fmt.Fprintf(out, "Role: %s\n", source)
 	}
-	if line, state := gitStatusSummary(st.Root); line != "" {
-		fmt.Fprintf(out, "Git: %s\n     %s\n", line, state)
+	if lines := gitStatusLines(st.Root); len(lines) > 0 {
+		fmt.Fprintf(out, "Git: %s\n", lines[0])
+		for _, l := range lines[1:] {
+			fmt.Fprintf(out, "     %s\n", l)
+		}
 	}
 	{
 		local, managed, stale := 0, 0, 0

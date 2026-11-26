@@ -57,9 +57,11 @@ Addresses: REQ-011
   repo header
 - [x] `In flight: none` when the queue is empty
 - [x] `spec status` shows a `Git:` block — branch · remote URL headline,
-  then state (`clean`/`N uncommitted files` · `up to date with
-  upstream`/`N unpushed`/`N behind`/`not on any remote`), plus
-  `Reminders: none` when no reminders are configured
+  then state (`clean`/`N uncommitted files (+a -d)` · `up to date with
+  upstream`/`N unpushed`/`N behind`/`not on any remote`), then — when
+  dirty — the porcelain file list (capped at 12) and the `sem` semantic
+  diff when it's on PATH, plus `Reminders: none` when no reminders are
+  configured
 - [x] `spec status` is queue-free; `spec help ps` and completion treat
   `ps` as a first-class command
 - [x] README documents `ps`; tests cover both commands
