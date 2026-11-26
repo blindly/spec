@@ -108,7 +108,16 @@ func cmdCommit(out, errOut io.Writer, args []string) error {
 	// own coverage gate — the hooks exist for the plain-git bypass path.
 	res, err := gitOut(st.Root, "commit", "--no-verify", "-m", m)
 	fmt.Fprint(out, res)
-	return err
+	if err != nil {
+		return err
+	}
+	// push_on_commit: the repo wants every commit to go out — run the same
+	// gated push `spec push` performs (push_command honored, gate refusal
+	// leaves the commit in place).
+	if cfg.PushOnCommit {
+		return cmdPush(out, errOut)
+	}
+	return nil
 }
 
 // commitDiffBound caps the staged diff sent to the agent (FEAT-017).

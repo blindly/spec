@@ -90,6 +90,8 @@ done_statuses: [deprecated, rejected]   # no longer valid: hidden on the web boa
 idea_statuses: [new, refined, discarded]   # lifecycle for inbox ideas (separate from statuses)
 verify: [go test ./..., spec validate, spec check]   # run by `spec verify`, after `spec apply`, `spec commit --verify`
 pre_commit: [ruff check, biome check]   # fast checks run by `spec commit` and the pre-commit hook
+push_command: git push gitea {ref}   # optional — redirect `spec push`/`spec release` pushes ({ref}/{branch} expand)
+push_on_commit: true                 # optional — `spec commit` pushes (via `spec push`) after each commit
 editor: vim            # falls back to $EDITOR, then vi
 viewer: "glow --style dark {file}" # optional; default is built-in plain output
 ```

@@ -83,3 +83,32 @@ func TestSpecPush(t *testing.T) {
 		t.Fatal("push_command target did not receive the branch")
 	}
 }
+
+// push_on_commit: true makes a successful spec commit run the same gated
+// push — a refused push fails the command but keeps the commit.
+func TestCommitPushOnCommit(t *testing.T) {
+	st := setupRepo(t)
+	gitInit(t, st)
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", st.Root}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	remote := filepath.Join(t.TempDir(), "r.git")
+	run("init", "--bare", remote)
+	run("remote", "add", "origin", remote)
+
+	writeFile(t, st, ".spec/config.yml", "push_on_commit: true\n")
+	writeFile(t, st, "specs/features/FEAT-009-x.md",
+		"---\nid: FEAT-009\ntype: feature\nstatus: draft\n---\n# x\n")
+
+	var out, errs bytes.Buffer
+	if err := cmdCommit(&out, &errs, []string{"-m", "chore: add spec"}); err != nil {
+		t.Fatalf("commit with push_on_commit: %v\n%s", err, errs.String())
+	}
+	if got := strings.TrimSpace(mustGit(st.Root, "ls-remote", "origin", "HEAD")); got == "" {
+		t.Fatalf("push_on_commit did not push:\n%s\n%s", out.String(), errs.String())
+	}
+}

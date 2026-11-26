@@ -77,7 +77,9 @@ with YAML frontmatter (id, type, status, depends_on) under `specs/`.
    a `pre-commit` hook runs the repo's `pre_commit:` checks (lint,
    format — `spec precheck` runs them standalone; `SPEC_SKIP=1` bypasses).
    `spec push` pushes the branch after running the same coverage gate
-   in-process — no hook or bash needed.
+   in-process — no hook or bash needed. Repo config `push_on_commit: true`
+   makes `spec commit` run that push automatically after each commit;
+   `push_command:` redirects the target (`{ref}`/`{branch}` placeholders).
    Commit through
    `spec commit` — use conventional-commit subjects (`feat:`, `fix:`,
    `docs:`, `chore:`, …). The hook accepts a non-`feat:` prefix or a

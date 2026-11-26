@@ -23,6 +23,7 @@ type Config struct {
 	Editor       string   // editor command for `spec config edit`
 	Verify       []string // commands run by spec verify
 	PushCommand  string   // custom push command template ({branch}, {ref} placeholders); empty = git push origin <ref>
+	PushOnCommit bool     // spec commit pushes after a successful commit (repo-only — push policy is clone state)
 	PreCommit    []string // cheap checks run by spec commit / spec precheck
 	Persona      string   // name of a ~/.config/spec/personas/<name>.md used as the role when .spec/role.md is unset
 	VersionStamp bool     // spec commit refreshes VERSION (opt-in by the file's presence); spec release stamps + tags
@@ -208,6 +209,8 @@ func loadConfig(root string) Config {
 	// clone-specific state; a global template could redirect every repo's
 	// pushes at once.
 	cfg.PushCommand = unquote(repoRaw["push_command"])
+	v = repoRaw["push_on_commit"]
+	cfg.PushOnCommit = v == "true" || v == "yes" || v == "1" || v == "on"
 	return cfg
 }
 
@@ -232,11 +235,11 @@ func unionStrings(a, b []string) []string {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_env: [%s]\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nviewer: %s\npersona: %s\nskills: [%s]\nskill_targets: [%s]\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]\npre_commit: [%s]\npush_command: %s\nversion_stamp: %t\nrelease: %t\ncommit_agent: %t",
+	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_env: [%s]\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nviewer: %s\npersona: %s\nskills: [%s]\nskill_targets: [%s]\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]\npre_commit: [%s]\npush_command: %s\npush_on_commit: %t\nversion_stamp: %t\nrelease: %t\ncommit_agent: %t",
 		c.Agent, c.AgentCmd, strings.Join(c.AgentEnv, ", "), c.AgentTimeout, c.WebHost, c.WebPort, c.editor(), c.Viewer, c.Persona,
 		strings.Join(c.Skills, ", "), strings.Join(c.SkillTargets, ", "),
 		strings.Join(c.Statuses, ", "), strings.Join(c.DoneStatuses, ", "),
-		strings.Join(c.IdeaStatuses, ", "), strings.Join(c.Verify, ", "), strings.Join(c.PreCommit, ", "), c.PushCommand, c.VersionStamp, c.Release, c.CommitAgent)
+		strings.Join(c.IdeaStatuses, ", "), strings.Join(c.Verify, ", "), strings.Join(c.PreCommit, ", "), c.PushCommand, c.PushOnCommit, c.VersionStamp, c.Release, c.CommitAgent)
 }
 
 const globalConfigTemplate = `# Global defaults for all spec-managed repositories.
@@ -319,6 +322,7 @@ const repoConfigTemplate = `version: 1
 # <ref>; {branch} = current branch, {ref} = the ref being pushed.
 # Unparseable commands make the coverage gate check commits not on any remote.
 # push_command: git push gitea {branch}
+# push_on_commit: true   # spec commit pushes (via spec push) after committing
 
 # Editor for spec edit / spec config edit (falls back to $EDITOR, then vi)
 # editor: vim

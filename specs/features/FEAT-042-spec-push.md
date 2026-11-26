@@ -48,4 +48,5 @@ git-bash requirement, identical semantics on Windows.
 - [x] An uncovered push with unattested commits refuses, naming them; `SPEC_SKIP=1` bypasses
 - [x] The check runs without any installed git hook (works in repos where hooks are absent or bash is unavailable)
 - [x] Detached HEAD and missing origin produce clear errors
+- [x] `push_on_commit: true` (repo config only) makes `spec commit` run this same gated push after a successful commit; a refused push leaves the commit in place
 - [x] `push_command: git push <remote> {ref}` redirects both `spec push` and `spec release` pushes; `{ref}`/`{branch}` expand to the pushed ref

@@ -312,7 +312,8 @@ var commandDocs = []commandDoc{
                                        Runs pre_commit: checks first (--no-check skips;
                                        --verify also runs the verify: list). Refreshes
                                        VERSION when the repo has one
-                                       (version_stamp: false opts out)`},
+                                       (version_stamp: false opts out); push_on_commit:
+                                       true pushes after committing (via spec push)`},
 	{"push", `  spec push                          Push the current branch to origin — runs the
                                        spec-coverage gate in-process first (same rule
                                        as the pre-push hook; SPEC_SKIP=1 bypasses;
