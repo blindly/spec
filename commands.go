@@ -649,6 +649,62 @@ var reqPattern = regexp.MustCompile(`REQ-\d+`)
 
 func cmdStatus(out, errOut io.Writer) error { return statusReport(out, errOut) }
 
+// gitStatusSummary builds the Git block for spec status: a headline
+// (branch · remote URL) and a state line (clean · up to date with
+// origin/master). "", "" when root isn't a git worktree.
+func gitStatusSummary(root string) (string, string) {
+	if _, err := gitOut(root, "rev-parse", "--git-dir"); err != nil {
+		return "", ""
+	}
+	head := strings.TrimSpace(mustGit(root, "branch", "--show-current"))
+	if head == "" {
+		head = "detached HEAD " + strings.TrimSpace(mustGit(root, "rev-parse", "--short", "HEAD"))
+	}
+	if url := strings.TrimSpace(mustGit(root, "remote", "get-url", "origin")); url != "" {
+		head += " — " + url
+	}
+	var parts []string
+	dirty := 0
+	for _, l := range strings.Split(mustGit(root, "status", "--porcelain"), "\n") {
+		if l != "" {
+			dirty++
+		}
+	}
+	if dirty == 0 {
+		parts = append(parts, "clean")
+	} else {
+		noun := "files"
+		if dirty == 1 {
+			noun = "file"
+		}
+		parts = append(parts, fmt.Sprintf("%d uncommitted %s", dirty, noun))
+	}
+	if upstream := strings.TrimSpace(mustGit(root, "rev-parse", "--abbrev-ref", "@{upstream}")); upstream != "" {
+		// left-right count: <upstream-only>\t<HEAD-only>
+		f := strings.Fields(mustGit(root, "rev-list", "--left-right", "--count", upstream+"...HEAD"))
+		var behind, ahead int
+		if len(f) == 2 {
+			fmt.Sscanf(f[0], "%d", &behind)
+			fmt.Sscanf(f[1], "%d", &ahead)
+		}
+		switch {
+		case ahead == 0 && behind == 0:
+			parts = append(parts, "up to date with "+upstream)
+		case ahead > 0 && behind > 0:
+			parts = append(parts, fmt.Sprintf("%d unpushed, %d behind %s", ahead, behind, upstream))
+		case ahead > 0:
+			parts = append(parts, fmt.Sprintf("%d unpushed commit(s)", ahead))
+		default:
+			parts = append(parts, fmt.Sprintf("%d behind %s", behind, upstream))
+		}
+	} else if n := strings.TrimSpace(mustGit(root, "rev-list", "--count", "HEAD", "--not", "--remotes")); n != "" && n != "0" {
+		parts = append(parts, n+" commit(s) not on any remote")
+	} else {
+		parts = append(parts, "no upstream — nothing to push")
+	}
+	return head, strings.Join(parts, " · ")
+}
+
 // cmdPs lists specs still in flight — the queue, not the dashboard
 // (FEAT-035). Sorted by configured status order, then id.
 func cmdPs(out, errOut io.Writer) error {
@@ -741,6 +797,9 @@ func statusReport(out, errOut io.Writer) error {
 	if _, source := roleFor(st, cfg); source != "" {
 		fmt.Fprintf(out, "Role: %s\n", source)
 	}
+	if line, state := gitStatusSummary(st.Root); line != "" {
+		fmt.Fprintf(out, "Git: %s\n     %s\n", line, state)
+	}
 	{
 		local, managed, stale := 0, 0, 0
 		targets := skillTargets(cfg)
@@ -786,6 +845,8 @@ func statusReport(out, errOut io.Writer) error {
 		} else {
 			fmt.Fprintf(out, "Reminders: %d tracked, none due\n", len(rs))
 		}
+	} else {
+		fmt.Fprintln(out, "Reminders: none (.spec/reminders.yml)")
 	}
 	if ideas > 0 {
 		var parts []string

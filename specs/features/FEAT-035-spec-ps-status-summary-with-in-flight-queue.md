@@ -56,6 +56,10 @@ Addresses: REQ-011
   for features — sorted by status order then id; nothing else but the
   repo header
 - [x] `In flight: none` when the queue is empty
+- [x] `spec status` shows a `Git:` block — branch · remote URL headline,
+  then state (`clean`/`N uncommitted files` · `up to date with
+  upstream`/`N unpushed`/`N behind`/`not on any remote`), plus
+  `Reminders: none` when no reminders are configured
 - [x] `spec status` is queue-free; `spec help ps` and completion treat
   `ps` as a first-class command
 - [x] README documents `ps`; tests cover both commands
