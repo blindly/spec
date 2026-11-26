@@ -178,8 +178,15 @@ func TestSkill(t *testing.T) {
 	if err := cmdSkill(&out, io.Discard, nil); err != nil {
 		t.Fatalf("fresh init should be current: %v", err)
 	}
-	if strings.Count(out.String(), ":current") != 2 {
-		t.Fatalf("want 2 current copies, got:\n%s", out.String())
+	// healthy shows a single "current" — non-current targets get named
+	specLine := ""
+	for _, l := range strings.Split(out.String(), "\n") {
+		if strings.Contains(l, "built-in") {
+			specLine = l
+		}
+	}
+	if !strings.Contains(specLine, "current") || strings.Contains(specLine, "/skills:") {
+		t.Fatalf("want a single current status naming no targets, got:\n%s", out.String())
 	}
 
 	// one stale, one missing
@@ -192,6 +199,20 @@ func TestSkill(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "stale") || !strings.Contains(out.String(), "missing") {
 		t.Fatalf("want stale+missing, got:\n%s", out.String())
+	}
+
+	// the listing names only the non-current targets
+	out.Reset()
+	if err := cmdSkill(&out, io.Discard, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range strings.Split(out.String(), "\n") {
+		if strings.Contains(l, "built-in") {
+			specLine = l
+		}
+	}
+	if !strings.Contains(specLine, ".devin/skills:stale") || !strings.Contains(specLine, ".claude/skills:missing") {
+		t.Fatalf("want only the broken targets named, got line %q\n%s", specLine, out.String())
 	}
 
 	out.Reset()

@@ -42,9 +42,11 @@ Addresses: REQ-003, REQ-017
 ## Design
 
 - **List output.** `spec skill` / `spec skill check` group the output
-  into an `enabled` section (the resolved set, unchanged columns:
-  name, source label, per-target status — plus a trailing description
-  column from each skill's SKILL.md frontmatter) and a
+  into an `enabled` section (the resolved set: name, source label, a
+  single status — `current` when every install matches the source, else
+  only the non-current `target:status` pairs are named — plus a
+  trailing description column from each skill's SKILL.md frontmatter)
+  and a
   `library (not enabled — 'spec skill use <name>' to enable)` section
   listing each remaining library skill with its description. A compact
   legend line explains the status vocabulary

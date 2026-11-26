@@ -549,24 +549,37 @@ func skillStatusLine(st Store, cfg Config, targets []string, name, scope string,
 	if src.kind != "" {
 		srcFiles, _ = skillFiles(src.dir)
 	}
-	var parts []string
-	for _, t := range targets {
-		dst := filepath.Join(st.Root, t, name)
-		if src.kind == "" {
-			if _, err := os.Lstat(dst); err == nil {
-				parts = append(parts, t+":present")
-			} else {
-				parts = append(parts, t+":missing")
+	// One status: "current" when every target matches the source — else only
+	// the non-current targets are named (target:status). Orphans name where
+	// the leftover install still sits.
+	var status string
+	if src.kind == "" {
+		ok = false
+		var present []string
+		for _, t := range targets {
+			if _, err := os.Lstat(filepath.Join(st.Root, t, name)); err == nil {
+				present = append(present, t)
 			}
-			continue
 		}
-		status := skillInstallStatus(st.Root, dst, src, srcFiles)
-		parts = append(parts, t+":"+status)
-		if status != "current" {
-			ok = false
+		status = "orphaned"
+		if len(present) > 0 {
+			status += " in " + strings.Join(present, ", ")
+		}
+	} else {
+		var bad []string
+		for _, t := range targets {
+			dst := filepath.Join(st.Root, t, name)
+			if s := skillInstallStatus(st.Root, dst, src, srcFiles); s != "current" {
+				ok = false
+				bad = append(bad, t+":"+s)
+			}
+		}
+		status = "current"
+		if len(bad) > 0 {
+			status = strings.Join(bad, "  ")
 		}
 	}
-	line := fmt.Sprintf("%-*s %-16s %s", width, name, label, strings.Join(parts, "  "))
+	line := fmt.Sprintf("%-*s %-16s %s", width, name, label, status)
 	if src.kind != "" {
 		if desc := skillDesc(src.dir); desc != "" {
 			line += "  " + desc
