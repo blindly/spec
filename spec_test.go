@@ -10,6 +10,25 @@ import (
 	"testing"
 )
 
+// Every command shown in usage must dispatch — a documented command that
+// isn't in commands prints "unknown command" (shipped once with push).
+func TestEveryDocumentedCommandDispatches(t *testing.T) {
+	special := map[string]bool{"version": true, "completion": true, "help": true, "__complete": true}
+	for _, d := range commandDocs {
+		if _, ok := commands[d.name]; !ok && !special[d.name] {
+			t.Errorf("documented command %q not in commands map", d.name)
+		}
+	}
+	for name := range commands {
+		if name == "list" { // documented alias of ls
+			continue
+		}
+		if _, ok := commandDocByName[name]; !ok {
+			t.Errorf("dispatched command %q has no help entry", name)
+		}
+	}
+}
+
 func TestFrontmatterRoundTrip(t *testing.T) {
 	meta := map[string][]string{
 		"id":         {"FEAT-001"},
