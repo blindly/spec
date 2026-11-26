@@ -63,7 +63,7 @@ func cmdInit(out, errOut io.Writer) error {
 	st := Store{Root: "."}
 	cfg := loadConfig(".")
 	targets := skillTargets(cfg)
-	if _, err := syncSkills(st, cfg, targets, false, out); err != nil {
+	if _, err := syncSkills(st, cfg, targets, false, false, out); err != nil {
 		return err
 	}
 	fmt.Fprintln(out, "Initialized spec repository.")

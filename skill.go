@@ -635,7 +635,7 @@ func checkSkillInstalls(st Store, out io.Writer) int {
 // force overwrites installed copies that differ from their source; without
 // it they are reported stale and left alone. Returns the number of
 // non-current paths.
-func syncSkills(st Store, cfg Config, targets []string, force bool, out io.Writer) (int, error) {
+func syncSkills(st Store, cfg Config, targets []string, force, quiet bool, out io.Writer) (int, error) {
 	// generated skill dirs are install output — ensure .gitignore covers
 	// them (and secrets facts) on every repo sync, not only at spec init;
 	// repo-free library commands skip this (no .gitignore context).
@@ -683,7 +683,9 @@ func syncSkills(st Store, cfg Config, targets []string, force bool, out io.Write
 				}
 				status = what
 			}
-			fmt.Fprintf(out, "%-8s %s\n", status, dst)
+			if !quiet {
+				fmt.Fprintf(out, "%-8s %s\n", status, dst)
+			}
 		}
 	}
 	// generated dirs for names no longer resolved: links we created and
@@ -720,7 +722,7 @@ func syncSkills(st Store, cfg Config, targets []string, force bool, out io.Write
 
 func cmdSkill(out, errOut io.Writer, args []string) error {
 	var sub, operand, operand2 string
-	var global, force, library, local, noEdit bool
+	var global, force, library, local, noEdit, quiet bool
 	var positional []string
 	for _, a := range args {
 		switch a {
@@ -734,6 +736,8 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 			local = true
 		case "--no-edit":
 			noEdit = true
+		case "--quiet":
+			quiet = true
 		default:
 			positional = append(positional, a)
 		}
@@ -755,7 +759,7 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 	}
 
 	if global {
-		return cmdSkillGlobal(out, errOut, sub, operand, force)
+		return cmdSkillGlobal(out, errOut, sub, operand, force, quiet)
 	}
 
 	st, err := mustStore()
@@ -843,7 +847,7 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 		}
 		return nil
 	case "sync", "update":
-		bad, err := syncSkills(st, cfg, targets, force || sub == "update", out)
+		bad, err := syncSkills(st, cfg, targets, force || sub == "update", quiet, out)
 		if err != nil {
 			return err
 		}
@@ -1024,7 +1028,7 @@ func cmdSkillNew(st Store, cfg Config, name string, library, noEdit bool, out, e
 	if library {
 		return nil
 	}
-	_, err := syncSkills(st, cfg, skillTargets(cfg), false, errOut)
+	_, err := syncSkills(st, cfg, skillTargets(cfg), false, true, errOut)
 	return err
 }
 
@@ -1061,7 +1065,7 @@ func cmdSkillEdit(st Store, cfg Config, name string, library, local bool, out, e
 	if filepath.Dir(dir) != filepath.Join(st.Root, configDir, "skills") {
 		return nil // library file — nothing installed to refresh
 	}
-	_, err := syncSkills(st, cfg, skillTargets(cfg), false, errOut)
+	_, err := syncSkills(st, cfg, skillTargets(cfg), false, true, errOut)
 	return err
 }
 
@@ -1135,7 +1139,7 @@ Current skill:
 	}
 	fmt.Fprintln(out, "Refined", path, "via", ag.name)
 	if src.kind == "repo" {
-		_, err := syncSkills(st, cfg, skillTargets(cfg), false, errOut)
+		_, err := syncSkills(st, cfg, skillTargets(cfg), false, true, errOut)
 		return err
 	}
 	return nil
@@ -1166,7 +1170,7 @@ func cmdSkillUse(st Store, cfg Config, targets []string, name string, out, errOu
 		fmt.Fprintln(errOut, "note: .spec/skills/"+name+" exists and takes precedence")
 	}
 	cfg.Skills = unionStrings(cfg.Skills, []string{name})
-	_, err := syncSkills(st, cfg, targets, false, errOut)
+	_, err := syncSkills(st, cfg, targets, false, true, errOut)
 	return err
 }
 
@@ -1316,7 +1320,7 @@ func cmdSkillAdopt(st Store, cfg Config, targets []string, name string, out, err
 		fmt.Fprintln(errOut, "note: still in global skills: — the repo copy shadows the library one")
 	}
 	fmt.Fprintf(out, "Adopted skill %q → %s\n", name, repoSkillDir(st.Root, name))
-	_, err = syncSkills(st, cfg, targets, false, errOut)
+	_, err = syncSkills(st, cfg, targets, false, true, errOut)
 	return err
 }
 
@@ -1490,7 +1494,7 @@ func cmdSkillImport(st Store, cfg Config, targets []string, source, sel string, 
 		}
 		fmt.Fprintf(out, "Removed source %s\n", d)
 	}
-	_, err = syncSkills(st, cfg, targets, false, errOut)
+	_, err = syncSkills(st, cfg, targets, false, true, errOut)
 	return err
 }
 
@@ -1542,7 +1546,7 @@ func cmdSkillImportAll(st Store, cfg Config, targets []string, out, errOut io.Wr
 			}
 		}
 	}
-	_, err := syncSkills(st, cfg, targets, false, errOut)
+	_, err := syncSkills(st, cfg, targets, false, true, errOut)
 	return err
 }
 
@@ -1572,7 +1576,7 @@ func removeSkillSource(root, dir string) error {
 // cmdSkillGlobal applies check/sync to the user-level agent dirs, resolving
 // the globally enabled set (global skills: plus the built-in spec).
 // use/unuse --global edit the global skills: list itself.
-func cmdSkillGlobal(out, errOut io.Writer, sub, name string, force bool) error {
+func cmdSkillGlobal(out, errOut io.Writer, sub, name string, force, quiet bool) error {
 	switch sub {
 	case "", "check", "sync", "update", "use", "unuse":
 	default:
@@ -1693,7 +1697,9 @@ func cmdSkillGlobal(out, errOut io.Writer, sub, name string, force bool) error {
 					status = what
 				}
 			}
-			fmt.Fprintf(out, "%-8s %s\n", status, dst)
+			if !quiet {
+				fmt.Fprintf(out, "%-8s %s\n", status, dst)
+			}
 		}
 	}
 	if bad > 0 && sub != "sync" && sub != "update" {

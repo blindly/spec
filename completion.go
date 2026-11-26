@@ -54,7 +54,7 @@ var completionTable = map[string]cmdComp{
 	},
 	"skill": {
 		subs:  []string{"check", "sync", "update", "view", "which", "diff", "new", "edit", "refine", "use", "unuse", "adopt", "push", "import", "rm"},
-		flags: []string{"--global", "--force", "--library", "--local", "--no-edit"},
+		flags: []string{"--global", "--force", "--library", "--local", "--no-edit", "--quiet"},
 		subArgs: map[string][]string{
 			"use": {"skill"}, "unuse": {"skill"}, "adopt": {"skill"}, "push": {"skill"},
 			"rm": {"skill"}, "edit": {"skill"}, "view": {"skill"}, "refine": {"skill"},
@@ -85,7 +85,7 @@ var completionTable = map[string]cmdComp{
 	"accept":  {args: []string{"spec-id"}},
 	"commit":  {flags: []string{"-m", "--exempt", "--agent", "--no-agent", "--no-check", "--verify"}},
 	"release": {flags: []string{"--major"}},
-	"update":  {},
+	"update":  {flags: []string{"--verbose", "-v"}},
 }
 
 // completionCommandNames is every word `spec <TAB>` offers — the command

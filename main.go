@@ -36,10 +36,15 @@ var commands = map[string]func(args []string, out, errOut io.Writer) error{
 	"precheck": func(a []string, o, e io.Writer) error { return cmdPrecheck(o, e) },
 	"update": func(a []string, o, e io.Writer) error {
 		tag := ""
-		if len(a) > 0 {
-			tag = a[0]
+		verbose := false
+		for _, arg := range a {
+			if arg == "--verbose" || arg == "-v" {
+				verbose = true
+			} else {
+				tag = arg
+			}
 		}
-		return cmdUpdate(o, e, tag)
+		return cmdUpdate(o, e, tag, verbose)
 	},
 	"idea": func(a []string, o, e io.Writer) error {
 		if len(a) < 1 {

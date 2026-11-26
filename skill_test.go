@@ -267,13 +267,13 @@ func TestSkillSyncBuiltInAlwaysOverwrites(t *testing.T) {
 	st := setupRepo(t)
 	cfg := loadConfig(st.Root)
 	var out bytes.Buffer
-	if _, err := syncSkills(st, cfg, skillTargets(cfg), false, &out); err != nil {
+	if _, err := syncSkills(st, cfg, skillTargets(cfg), false, false, &out); err != nil {
 		t.Fatal(err)
 	}
 	installed := filepath.Join(st.Root, ".devin", "skills", "spec", "SKILL.md")
 	os.WriteFile(installed, []byte("written by an older binary"), 0o644)
 	out.Reset()
-	bad, err := syncSkills(st, cfg, skillTargets(cfg), false, &out)
+	bad, err := syncSkills(st, cfg, skillTargets(cfg), false, false, &out)
 	if err != nil || bad != 0 {
 		t.Fatalf("stale built-in should auto-repair: bad=%d err=%v\n%s", bad, err, out.String())
 	}
@@ -289,7 +289,7 @@ func TestSkillSyncBuiltInAlwaysOverwrites(t *testing.T) {
 	os.MkdirAll(gdst, 0o755)
 	os.WriteFile(filepath.Join(gdst, "SKILL.md"), []byte("written by an older binary"), 0o644)
 	var gout bytes.Buffer
-	if err := cmdSkillGlobal(&gout, io.Discard, "sync", "", false); err != nil {
+	if err := cmdSkillGlobal(&gout, io.Discard, "sync", "", false, false); err != nil {
 		t.Fatal(err)
 	}
 	if data, _ := os.ReadFile(filepath.Join(gdst, "SKILL.md")); string(data) == "written by an older binary" {
@@ -1295,7 +1295,7 @@ func TestSkillExternalTargetAbsoluteLink(t *testing.T) {
 
 	var out bytes.Buffer
 	targets := []string{filepath.Join("..", "ext")}
-	if _, err := syncSkills(st, loadConfig(st.Root), targets, false, &out); err != nil {
+	if _, err := syncSkills(st, loadConfig(st.Root), targets, false, false, &out); err != nil {
 		t.Fatal(err)
 	}
 	dst := filepath.Join(base, "ext", "local")

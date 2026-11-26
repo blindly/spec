@@ -341,7 +341,8 @@ var commandDocs = []commandDoc{
   spec skill import [<name|path|url> [<name>]]   Pull a skill into .spec/skills/ (bare: all foreign
                                        dirs; repo root or git URL picks a .spec/skills entry;
                                        --library: into the library; in-repo sources are moved)
-  spec skill check|sync [--force]       Verify / regenerate installs — links to the source (--global: user dirs)`},
+  spec skill check|sync [--force]       Verify / regenerate installs — links to the source
+                                       (--global: user dirs; --quiet: problems only)`},
 	{"verify", `  spec verify                        Run configured verification commands`},
 	{"precheck", `  spec precheck                      Run configured pre_commit checks (what the
                                        pre-commit hook and spec commit run)`},
@@ -350,7 +351,9 @@ var commandDocs = []commandDoc{
   spec config edit [global|repo]     Open config file in $EDITOR (or editor: key)
   spec config keys                   List all supported config keys (scope + description)`},
 	{"web", `  spec web [--port N] [--host ADDR]   Web interface (defaults: web_port/web_host from config)`},
-	{"update", `  spec update [tag]                  Self-update to a release (default: latest)`},
+	{"update", `  spec update [tag] [--verbose]      Self-update to a release (default: latest);
+                                       the post-update skill sync reports problems only
+                                       (--verbose shows every install)`},
 	{"version", `  spec version                       Print version`},
 	{"help", `  spec help [command]                 Full help, or one command's help block`},
 	{"completion", `  spec completion <bash|zsh|fish> [--install]   Print a completion script (or install it to your shell dir)`},
