@@ -211,7 +211,7 @@ func installSkill(root, dst string, src skillSource, srcFiles map[string][]byte)
 
 // generatedLink reports whether dst is a symlink pointing inside a skill
 // source root (.spec/skills/ or the library) — one spec created and may
-// remove. Links elsewhere are foreign and left alone.
+// remove. Links elsewhere are local and left alone.
 func generatedLink(st Store, dst string) bool {
 	t, err := os.Readlink(dst)
 	if err != nil {
@@ -688,9 +688,17 @@ func syncSkills(st Store, cfg Config, targets []string, force, quiet bool, out i
 			}
 		}
 	}
-	// generated dirs for names no longer resolved: links we created and
-	// real dirs that still match the library are removed; anything else is
-	// foreign and only reported
+	// installs no longer resolved: remove only what spec provably made —
+	// links into .spec/skills or the library, and real dirs identical to
+	// the library (recoverable; also what makes unuse hold for copy
+	// installs). Everything else is a local skill — never removed.
+	return bad, pruneSkillTargets(st, targets, resolved, quiet, out)
+}
+
+// pruneSkillTargets removes un-resolved installs spec provably created.
+// Anything else — a differing dir, a name the library doesn't know — is
+// a local skill: never deleted, narrated only in verbose output.
+func pruneSkillTargets(st Store, targets []string, resolved map[string]bool, quiet bool, out io.Writer) error {
 	for _, t := range targets {
 		tdir := filepath.Join(st.Root, t)
 		entries, _ := os.ReadDir(tdir)
@@ -708,16 +716,18 @@ func syncSkills(st Store, cfg Config, targets []string, force, quiet bool, out i
 				removable = lib != nil && skillFilesEqual(installed, lib)
 			}
 			if !removable {
-				fmt.Fprintf(out, "%-8s %s\n", "foreign", dst)
+				if !quiet {
+					fmt.Fprintf(out, "%-8s %s (local — not managed)\n", "local", dst)
+				}
 				continue
 			}
 			if err := os.RemoveAll(dst); err != nil {
-				return bad, err
+				return err
 			}
 			fmt.Fprintf(out, "%-8s %s\n", "removed", dst)
 		}
 	}
-	return bad, nil
+	return nil
 }
 
 func cmdSkill(out, errOut io.Writer, args []string) error {
@@ -750,7 +760,7 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 	}
 	if len(positional) > 2 {
 		if sub != "import" || len(positional) > 3 {
-			return fmt.Errorf("usage: spec skill [check|sync|update|view|which|diff|new|edit|refine|use|unuse|adopt|push|import|rm <name>] [--global|--force|--library|--local]")
+			return fmt.Errorf("usage: spec skill [library|check|sync|update|view|which|diff|new|edit|refine|use|unuse|adopt|push|import|rm <name>] [--global|--force|--library|--local]")
 		}
 		operand2 = positional[2]
 		if !personaNamePattern.MatchString(operand2) {
@@ -766,8 +776,8 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 	if err != nil {
 		// library-level commands never touch repo state — run them
 		// outside a spec-managed repo
-		if sub == "" {
-			return cmdSkillLibraryList(out)
+		if sub == "" || sub == "library" {
+			return cmdSkillLibraryList(Store{Root: ""}, loadConfig(""), out)
 		}
 		repoFree := library && (sub == "import" || sub == "new") ||
 			(sub == "edit" || sub == "refine") && !local ||
@@ -781,6 +791,8 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 	targets := skillTargets(cfg)
 
 	switch sub {
+	case "library":
+		return cmdSkillLibraryList(st, cfg, out)
 	case "", "check":
 		bad := 0
 		repoSet := stringSet(configFileSkills(repoConfigPath(st.Root)))
@@ -803,26 +815,20 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 				bad++
 			}
 		}
-		if len(avail) > 0 {
-			fmt.Fprintln(out, "\nlibrary (not enabled — 'spec skill use <name>' to enable)")
-			for _, n := range avail {
-				fmt.Fprintf(out, "  %-*s %s\n", w, n, skillDesc(librarySkillDir(n)))
+		// local skills: dirs in the targets that spec didn't install and
+		// doesn't manage — listed, never warned about or removed
+		locals := localSkillDirs(st, targets, stringSet(names))
+		if len(locals) > 0 {
+			fmt.Fprintln(out, "\nlocal (installed by other means — spec doesn't manage; 'spec skill import' adopts)")
+			for _, n := range sortedKeys(locals) {
+				fmt.Fprintf(out, "  %-*s %s\n", w, n, strings.Join(locals[n], ", "))
 			}
+		}
+		if len(avail) > 0 {
+			fmt.Fprintf(out, "\n%d more in the library — 'spec skill library'\n", len(avail))
 		}
 		fmt.Fprintln(out, "\ninstall state vs source — current: matches · copied: matching copy, upgradeable to a link ·")
 		fmt.Fprintln(out, "relink: link to the wrong source · stale: differs · missing: absent — 'spec skill sync' repairs")
-		// foreign dirs: installed by other means or left behind — sync
-		// removes generated leftovers, the rest is just reported
-		resolvedSet := stringSet(names)
-		for _, t := range targets {
-			entries, _ := os.ReadDir(filepath.Join(st.Root, t))
-			for _, e := range entries {
-				if !(e.IsDir() || e.Type()&os.ModeSymlink != 0) || resolvedSet[e.Name()] {
-					continue
-				}
-				fmt.Fprintf(errOut, "note: foreign skill dir %s — 'spec skill sync' removes generated leftovers\n", filepath.Join(st.Root, t, e.Name()))
-			}
-		}
 		linted := map[string]bool{}
 		for _, name := range names {
 			if src := resolveSkill(st, cfg, name); src.dir != "" && !linted[src.dir] {
@@ -959,17 +965,48 @@ func reportSkillUsers(st Store, name string, out io.Writer) {
 	}
 }
 
-// cmdSkillLibraryList is the repo-free view of the shared library:
-// built-in, globally enabled, and available entries.
-func cmdSkillLibraryList(out io.Writer) error {
-	enabled := stringSet(configFileSkills(globalConfigPath()))
+// localSkillDirs scans the target dirs for installs not in the resolved
+// set — local skills spec didn't install and doesn't manage. Returns
+// name → the target dirs holding it.
+func localSkillDirs(st Store, targets []string, resolved map[string]bool) map[string][]string {
+	out := map[string][]string{}
+	for _, t := range targets {
+		entries, _ := os.ReadDir(filepath.Join(st.Root, t))
+		for _, e := range entries {
+			if !(e.IsDir() || e.Type()&os.ModeSymlink != 0) || resolved[e.Name()] {
+				continue
+			}
+			out[e.Name()] = append(out[e.Name()], t)
+		}
+	}
+	return out
+}
+
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// cmdSkillLibraryList is the `spec skill library` view: every vault
+// entry with its enablement scope. Works outside a repo — repo scope
+// just shows empty there.
+func cmdSkillLibraryList(st Store, cfg Config, out io.Writer) error {
+	repoSet := stringSet(configFileSkills(repoConfigPath(st.Root)))
+	globalSet := stringSet(configFileSkills(globalConfigPath()))
 	names := skillDirNames(librarySkillDir(""))
 	w := colWidth(append([]string{"spec"}, names...)...)
 	fmt.Fprintf(out, "%-*s %-16s %s\n", w, "spec", "built-in", skillDesc(""))
 	for _, n := range names {
-		label := "available"
-		if enabled[n] {
-			label = "library(global)"
+		label := "not enabled"
+		switch {
+		case repoSet[n]:
+			label = "enabled (repo)"
+		case globalSet[n]:
+			label = "enabled (global)"
 		}
 		fmt.Fprintf(out, "%-*s %-16s %s\n", w, n, label, skillDesc(librarySkillDir(n)))
 	}
@@ -1498,7 +1535,7 @@ func cmdSkillImport(st Store, cfg Config, targets []string, source, sel string, 
 	return err
 }
 
-// cmdSkillImportAll imports every foreign skill dir in the repo's target
+// cmdSkillImportAll imports every local skill dir in the repo's target
 // dirs into .spec/skills/ — the migration path for hand-authored agent
 // skills that predate the .spec/skills layer.
 func cmdSkillImportAll(st Store, cfg Config, targets []string, out, errOut io.Writer) error {
@@ -1512,7 +1549,7 @@ func cmdSkillImportAll(st Store, cfg Config, targets []string, out, errOut io.Wr
 		}
 	}
 	if len(byName) == 0 {
-		fmt.Fprintln(out, "No foreign skills to import.")
+		fmt.Fprintln(out, "No local skills to import.")
 		return nil
 	}
 	var names []string
@@ -1700,6 +1737,13 @@ func cmdSkillGlobal(out, errOut io.Writer, sub, name string, force, quiet bool) 
 			if !quiet {
 				fmt.Fprintf(out, "%-8s %s\n", status, dst)
 			}
+		}
+	}
+	// same prune as the repo path — remove installs spec provably made
+	// that aren't in the resolved set; local dirs are left alone
+	if sub == "sync" || sub == "update" {
+		if err := pruneSkillTargets(Store{Root: ""}, targets, stringSet(names), quiet, out); err != nil {
+			return err
 		}
 	}
 	if bad > 0 && sub != "sync" && sub != "update" {

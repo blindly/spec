@@ -11,7 +11,7 @@ import (
 )
 
 // specHookMarker marks a hook file as spec-managed — a hook without it is
-// foreign and is never clobbered.
+// unmanaged and is never clobbered.
 const specHookMarker = "# managed by spec"
 
 // prePushHook is the embedded hook installed into .git/hooks/pre-push
@@ -161,7 +161,7 @@ func gitHooksDir(root string) (string, bool) {
 }
 
 // hookFileState reports one hook's state: "installed", "outdated",
-// "missing", or "foreign".
+// "missing", or "unmanaged".
 func hookFileState(dir, name, want string) string {
 	data, err := os.ReadFile(filepath.Join(dir, name))
 	switch {
@@ -170,7 +170,7 @@ func hookFileState(dir, name, want string) string {
 	case err != nil:
 		return ""
 	case !bytes.Contains(data, []byte(specHookMarker)):
-		return "foreign"
+		return "unmanaged"
 	case !bytes.Equal(data, []byte(want)):
 		return "outdated"
 	default:
@@ -189,8 +189,8 @@ func specHooksSummary(root string) string {
 	fix := false
 	for _, h := range specHookScripts {
 		s := hookFileState(dir, h.name, h.script)
-		if s == "foreign" {
-			s = "foreign (unmanaged)"
+		if s == "unmanaged" {
+			s = "unmanaged"
 		}
 		if s != "installed" {
 			fix = true
@@ -218,7 +218,7 @@ func ensureSpecHooks(root string, out io.Writer) {
 		data, err := os.ReadFile(hookPath)
 		switch {
 		case err == nil && !bytes.Contains(data, []byte(specHookMarker)):
-			fmt.Fprintf(out, "note: %s is a foreign %s hook — left alone\n", hookPath, h.name)
+			fmt.Fprintf(out, "note: %s is an unmanaged %s hook — left alone\n", hookPath, h.name)
 			continue
 		case err == nil && bytes.Equal(data, []byte(h.script)):
 			continue // current

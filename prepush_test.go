@@ -13,7 +13,7 @@ import (
 )
 
 // FEAT-036: the managed hooks install executable, refresh when stale,
-// and never clobber a foreign hook.
+// and never clobber an unmanaged hook.
 func TestPrePushHookInstall(t *testing.T) {
 	st := setupRepo(t)
 	gitInit(t, st) // setupRepo ran before .git existed
@@ -32,15 +32,15 @@ func TestPrePushHookInstall(t *testing.T) {
 			t.Fatalf("%s hook not executable", h.name)
 		}
 	}
-	// foreign hook left alone, noted
+	// unmanaged hook left alone, noted
 	hook := filepath.Join(st.Root, ".git", "hooks", "pre-push")
 	custom := "#!/bin/sh\n# user's own hook\n"
 	os.WriteFile(hook, []byte(custom), 0o755)
 	buf.Reset()
 	ensureSpecHooks(st.Root, &buf)
 	data, _ := os.ReadFile(hook)
-	if string(data) != custom || !strings.Contains(buf.String(), "foreign") {
-		t.Fatalf("foreign hook mishandled: %q", buf.String())
+	if string(data) != custom || !strings.Contains(buf.String(), "unmanaged") {
+		t.Fatalf("unmanaged hook mishandled: %q", buf.String())
 	}
 	// stale managed hook refreshes
 	os.WriteFile(hook, []byte(specHookMarker+"\n# old\n"), 0o755)
@@ -93,8 +93,8 @@ func TestPrePushHookReporting(t *testing.T) {
 		t.Fatalf("stale hook reports %q", got)
 	}
 	os.WriteFile(hook, []byte("#!/bin/sh\n# mine\n"), 0o755)
-	if got := specHooksSummary(st.Root); !strings.Contains(got, "pre-push: foreign") {
-		t.Fatalf("foreign hook reports %q", got)
+	if got := specHooksSummary(st.Root); !strings.Contains(got, "pre-push: unmanaged") {
+		t.Fatalf("unmanaged hook reports %q", got)
 	}
 }
 

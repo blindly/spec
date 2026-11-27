@@ -53,7 +53,7 @@ var completionTable = map[string]cmdComp{
 		subFlags: map[string][]string{"set": {"--secret"}, "discover": {"--yes"}},
 	},
 	"skill": {
-		subs:  []string{"check", "sync", "update", "view", "which", "diff", "new", "edit", "refine", "use", "unuse", "adopt", "push", "import", "rm"},
+		subs:  []string{"library", "check", "sync", "update", "view", "which", "diff", "new", "edit", "refine", "use", "unuse", "adopt", "push", "import", "rm"},
 		flags: []string{"--global", "--force", "--library", "--local", "--no-edit", "--quiet"},
 		subArgs: map[string][]string{
 			"use": {"skill"}, "unuse": {"skill"}, "adopt": {"skill"}, "push": {"skill"},

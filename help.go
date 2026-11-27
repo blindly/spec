@@ -240,7 +240,7 @@ spec skill rm <name>              # delete a repo skill + its installs (--librar
 spec skill new|edit|view|refine <name>   # manage skills (--library: library file, --local: repo copy,
                                 # new --no-edit: scaffold without opening $EDITOR)
 spec skill import [<name|path|url> [<name>]]  # pull a skill into .spec/skills/ (bare: all
-                                # foreign dirs; repo root or git URL picks a .spec/skills
+                                # local dirs; repo root or git URL picks a .spec/skills
                                 # entry; --library: into the library; in-repo sources are moved)
 spec skill check|sync [--force]   # verify / regenerate installs — links to the source (--global: user dirs)
 spec apply <id> # run the configured agent to implement a spec
@@ -329,8 +329,10 @@ var commandDocs = []commandDoc{
                                        --review asks the agent if each is stale and proposes an update`},
 	{"covers", `  spec covers [--infer] [id...]      Show (or infer from git history) the files each spec covers`},
 	{"verified", `  spec verified <id>...              Mark specs as checked and accurate (clears drift until code changes)`},
-	{"skill", `  spec skill                           List enabled skills (source + status + description),
-                                       then the library's not-enabled entries
+	{"skill", `  spec skill                           List enabled skills (source + status + description)
+                                       and local dirs spec doesn't manage
+  spec skill library                    The vault: every library entry with its
+                                       enablement (enabled repo|global / not enabled)
   spec skill which <name>               Show a skill's resolved source (repo/library/built-in dir)
   spec skill diff <name>                Diff installed copies vs source (--library: repo vs library)
   spec skill use|unuse <name>           Enable/disable a library skill here (--global: global baseline)
@@ -338,7 +340,7 @@ var commandDocs = []commandDoc{
   spec skill rm <name>                  Delete a repo skill + its installs (--library: library entry)
   spec skill new|edit|view|refine <name>   Manage skills (--library: library file, --local: repo copy,
                                        new --no-edit: scaffold without opening $EDITOR)
-  spec skill import [<name|path|url> [<name>]]   Pull a skill into .spec/skills/ (bare: all foreign
+  spec skill import [<name|path|url> [<name>]]   Pull a skill into .spec/skills/ (bare: all local
                                        dirs; repo root or git URL picks a .spec/skills entry;
                                        --library: into the library; in-repo sources are moved)
   spec skill check|sync [--force]       Verify / regenerate installs — links to the source

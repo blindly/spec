@@ -355,19 +355,28 @@ func TestSkillTargets(t *testing.T) {
 }
 
 func TestSkillAvailableListed(t *testing.T) {
-	setupRepo(t)
+	st := setupRepo(t)
 	writeLibrarySkill(t, "unused", simpleSkill("unused", "x"))
 	var out bytes.Buffer
 	if err := cmdSkill(&out, io.Discard, nil); err != nil {
 		t.Fatal(err)
 	}
 	got := out.String()
-	if !strings.Contains(got, "unused") || !strings.Contains(got, "not enabled") {
-		t.Fatalf("available skill not listed:\n%s", got)
+	// bare 'spec skill' shows enabled + local, then points at the vault
+	if !strings.Contains(got, "1 more in the library") {
+		t.Fatalf("library hint missing:\n%s", got)
 	}
 	// the listing is self-describing: groups, descriptions, legend
-	if !strings.Contains(got, "enabled\n") || !strings.Contains(got, "install state") || !strings.Contains(got, "test") {
+	if !strings.Contains(got, "enabled\n") || !strings.Contains(got, "install state") || !strings.Contains(got, "Spec-driven") {
 		t.Fatalf("missing sections/description/legend:\n%s", got)
+	}
+	// 'spec skill library' is the vault view: entries with enablement
+	out.Reset()
+	if err := cmdSkillLibraryList(st, loadConfig(st.Root), &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "unused") || !strings.Contains(out.String(), "not enabled") || !strings.Contains(out.String(), "test") {
+		t.Fatalf("library skill not listed:\n%s", out.String())
 	}
 }
 
@@ -1185,15 +1194,15 @@ func TestSkillWhichEnabledIn(t *testing.T) {
 	}
 }
 
-func TestSkillCheckForeignDirs(t *testing.T) {
+func TestSkillCheckLocalDirs(t *testing.T) {
 	st := setupRepo(t)
 	os.MkdirAll(filepath.Join(st.Root, ".devin", "skills", "leftover"), 0o755)
 	var out, errs bytes.Buffer
 	if err := cmdSkill(&out, &errs, []string{"check"}); err != nil {
-		t.Fatalf("foreign dirs are notes, not failures: %v", err)
+		t.Fatalf("local dirs are listed, not failures: %v", err)
 	}
-	if !strings.Contains(errs.String(), "foreign skill dir") {
-		t.Fatalf("foreign dir not noted:\n%s", errs.String())
+	if !strings.Contains(out.String(), "local") || !strings.Contains(out.String(), "leftover") {
+		t.Fatalf("local dir not listed:\n%s", out.String())
 	}
 }
 
@@ -1308,5 +1317,74 @@ func TestSkillExternalTargetAbsoluteLink(t *testing.T) {
 	}
 	if data, _ := os.ReadFile(filepath.Join(dst, "SKILL.md")); !strings.Contains(string(data), "v1") {
 		t.Fatal("external link does not resolve to the source")
+	}
+}
+
+// FEAT-044: global sync prunes only what spec provably made — links into
+// the library and dirs byte-identical to it. Differing dirs are locals.
+func TestSkillGlobalSyncPrunes(t *testing.T) {
+	setupRepo(t)
+	home := t.TempDir()
+	setHome(t, home)
+	writeGlobalConfig(t, "skills: [kept]\nskill_global_targets: [" + filepath.Join(home, "skills") + "]\n")
+	writeLibrarySkill(t, "kept", simpleSkill("kept", "K"))
+	writeLibrarySkill(t, "gone", simpleSkill("gone", "G"))
+
+	tdir := filepath.Join(home, "skills")
+	// provable: a dir byte-identical to the library entry
+	identical := filepath.Join(tdir, "gone")
+	os.MkdirAll(identical, 0o755)
+	for f, body := range simpleSkill("gone", "G") {
+		os.WriteFile(filepath.Join(identical, f), []byte(body), 0o644)
+	}
+	// provable: a link into the library
+	link := filepath.Join(tdir, "gone2")
+	os.MkdirAll(tdir, 0o755)
+	os.Symlink(librarySkillDir("kept"), link)
+	// local: differing content, never touched
+	local := filepath.Join(tdir, "handmade")
+	os.MkdirAll(local, 0o755)
+	os.WriteFile(filepath.Join(local, "SKILL.md"), []byte("handmade local skill"), 0o644)
+
+	var out bytes.Buffer
+	if err := cmdSkill(&out, io.Discard, []string{"sync", "--global"}); err != nil {
+		t.Fatal(err)
+	}
+	if isDir(identical) {
+		t.Fatal("library-identical leftover not pruned by global sync")
+	}
+	if _, err := os.Lstat(link); !os.IsNotExist(err) {
+		t.Fatal("library link not pruned by global sync")
+	}
+	if !isDir(local) {
+		t.Fatal("local dir removed — locals are never pruned")
+	}
+}
+
+// FEAT-044: 'spec skill library' shows enablement scope per vault entry.
+func TestSkillLibraryEnablementLabels(t *testing.T) {
+	st := setupRepo(t)
+	setHome(t, t.TempDir())
+	writeGlobalConfig(t, "skills: [b]\n")
+	writeLibrarySkill(t, "a", simpleSkill("a", "A"))
+	writeLibrarySkill(t, "b", simpleSkill("b", "B"))
+	writeLibrarySkill(t, "c", simpleSkill("c", "C"))
+	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"), []byte("skills: [a]\n"), 0o644)
+
+	var out bytes.Buffer
+	if err := cmdSkillLibraryList(st, loadConfig(st.Root), &out); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	for name, want := range map[string]string{"a": "enabled (repo)", "b": "enabled (global)", "c": "not enabled"} {
+		line := ""
+		for _, l := range strings.Split(got, "\n") {
+			if strings.HasPrefix(strings.TrimSpace(l), name+" ") {
+				line = l
+			}
+		}
+		if !strings.Contains(line, want) {
+			t.Fatalf("%s: want %q in line, got %q\n%s", name, want, line, got)
+		}
 	}
 }
