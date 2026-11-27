@@ -57,8 +57,8 @@ func cmdInit(out, errOut io.Writer) error {
 	if err := ensureAgentPointers("."); err != nil {
 		return err
 	}
-	// install the resolved skill set (built-in spec + any global skills:
-	// baseline) into the agent skill dirs; sync also ensures .gitignore
+	// install the repo-scope skill set (built-in spec + repo skills:)
+	// into the repo's agent skill dirs; sync also ensures .gitignore
 	// covers those generated dirs
 	st := Store{Root: "."}
 	cfg := loadConfig(".")
@@ -843,6 +843,9 @@ func statusReport(out, errOut io.Writer) error {
 	{
 		local, managed, stale := 0, 0, 0
 		targets := skillTargets(cfg)
+		repoSet := stringSet(configFileSkills(repoConfigPath(st.Root)))
+		globalSet := stringSet(configFileSkills(globalConfigPath()))
+		var globalTargets []string
 		for _, name := range skillNames(st, cfg) {
 			src := resolveSkill(st, cfg, name)
 			switch src.kind {
@@ -851,8 +854,15 @@ func statusReport(out, errOut io.Writer) error {
 			case "library", "built-in":
 				managed++
 			}
-			for _, t := range targets {
-				dst := filepath.Join(st.Root, t, name)
+			rowTargets := targets
+			if !repoSet[name] && globalSet[name] {
+				if globalTargets == nil {
+					globalTargets = skillGlobalTargets()
+				}
+				rowTargets = globalTargets
+			}
+			for _, t := range rowTargets {
+				dst := joinTarget(st.Root, t, name)
 				if src.kind == "" {
 					if _, err := os.Lstat(dst); err != nil {
 						stale++

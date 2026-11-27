@@ -71,26 +71,28 @@ Addresses: REQ-017
 - **Selection.** `skills: [a, b]` opts the repo into library skills.
   Unlike every other key, `skills:` **unions** across levels — a repo's
   list extends the global baseline rather than replacing it (global
-  entries still reach repos that set their own list). `use`/`unuse`
+  entries still *enable* in repos that set their own list — though
+  since FEAT-045 they install to the user-level dirs only, not into
+  each repo's targets). `use`/`unuse`
   write only the repo-level list; `use --global`/`unuse --global` write
   the global list and sync the user-level dirs. The list output labels
   each managed skill `library(repo)` or `library(global)` by which
   level enabled it (repo wins when both list it).
-  Install targets resolve as: `skill_targets: [dirs]` config when set
-  (explicit override — for multi-agent repos, since `agent:` is
-  single-valued); else the skill dir of the configured `agent:` from a
+  Install targets are additive (FEAT-045): the configured `agent:`'s
+  skill dir + `skill_agents:` dirs + `skill_targets:` raw dirs, from a
   built-in agent→dir table (`claude` → `.claude/skills`, `devin` →
-  `.devin/skills`; agents without a known skill dir contribute none);
-  else `.devin/skills` + `.claude/skills` (FEAT-025 status quo, for
-  repos with no agent configured). A repo that wants no claude dirs
-  sets `agent: devin` or trims `skill_targets` — nothing installs for
-  agents the repo doesn't use.
+  `.devin/skills`, `codex` → `.agents/skills`; agents without a known
+  skill dir contribute none and warn). When all three are empty the
+  defaults apply (`.agents/skills` + `.devin/skills` + `.claude/skills`).
+  `skill_agents:` names harnesses so users never write dir paths for
+  known agents; repo `skill_agents:` replaces the global list.
 - **Resolution.** For a given name, first source wins:
   `.spec/skills/<name>` → `skills:` entry → library file → built-in
   (`spec` only). A `.spec/skills/<name>` always shadows the library —
   this is the fork, distinguished by path like `.spec/role.md` shadows a
-  persona. `sync` installs the resolved tree into every `skill_targets`
-  dir — as a symlink to the source since FEAT-030 (file copy only for
+  persona. `sync` installs the *repo-scope* resolved tree (built-in +
+  repo `skills:` + `.spec/skills/` — FEAT-045 scope separation) into
+  every repo-target dir — as a symlink to the source since FEAT-030 (file copy only for
   the embedded built-in and the link-failure fallback).
 - **States**, derived from path membership and the install status
   (link target, or byte-compare for copies) — no manifest, no
@@ -185,9 +187,9 @@ Addresses: REQ-017
   library by path — no config needed, never pushed unless asked
 - [x] `skills:` config opts a repo into library skills — unions
   global∪repo so a repo list extends the baseline; install targets
-  come from `skill_targets:` when set, else the configured `agent:`'s
-  skill dir, else `.devin/skills` + `.claude/skills` — nothing installs
-  for agents the repo doesn't use
+  are additive (FEAT-045): `agent:` dir ∪ `skill_agents:` dirs ∪
+  `skill_targets:` dirs, else the defaults — and global-scope skills
+  install to the user dirs, not into repo targets
 - [x] `spec skill` lists every skill with source and status; all states
   (local/managed/stale/shadowed/missing/orphaned/available) are derived
   from path membership and byte-compare alone; managed skills are

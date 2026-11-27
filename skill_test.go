@@ -423,9 +423,20 @@ func TestSkillGlobalRepoUnion(t *testing.T) {
 	if len(repoSkills) != 1 || repoSkills[0] != "beta" {
 		t.Fatalf("repo skills: should hold only repo additions, got %v", repoSkills)
 	}
-	// the global-baseline skill still installs on repo sync
-	if !isDir(filepath.Join(st.Root, ".devin", "skills", "alpha")) {
-		t.Fatal("global-baseline skill alpha was not installed by repo sync")
+	// scope separation: the global-baseline skill does NOT install into
+	// repo targets — it lives in the user-level dirs; the harness sees
+	// it via scope merging
+	var out bytes.Buffer
+	if err := cmdSkill(&out, io.Discard, nil); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "alpha") && !strings.Contains(out.String(), "library(global)") {
+		t.Fatalf("alpha should be listed as library(global):\n%s", out.String())
+	}
+	for _, d := range []string{".devin", ".claude", ".agents"} {
+		if isDir(filepath.Join(st.Root, d, "skills", "alpha")) {
+			t.Fatalf("global-baseline skill must not install into repo target %s", d)
+		}
 	}
 }
 
@@ -1386,5 +1397,86 @@ func TestSkillLibraryEnablementLabels(t *testing.T) {
 		if !strings.Contains(line, want) {
 			t.Fatalf("%s: want %q in line, got %q\n%s", name, want, line, got)
 		}
+	}
+}
+
+// FEAT-045: targets are additive — agent dirs ∪ skill_agents dirs ∪ raw dirs.
+func TestSkillTargetsAdditive(t *testing.T) {
+	st := setupRepo(t)
+	setHome(t, t.TempDir())
+	writeGlobalConfig(t, "agent: codex\n")
+	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"),
+		[]byte("skill_agents: [devin]\nskill_targets: [.weird/skills]\n"), 0o644)
+	got := skillTargets(loadConfig(st.Root))
+	want := []string{".agents/skills", ".devin/skills", ".weird/skills"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("additive targets = %v, want %v", got, want)
+	}
+}
+
+// FEAT-045: repo skill_agents replaces the global list (override scope).
+func TestSkillAgentsOverride(t *testing.T) {
+	st := setupRepo(t)
+	setHome(t, t.TempDir())
+	writeGlobalConfig(t, "agent: codex\nskill_agents: [devin]\n")
+	os.WriteFile(filepath.Join(st.Root, configDir, "config.yml"),
+		[]byte("skill_agents: [claude]\n"), 0o644)
+	cfg := loadConfig(st.Root)
+	if len(cfg.SkillAgents) != 1 || cfg.SkillAgents[0] != "claude" {
+		t.Fatalf("repo skill_agents should override global, got %v", cfg.SkillAgents)
+	}
+	got := skillTargets(cfg)
+	if !contains(got, ".agents/skills") || !contains(got, ".claude/skills") || contains(got, ".devin/skills") {
+		t.Fatalf("targets should be codex+claude dirs, got %v", got)
+	}
+}
+
+// FEAT-045: codex maps to .agents/skills at both levels.
+func TestSkillCodexTargets(t *testing.T) {
+	setupRepo(t)
+	home := t.TempDir()
+	setHome(t, home)
+	writeGlobalConfig(t, "agent: codex\n")
+	if got := skillTargets(loadConfig(".")); len(got) != 1 || got[0] != ".agents/skills" {
+		t.Fatalf("agent: codex → repo targets %v", got)
+	}
+	got := skillGlobalTargets()
+	if len(got) != 1 || got[0] != filepath.Join(home, ".agents", "skills") {
+		t.Fatalf("agent: codex → global targets %v", got)
+	}
+}
+
+// FEAT-045: a skill_agents entry with no known dir warns, doesn't fail.
+func TestSkillAgentsUnknownWarns(t *testing.T) {
+	st := setupRepo(t)
+	setHome(t, t.TempDir())
+	writeGlobalConfig(t, "agent: codex\nskill_agents: [bogus]\n")
+	cfg := loadConfig(st.Root)
+	if u := unknownSkillAgents(cfg); len(u) != 1 || u[0] != "bogus" {
+		t.Fatalf("unknown agents = %v", u)
+	}
+	var out bytes.Buffer
+	checkSkillInstalls(st, &out)
+	if !strings.Contains(out.String(), `skill_agents entry "bogus"`) {
+		t.Fatalf("check should warn about unknown skill agent:\n%s", out.String())
+	}
+}
+
+// FEAT-045: prune reaches former targets — a spec-made link in a known
+// agent dir that's no longer configured is still removed.
+func TestSkillFormerTargetPruned(t *testing.T) {
+	st := setupRepo(t)
+	setHome(t, t.TempDir())
+	writeGlobalConfig(t, "agent: codex\n") // targets: .agents/skills only
+	writeLibrarySkill(t, "gone", simpleSkill("gone", "G"))
+	// spec-made link stranded in .claude/skills (no longer a target)
+	stray := filepath.Join(st.Root, ".claude", "skills", "gone")
+	os.MkdirAll(filepath.Dir(stray), 0o755)
+	os.Symlink(librarySkillDir("gone"), stray)
+	if err := cmdSkill(io.Discard, io.Discard, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(stray); !os.IsNotExist(err) {
+		t.Fatal("stranded spec-made link in a former target was not pruned")
 	}
 }

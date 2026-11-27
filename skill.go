@@ -26,6 +26,7 @@ import (
 var agentSkillDirs = map[string]string{
 	"claude": ".claude/skills",
 	"devin":  ".devin/skills",
+	"codex":  ".agents/skills",
 }
 
 // agentGlobalSkillDirs maps agent names to their user-level skill dir
@@ -33,9 +34,10 @@ var agentSkillDirs = map[string]string{
 var agentGlobalSkillDirs = map[string]string{
 	"claude": ".claude/skills",
 	"devin":  filepath.Join(".config", "devin", "skills"),
+	"codex":  filepath.Join(".agents", "skills"),
 }
 
-var defaultSkillTargets = []string{".devin/skills", ".claude/skills"}
+var defaultSkillTargets = []string{".agents/skills", ".devin/skills", ".claude/skills"}
 
 func skillLibraryDir() string {
 	p := globalConfigPath()
@@ -58,14 +60,66 @@ func isDir(p string) bool {
 	return err == nil && st.IsDir()
 }
 
+// agentSkillDirsFor returns the skill dirs each named agent maps to —
+// deduped, skipping names spec doesn't know.
+func agentSkillDirsFor(m map[string]string, names ...string) []string {
+	var dirs []string
+	for _, n := range names {
+		if d, ok := m[n]; ok && !contains(dirs, d) {
+			dirs = append(dirs, d)
+		}
+	}
+	return dirs
+}
+
+// mapValues returns m's values, sorted — every dir a known agent could
+// use, for scanning former targets.
+func mapValues(m map[string]string) []string {
+	var out []string
+	for _, d := range m {
+		out = append(out, d)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// skillTargets are additive: the configured agent's own dir plus every
+// skill_agents dir, plus any raw dirs in skill_targets. When nothing is
+// configured at all, fall back to the standard set.
 func skillTargets(cfg Config) []string {
-	if len(cfg.SkillTargets) > 0 {
-		return cfg.SkillTargets
+	names := append([]string{cfg.Agent}, cfg.SkillAgents...)
+	targets := unionStrings(agentSkillDirsFor(agentSkillDirs, names...), cfg.SkillTargets)
+	if len(targets) == 0 {
+		return defaultSkillTargets
 	}
-	if d, ok := agentSkillDirs[cfg.Agent]; ok {
-		return []string{d}
+	return targets
+}
+
+// skillGlobalTargets mirrors skillTargets one level up: agent dirs under
+// the home dir plus raw skill_global_targets entries — all read from the
+// global config file (a user-level view, repo overrides don't apply).
+func skillGlobalTargets() []string {
+	home, _ := os.UserHomeDir()
+	raw := parseConfigFile(globalConfigPath())
+	names := append([]string{strings.Trim(raw["agent"], `"'`)}, parseList(raw["skill_agents"])...)
+	var targets []string
+	for _, d := range agentSkillDirsFor(agentGlobalSkillDirs, names...) {
+		targets = append(targets, filepath.Join(home, d))
 	}
-	return defaultSkillTargets
+	for _, d := range parseList(raw["skill_global_targets"]) {
+		if strings.HasPrefix(d, "~/") {
+			d = filepath.Join(home, d[2:])
+		} else if !filepath.IsAbs(d) {
+			d = filepath.Join(home, d)
+		}
+		targets = append(targets, d)
+	}
+	if len(targets) == 0 {
+		for _, d := range mapValues(agentGlobalSkillDirs) {
+			targets = append(targets, filepath.Join(home, d))
+		}
+	}
+	return targets
 }
 
 // skillFiles returns a skill's contents keyed by slash-relative path.
@@ -313,6 +367,26 @@ func skillNames(st Store, cfg Config) []string {
 	return names
 }
 
+// repoSkillNames is the repo-scope install set: the built-in, repo-owned
+// skills, and this repo's own skills: entries. Globally-enabled library
+// skills are NOT in it — they install to the user-level dirs only;
+// harnesses merge the scopes.
+func repoSkillNames(st Store) []string {
+	set := map[string]bool{"spec": true}
+	for _, n := range skillDirNames(filepath.Join(st.Root, configDir, "skills")) {
+		set[n] = true
+	}
+	for _, n := range configFileSkills(repoConfigPath(st.Root)) {
+		set[n] = true
+	}
+	var names []string
+	for n := range set {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // bestSkillFiles returns the content a repo-owned copy of name should start
 // from: an installed copy that diverges from the resolved source (preserving
 // hand edits), else the resolved source itself.
@@ -530,6 +604,20 @@ func colWidth(names ...string) int {
 	return w
 }
 
+// targetDir resolves a target dir against the repo root — absolute
+// targets (the ~/ global dirs) are used as-is.
+func targetDir(root, target string) string {
+	if filepath.IsAbs(target) {
+		return target
+	}
+	return filepath.Join(root, target)
+}
+
+// joinTarget joins a target dir with a skill name under the root.
+func joinTarget(root, target, name string) string {
+	return filepath.Join(targetDir(root, target), name)
+}
+
 // skillStatusLine describes one resolved skill across the target dirs.
 // scope is "repo" or "global" for skills: entries — which level enabled them.
 func skillStatusLine(st Store, cfg Config, targets []string, name, scope string, width int) (string, bool) {
@@ -557,7 +645,7 @@ func skillStatusLine(st Store, cfg Config, targets []string, name, scope string,
 		ok = false
 		var present []string
 		for _, t := range targets {
-			if _, err := os.Lstat(filepath.Join(st.Root, t, name)); err == nil {
+			if _, err := os.Lstat(joinTarget(st.Root, t, name)); err == nil {
 				present = append(present, t)
 			}
 		}
@@ -568,7 +656,7 @@ func skillStatusLine(st Store, cfg Config, targets []string, name, scope string,
 	} else {
 		var bad []string
 		for _, t := range targets {
-			dst := filepath.Join(st.Root, t, name)
+			dst := joinTarget(st.Root, t, name)
 			if s := skillInstallStatus(st.Root, dst, src, srcFiles); s != "current" {
 				ok = false
 				bad = append(bad, t+":"+s)
@@ -594,8 +682,13 @@ func skillStatusLine(st Store, cfg Config, targets []string, name, scope string,
 // equal-content copies awaiting link upgrade only warn.
 func checkSkillInstalls(st Store, out io.Writer) int {
 	cfg := loadConfig(st.Root)
+	repoSet := stringSet(configFileSkills(repoConfigPath(st.Root)))
+	globalSet := stringSet(configFileSkills(globalConfigPath()))
 	targets := skillTargets(cfg)
 	problems := 0
+	for _, n := range unknownSkillAgents(cfg) {
+		fmt.Fprintf(out, "WARN  skill_agents entry %q has no known skill dir\n", n)
+	}
 	for _, name := range skillNames(st, cfg) {
 		src := resolveSkill(st, cfg, name)
 		if src.kind == "" {
@@ -609,22 +702,28 @@ func checkSkillInstalls(st Store, out io.Writer) int {
 				fmt.Fprintf(out, "WARN  %s: %s\n", src.dir, p)
 			}
 		}
-		for _, t := range targets {
-			dst := filepath.Join(st.Root, t, name)
+		// global-scope skills live in the user dirs — check those, and
+		// point fixes at the --global sync
+		rowTargets, verb := targets, "spec skill sync"
+		if !repoSet[name] && globalSet[name] {
+			rowTargets, verb = skillGlobalTargets(), "spec skill sync --global"
+		}
+		for _, t := range rowTargets {
+			dst := joinTarget(st.Root, t, name)
 			switch status := skillInstallStatus(st.Root, dst, src, srcFiles); status {
 			case "current":
 			case "copied":
 				fmt.Fprintf(out, "WARN  %s installed as copy — 'spec skill sync' upgrades it to a link\n", dst)
 			case "stale":
 				problems++
-				fix := "'spec skill sync --force' to overwrite"
+				fix := "'" + verb + " --force' to overwrite"
 				if src.kind == "built-in" {
-					fix = "'spec skill sync' repairs"
+					fix = "'" + verb + "' repairs"
 				}
 				fmt.Fprintf(out, "FAIL  %s stale (differs from source; %s)\n", dst, fix)
 			default:
 				problems++
-				fmt.Fprintf(out, "FAIL  %s %s — run 'spec skill sync'\n", dst, status)
+				fmt.Fprintf(out, "FAIL  %s %s — run '%s'\n", dst, status, verb)
 			}
 		}
 	}
@@ -652,7 +751,7 @@ func syncSkills(st Store, cfg Config, targets []string, force, quiet bool, out i
 	}
 	bad := 0
 	resolved := map[string]bool{}
-	for _, name := range skillNames(st, cfg) {
+	for _, name := range repoSkillNames(st) {
 		src := resolveSkill(st, cfg, name)
 		resolved[name] = true
 		if src.kind == "" {
@@ -692,18 +791,26 @@ func syncSkills(st Store, cfg Config, targets []string, force, quiet bool, out i
 	// links into .spec/skills or the library, and real dirs identical to
 	// the library (recoverable; also what makes unuse hold for copy
 	// installs). Everything else is a local skill — never removed.
-	return bad, pruneSkillTargets(st, targets, resolved, quiet, out)
+	return bad, pruneSkillTargets(st, targets, unionStrings(targets, mapValues(agentSkillDirs)), resolved, quiet, out)
 }
 
 // pruneSkillTargets removes un-resolved installs spec provably created.
 // Anything else — a differing dir, a name the library doesn't know — is
 // a local skill: never deleted, narrated only in verbose output.
-func pruneSkillTargets(st Store, targets []string, resolved map[string]bool, quiet bool, out io.Writer) error {
-	for _, t := range targets {
-		tdir := filepath.Join(st.Root, t)
+// pruneSkillTargets removes spec-made installs that shouldn't be there:
+// anything un-resolved, and anything in a dir outside the current
+// targets (a former target). scan covers the union of current targets
+// and every dir a known agent could use, so a config change can't
+// strand installs invisibly. Only provable installs go — provable =
+// link into .spec/skills or the library, dir byte-identical to a
+// library entry, or a copy of the embedded built-in.
+func pruneSkillTargets(st Store, targets, scan []string, resolved map[string]bool, quiet bool, out io.Writer) error {
+	inTarget := stringSet(targets)
+	for _, t := range scan {
+		tdir := targetDir(st.Root, t)
 		entries, _ := os.ReadDir(tdir)
 		for _, e := range entries {
-			if !(e.IsDir() || e.Type()&os.ModeSymlink != 0) || resolved[e.Name()] {
+			if !(e.IsDir() || e.Type()&os.ModeSymlink != 0) || (resolved[e.Name()] && inTarget[t]) {
 				continue
 			}
 			dst := filepath.Join(tdir, e.Name())
@@ -714,6 +821,12 @@ func pruneSkillTargets(st Store, targets []string, resolved map[string]bool, qui
 				installed, _ := skillFiles(dst)
 				lib, _ := skillFiles(librarySkillDir(e.Name()))
 				removable = lib != nil && skillFilesEqual(installed, lib)
+				if !removable && e.Name() == "spec" {
+					// the built-in has no library dir — a copy equal to
+					// the embedded source is likewise provable
+					embedded, _ := skillFiles("")
+					removable = skillFilesEqual(installed, embedded)
+				}
 			}
 			if !removable {
 				if !quiet {
@@ -809,15 +922,26 @@ func cmdSkill(out, errOut io.Writer, args []string) error {
 			case globalSet[name]:
 				scope = "global"
 			}
-			line, ok := skillStatusLine(st, cfg, targets, name, scope, w)
+			// global-scope skills install to the user dirs — their
+			// status is about those, not the repo's targets
+			rowTargets := targets
+			if scope == "global" {
+				rowTargets = skillGlobalTargets()
+			}
+			line, ok := skillStatusLine(st, cfg, rowTargets, name, scope, w)
 			fmt.Fprintln(out, "  "+line)
 			if !ok {
 				bad++
 			}
 		}
-		// local skills: dirs in the targets that spec didn't install and
-		// doesn't manage — listed, never warned about or removed
-		locals := localSkillDirs(st, targets, stringSet(names))
+		for _, n := range unknownSkillAgents(cfg) {
+			fmt.Fprintf(errOut, "note: skill_agents entry %q has no known skill dir — remove it or add a dir via skill_targets\n", n)
+		}
+		// local skills: dirs in the targets (or any dir a known agent
+		// could have used before config changed) that spec didn't
+		// install and doesn't manage — listed, never removed
+		scan := unionStrings(targets, mapValues(agentSkillDirs))
+		locals := localSkillDirs(st, scan, stringSet(names))
 		if len(locals) > 0 {
 			fmt.Fprintln(out, "\nlocal (installed by other means — spec doesn't manage; 'spec skill import' adopts)")
 			for _, n := range sortedKeys(locals) {
@@ -971,12 +1095,45 @@ func reportSkillUsers(st Store, name string, out io.Writer) {
 func localSkillDirs(st Store, targets []string, resolved map[string]bool) map[string][]string {
 	out := map[string][]string{}
 	for _, t := range targets {
-		entries, _ := os.ReadDir(filepath.Join(st.Root, t))
+		tdir := targetDir(st.Root, t)
+		entries, _ := os.ReadDir(tdir)
 		for _, e := range entries {
 			if !(e.IsDir() || e.Type()&os.ModeSymlink != 0) || resolved[e.Name()] {
 				continue
 			}
+			dst := filepath.Join(tdir, e.Name())
+			// a provable install (link into a source, or a
+			// library-identical copy) is a stranded install, not a
+			// local — sync's prune narrates/removes it
+			if e.Type()&os.ModeSymlink != 0 && generatedLink(st, dst) {
+				continue
+			}
+			installed, _ := skillFiles(dst)
+			lib, _ := skillFiles(librarySkillDir(e.Name()))
+			if lib != nil && skillFilesEqual(installed, lib) {
+				continue
+			}
+			if e.Name() == "spec" {
+				embedded, _ := skillFiles("")
+				if skillFilesEqual(installed, embedded) {
+					continue // stranded built-in copy, not a local
+				}
+			}
 			out[e.Name()] = append(out[e.Name()], t)
+		}
+	}
+	return out
+}
+
+// unknownSkillAgents returns skill_agents entries that map to no known
+// skill dir in either map — a warning, not an error.
+func unknownSkillAgents(cfg Config) []string {
+	var out []string
+	for _, n := range cfg.SkillAgents {
+		if _, ok := agentSkillDirs[n]; !ok {
+			if _, ok := agentGlobalSkillDirs[n]; !ok {
+				out = append(out, n)
+			}
 		}
 	}
 	return out
@@ -1622,32 +1779,9 @@ func cmdSkillGlobal(out, errOut io.Writer, sub, name string, force, quiet bool) 
 	if (sub == "use" || sub == "unuse") && (name == "" || !personaNamePattern.MatchString(name)) {
 		return fmt.Errorf("usage: spec skill %s <name> --global", sub)
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
 	globalPath := globalConfigPath()
 	skills := configFileSkills(globalPath)
-	raw := parseConfigFile(globalPath)
-	agent := strings.Trim(raw["agent"], `"'`)
-	var targets []string
-	if list := parseList(raw["skill_global_targets"]); len(list) > 0 {
-		// explicit override — the user-level counterpart of skill_targets:
-		for _, d := range list {
-			if strings.HasPrefix(d, "~/") {
-				d = filepath.Join(home, d[2:])
-			} else if !filepath.IsAbs(d) {
-				d = filepath.Join(home, d)
-			}
-			targets = append(targets, d)
-		}
-	} else if d, ok := agentGlobalSkillDirs[agent]; ok {
-		targets = []string{filepath.Join(home, d)}
-	} else {
-		for _, d := range agentGlobalSkillDirs {
-			targets = append(targets, filepath.Join(home, d))
-		}
-	}
+	targets := skillGlobalTargets()
 
 	if sub == "use" {
 		if name == "spec" {
@@ -1740,9 +1874,14 @@ func cmdSkillGlobal(out, errOut io.Writer, sub, name string, force, quiet bool) 
 		}
 	}
 	// same prune as the repo path — remove installs spec provably made
-	// that aren't in the resolved set; local dirs are left alone
+	// that aren't in the resolved set or aren't in a current target
 	if sub == "sync" || sub == "update" {
-		if err := pruneSkillTargets(Store{Root: ""}, targets, stringSet(names), quiet, out); err != nil {
+		home, _ := os.UserHomeDir()
+		var known []string
+		for _, d := range mapValues(agentGlobalSkillDirs) {
+			known = append(known, filepath.Join(home, d))
+		}
+		if err := pruneSkillTargets(Store{Root: ""}, targets, unionStrings(targets, known), stringSet(names), quiet, out); err != nil {
 			return err
 		}
 	}

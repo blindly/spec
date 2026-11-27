@@ -31,6 +31,7 @@ type Config struct {
 	CommitAgent  bool     // spec commit asks a configured agent for the message by default (--no-agent or commit_agent: false disables)
 	Skills       []string // library skills (~/.config/spec/skills/<name>/) enabled for this repo
 	SkillTargets []string // agent skill dirs installed copies are generated into
+	SkillAgents  []string // additional agents whose skill dirs join the targets
 }
 
 var (
@@ -219,8 +220,10 @@ var configKeys = []configKey{
 		listSetter(func(c *Config) *[]string { return &c.Verify })},
 	{"pre_commit", "global+repo", false, "fast checks run by spec commit, spec precheck, the pre-commit hook",
 		listSetter(func(c *Config) *[]string { return &c.PreCommit })},
-	{"skill_targets", "global+repo", false, "repo dirs skills install into (default: the agent's dir, else .devin/skills+.claude/skills)",
+	{"skill_targets", "global+repo", false, "extra repo dirs skills install into — the agent's dir and skill_agents dirs are always targets",
 		listSetter(func(c *Config) *[]string { return &c.SkillTargets })},
+	{"skill_agents", "global+repo", false, "agents whose skill dirs are install targets (claude, devin, codex, ...) — repo list replaces global",
+		listSetter(func(c *Config) *[]string { return &c.SkillAgents })},
 	{"skills", "union", false, "library skills enabled — global baseline ∪ repo list", nil},
 	{"persona", "global+repo", false, "persona from ~/.config/spec/personas/ used as this repo's role",
 		func(c *Config, v string) { c.Persona = strings.Trim(v, `"'`) }},
@@ -270,9 +273,9 @@ func unionStrings(a, b []string) []string {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_env: [%s]\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nviewer: %s\npersona: %s\nskills: [%s]\nskill_targets: [%s]\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]\npre_commit: [%s]\npush_command: %s\npush_on_commit: %t\nversion_stamp: %t\nrelease: %t\ncommit_agent: %t",
+	return fmt.Sprintf("agent: %s\nagent_cmd: %s\nagent_env: [%s]\nagent_timeout: %d\nweb_host: %s\nweb_port: %d\neditor: %s\nviewer: %s\npersona: %s\nskills: [%s]\nskill_agents: [%s]\nskill_targets: [%s]\nstatuses: [%s]\ndone_statuses: [%s]\nidea_statuses: [%s]\nverify: [%s]\npre_commit: [%s]\npush_command: %s\npush_on_commit: %t\nversion_stamp: %t\nrelease: %t\ncommit_agent: %t",
 		c.Agent, c.AgentCmd, strings.Join(c.AgentEnv, ", "), c.AgentTimeout, c.WebHost, c.WebPort, c.editor(), c.Viewer, c.Persona,
-		strings.Join(c.Skills, ", "), strings.Join(c.SkillTargets, ", "),
+		strings.Join(c.Skills, ", "), strings.Join(c.SkillAgents, ", "), strings.Join(c.SkillTargets, ", "),
 		strings.Join(c.Statuses, ", "), strings.Join(c.DoneStatuses, ", "),
 		strings.Join(c.IdeaStatuses, ", "), strings.Join(c.Verify, ", "), strings.Join(c.PreCommit, ", "), c.PushCommand, c.PushOnCommit, c.VersionStamp, c.Release, c.CommitAgent)
 }
@@ -314,8 +317,9 @@ const globalConfigTemplate = `# Global defaults for all spec-managed repositorie
 # enabled for every repo; repos can replace the list or add repo-owned
 # skills under .spec/skills/
 # skills: [token-efficiency]   # see: spec skill
-# skill_targets: [.devin/skills, .claude/skills]   # install dirs (default: the configured agent's dir, else both)
-# skill_global_targets: [~/.claude/skills, ~/.config/devin/skills]   # user-level dirs for --global (default: agent's dir, else both)
+# skill_agents: [devin]        # extra agents whose skill dirs are targets (agent: always counts)
+# skill_targets: [.other/skills]   # extra install dirs beyond the agents' own
+# skill_global_targets: [~/.claude/skills, ~/.config/devin/skills]   # extra user-level dirs for --global
 
 # Releases — a VERSION file opts into version stamping: spec commit
 # refreshes it and spec release tags v<stamp>; set false to manage it by hand
@@ -369,7 +373,8 @@ const repoConfigTemplate = `version: 1
 # Skills — library skills (~/.config/spec/skills/<name>/) enabled for this
 # repo; repo-owned skills under .spec/skills/ need no entry here
 # skills: [review]             # see: spec skill
-# skill_targets: [.devin/skills, .claude/skills]   # install dirs (default: the configured agent's dir, else both)
+# skill_agents: [devin]        # extra agents whose skill dirs are targets (agent: always counts)
+# skill_targets: [.other/skills]   # extra install dirs beyond the agents' own
 
 # Releases — a VERSION file opts into version stamping: spec commit
 # refreshes it; set false to manage it by hand
